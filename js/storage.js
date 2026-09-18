@@ -36,7 +36,6 @@ function normalize(data) {
   data.meta.dailyGoalMinutes = data.meta.dailyGoalMinutes || 0;
   data.subjects.forEach((s) => {
     s.weeklyGoalMinutes = s.weeklyGoalMinutes || 0;
-    s.monthlyGoalMinutes = s.monthlyGoalMinutes || 0;
     s.weekendGoalMinutes = s.weekendGoalMinutes || 0;
     s.materials = s.materials || [];
     s.materials.forEach((m) => {
@@ -62,13 +61,12 @@ export function getData() {
   return cache;
 }
 
-export function addSubject({ name, weeklyGoalMinutes, monthlyGoalMinutes, weekendGoalMinutes }) {
+export function addSubject({ name, weeklyGoalMinutes, weekendGoalMinutes }) {
   const data = getData();
   const subject = {
     id: uid(),
     name,
     weeklyGoalMinutes: weeklyGoalMinutes || 0,
-    monthlyGoalMinutes: monthlyGoalMinutes || 0,
     weekendGoalMinutes: weekendGoalMinutes || 0,
     materials: []
   };
@@ -77,12 +75,11 @@ export function addSubject({ name, weeklyGoalMinutes, monthlyGoalMinutes, weeken
   return subject;
 }
 
-export function updateSubjectGoals(subjectId, { weeklyGoalMinutes, monthlyGoalMinutes, weekendGoalMinutes }) {
+export function updateSubjectGoals(subjectId, { weeklyGoalMinutes, weekendGoalMinutes }) {
   const data = getData();
   const subject = data.subjects.find((s) => s.id === subjectId);
   if (!subject) return;
   subject.weeklyGoalMinutes = weeklyGoalMinutes || 0;
-  subject.monthlyGoalMinutes = monthlyGoalMinutes || 0;
   subject.weekendGoalMinutes = weekendGoalMinutes || 0;
   persist();
 }

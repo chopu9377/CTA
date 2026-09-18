@@ -55,6 +55,14 @@ export function achievementRate(actualMinutes, goalMinutes) {
   return Math.round((actualMinutes / goalMinutes) * 100);
 }
 
+// "주간 목표"(weeklyGoalMinutes)는 평일(월~금) 한 주치 목표를 뜻하고, 월간 목표는 이제
+// 따로 입력받지 않는다 — (평일 목표 + 주말 목표) x 4주로 자동 계산한다.
+const WEEKS_PER_MONTH = 4;
+
+export function monthlyGoalFor(subject) {
+  return ((subject.weeklyGoalMinutes || 0) + (subject.weekendGoalMinutes || 0)) * WEEKS_PER_MONTH;
+}
+
 export function periodSummary(data, refDate = new Date()) {
   const weekStart = startOfWeek(refDate);
   const weekEnd = endOfWeek(refDate);
@@ -64,18 +72,19 @@ export function periodSummary(data, refDate = new Date()) {
   const weekLogs = logsInRange(data.logs, weekStart, weekEnd);
   const monthLogs = logsInRange(data.logs, monthStart, monthEnd);
   const weekendLogs = weekLogs.filter((l) => isWeekend(l.date));
+  const weekdayLogs = weekLogs.filter((l) => !isWeekend(l.date));
 
-  const weekGoal = data.subjects.reduce((sum, s) => sum + (s.weeklyGoalMinutes || 0), 0);
-  const monthGoal = data.subjects.reduce((sum, s) => sum + (s.monthlyGoalMinutes || 0), 0);
+  const weekdayGoal = data.subjects.reduce((sum, s) => sum + (s.weeklyGoalMinutes || 0), 0);
+  const monthGoal = data.subjects.reduce((sum, s) => sum + monthlyGoalFor(s), 0);
   const weekendGoal = data.subjects.reduce((sum, s) => sum + (s.weekendGoalMinutes || 0), 0);
 
-  const weekActual = sumMinutes(weekLogs);
+  const weekdayActual = sumMinutes(weekdayLogs);
   const monthActual = sumMinutes(monthLogs);
   const weekendActual = sumMinutes(weekendLogs);
   const totalActual = sumMinutes(data.logs);
 
   return {
-    week: { actual: weekActual, goal: weekGoal, rate: achievementRate(weekActual, weekGoal) },
+    weekday: { actual: weekdayActual, goal: weekdayGoal, rate: achievementRate(weekdayActual, weekdayGoal) },
     month: { actual: monthActual, goal: monthGoal, rate: achievementRate(monthActual, monthGoal) },
     weekend: { actual: weekendActual, goal: weekendGoal, rate: achievementRate(weekendActual, weekendGoal) },
     total: { actual: totalActual }
@@ -91,21 +100,22 @@ export function subjectStats(data, refDate = new Date()) {
   return data.subjects.map((s) => {
     const subjectLogs = data.logs.filter((l) => l.subjectId === s.id);
     const weekLogs = logsInRange(subjectLogs, weekStart, weekEnd);
-    const weekActual = sumMinutes(weekLogs);
+    const weekdayActual = sumMinutes(weekLogs.filter((l) => !isWeekend(l.date)));
     const weekendActual = sumMinutes(weekLogs.filter((l) => isWeekend(l.date)));
     const monthActual = sumMinutes(logsInRange(subjectLogs, monthStart, monthEnd));
+    const monthGoal = monthlyGoalFor(s);
     return {
       id: s.id,
       name: s.name,
-      weekActual,
-      weekGoal: s.weeklyGoalMinutes || 0,
-      weekRate: achievementRate(weekActual, s.weeklyGoalMinutes),
+      weekdayActual,
+      weekdayGoal: s.weeklyGoalMinutes || 0,
+      weekdayRate: achievementRate(weekdayActual, s.weeklyGoalMinutes),
       weekendActual,
       weekendGoal: s.weekendGoalMinutes || 0,
       weekendRate: achievementRate(weekendActual, s.weekendGoalMinutes),
       monthActual,
-      monthGoal: s.monthlyGoalMinutes || 0,
-      monthRate: achievementRate(monthActual, s.monthlyGoalMinutes),
+      monthGoal,
+      monthRate: achievementRate(monthActual, monthGoal),
       totalActual: sumMinutes(subjectLogs)
     };
   });

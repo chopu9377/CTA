@@ -74,7 +74,6 @@ root.addEventListener("submit", (event) => {
     storage.addSubject({
       name: fd.get("name"),
       weeklyGoalMinutes: Math.round(parseFloat(fd.get("weeklyGoalHours") || "0") * 60),
-      monthlyGoalMinutes: Math.round(parseFloat(fd.get("monthlyGoalHours") || "0") * 60),
       weekendGoalMinutes: Math.round(parseFloat(fd.get("weekendGoalHours") || "0") * 60)
     });
     render();
@@ -83,7 +82,6 @@ root.addEventListener("submit", (event) => {
     const fd = new FormData(form);
     storage.updateSubjectGoals(form.dataset.subjectId, {
       weeklyGoalMinutes: Math.round(parseFloat(fd.get("weeklyGoalHours") || "0") * 60),
-      monthlyGoalMinutes: Math.round(parseFloat(fd.get("monthlyGoalHours") || "0") * 60),
       weekendGoalMinutes: Math.round(parseFloat(fd.get("weekendGoalHours") || "0") * 60)
     });
     render();
