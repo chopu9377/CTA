@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>CTA</title>
+  <meta name="theme-color" content="#2a78d6" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icons/icon-180.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="CTA" />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.css" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="topbar"><h1>CTA</h1></header>
+
+  <main id="view-root" class="view-root"></main>
+
+  <nav class="tabbar">
+    <button class="tab-btn" data-view="dashboard" type="button">대시보드</button>
+    <button class="tab-btn" data-view="log" type="button">기록</button>
+    <button class="tab-btn" data-view="subjects" type="button">과목</button>
+    <button class="tab-btn" data-view="settings" type="button">설정</button>
+  </nav>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
