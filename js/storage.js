@@ -21,12 +21,39 @@ function persist() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(cache));
 }
 
+// Fills in any fields a newer app version added, without discarding existing
+// data just because schemaVersion differs. Only truly unreadable data (not an
+// object, or missing the core arrays) falls back to an empty dataset.
+function normalize(data) {
+  if (!data || typeof data !== "object" || !Array.isArray(data.subjects) || !Array.isArray(data.logs)) {
+    return emptyData();
+  }
+  data.schemaVersion = SCHEMA_VERSION;
+  data.meta = data.meta || {};
+  data.meta.lastBackupAt = data.meta.lastBackupAt || null;
+  data.meta.examName = data.meta.examName || "";
+  data.meta.examDate = data.meta.examDate || null;
+  data.meta.dailyGoalMinutes = data.meta.dailyGoalMinutes || 0;
+  data.subjects.forEach((s) => {
+    s.weeklyGoalMinutes = s.weeklyGoalMinutes || 0;
+    s.monthlyGoalMinutes = s.monthlyGoalMinutes || 0;
+    s.materials = s.materials || [];
+    s.materials.forEach((m) => {
+      m.roundHistory = m.roundHistory || [];
+      m.targetRounds = m.targetRounds || 0;
+    });
+  });
+  data.logs.forEach((l) => {
+    l.tags = l.tags || [];
+  });
+  return data;
+}
+
 export function getData() {
   if (cache) return cache;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    cache = raw ? JSON.parse(raw) : emptyData();
-    if (!cache || cache.schemaVersion !== SCHEMA_VERSION) cache = emptyData();
+    cache = normalize(raw ? JSON.parse(raw) : null);
   } catch (e) {
     console.error("CTA: failed to load saved data, starting fresh", e);
     cache = emptyData();
@@ -123,10 +150,10 @@ export function exportData() {
 
 export function importData(json) {
   const parsed = JSON.parse(json);
-  if (!parsed || parsed.schemaVersion !== SCHEMA_VERSION || !Array.isArray(parsed.subjects) || !Array.isArray(parsed.logs)) {
+  if (!parsed || !Array.isArray(parsed.subjects) || !Array.isArray(parsed.logs)) {
     throw new Error("지원하지 않는 백업 파일 형식입니다.");
   }
-  cache = parsed;
+  cache = normalize(parsed);
   persist();
 }
 
