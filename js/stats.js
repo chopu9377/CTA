@@ -37,6 +37,11 @@ function isInRange(dateStr, start, end) {
   return d >= start && d <= end;
 }
 
+export function isWeekend(dateStr) {
+  const day = new Date(dateStr + "T00:00:00").getDay();
+  return day === 0 || day === 6;
+}
+
 export function logsInRange(logs, start, end) {
   return logs.filter((l) => isInRange(l.date, start, end));
 }
@@ -58,17 +63,21 @@ export function periodSummary(data, refDate = new Date()) {
 
   const weekLogs = logsInRange(data.logs, weekStart, weekEnd);
   const monthLogs = logsInRange(data.logs, monthStart, monthEnd);
+  const weekendLogs = weekLogs.filter((l) => isWeekend(l.date));
 
   const weekGoal = data.subjects.reduce((sum, s) => sum + (s.weeklyGoalMinutes || 0), 0);
   const monthGoal = data.subjects.reduce((sum, s) => sum + (s.monthlyGoalMinutes || 0), 0);
+  const weekendGoal = data.subjects.reduce((sum, s) => sum + (s.weekendGoalMinutes || 0), 0);
 
   const weekActual = sumMinutes(weekLogs);
   const monthActual = sumMinutes(monthLogs);
+  const weekendActual = sumMinutes(weekendLogs);
   const totalActual = sumMinutes(data.logs);
 
   return {
     week: { actual: weekActual, goal: weekGoal, rate: achievementRate(weekActual, weekGoal) },
     month: { actual: monthActual, goal: monthGoal, rate: achievementRate(monthActual, monthGoal) },
+    weekend: { actual: weekendActual, goal: weekendGoal, rate: achievementRate(weekendActual, weekendGoal) },
     total: { actual: totalActual }
   };
 }
@@ -81,7 +90,9 @@ export function subjectStats(data, refDate = new Date()) {
 
   return data.subjects.map((s) => {
     const subjectLogs = data.logs.filter((l) => l.subjectId === s.id);
-    const weekActual = sumMinutes(logsInRange(subjectLogs, weekStart, weekEnd));
+    const weekLogs = logsInRange(subjectLogs, weekStart, weekEnd);
+    const weekActual = sumMinutes(weekLogs);
+    const weekendActual = sumMinutes(weekLogs.filter((l) => isWeekend(l.date)));
     const monthActual = sumMinutes(logsInRange(subjectLogs, monthStart, monthEnd));
     return {
       id: s.id,
@@ -89,6 +100,9 @@ export function subjectStats(data, refDate = new Date()) {
       weekActual,
       weekGoal: s.weeklyGoalMinutes || 0,
       weekRate: achievementRate(weekActual, s.weeklyGoalMinutes),
+      weekendActual,
+      weekendGoal: s.weekendGoalMinutes || 0,
+      weekendRate: achievementRate(weekendActual, s.weekendGoalMinutes),
       monthActual,
       monthGoal: s.monthlyGoalMinutes || 0,
       monthRate: achievementRate(monthActual, s.monthlyGoalMinutes),

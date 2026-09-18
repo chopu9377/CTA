@@ -71,6 +71,10 @@ function subjectStatsListHTML(stats) {
           <div class="mini-meter-label">이번 달 ${rateText(s.monthRate)} · ${formatMinutes(s.monthActual)}${s.monthGoal > 0 ? " / " + formatMinutes(s.monthGoal) : ""}</div>
           <div class="meter-track"><div class="meter-fill" style="width:${clampPct(s.monthRate)}%"></div></div>
         </div>
+        <div class="mini-meter">
+          <div class="mini-meter-label">이번 주말 ${rateText(s.weekendRate)} · ${formatMinutes(s.weekendActual)}${s.weekendGoal > 0 ? " / " + formatMinutes(s.weekendGoal) : ""}</div>
+          <div class="meter-track"><div class="meter-fill" style="width:${clampPct(s.weekendRate)}%"></div></div>
+        </div>
       </li>`
     )
     .join("")}</ul>`;
@@ -200,6 +204,12 @@ export function renderDashboard(data) {
           <div class="stat-value">${rateText(summary.month.rate)}</div>
           <div class="meter-track"><div class="meter-fill" style="width:${clampPct(summary.month.rate)}%"></div></div>
           <div class="stat-sub">${formatMinutes(summary.month.actual)} / ${summary.month.goal > 0 ? formatMinutes(summary.month.goal) : "목표 없음"}</div>
+        </div>
+        <div class="card stat-tile">
+          <div class="stat-label">이번 주말 달성률</div>
+          <div class="stat-value">${rateText(summary.weekend.rate)}</div>
+          <div class="meter-track"><div class="meter-fill" style="width:${clampPct(summary.weekend.rate)}%"></div></div>
+          <div class="stat-sub">${formatMinutes(summary.weekend.actual)} / ${summary.weekend.goal > 0 ? formatMinutes(summary.weekend.goal) : "목표 없음"}</div>
         </div>
         <div class="card stat-tile stat-tile-hero">
           <div class="stat-label">누적 공부시간 (전체 과목 합계)</div>
@@ -374,7 +384,13 @@ function subjectCardHTML(s) {
         <h3>${escapeHtml(s.name)}</h3>
         <button class="btn btn-danger btn-sm" data-action="delete-subject" data-id="${s.id}" type="button">과목 삭제</button>
       </div>
-      <div class="stat-sub">주간 목표 ${formatMinutes(s.weeklyGoalMinutes)} · 월간 목표 ${formatMinutes(s.monthlyGoalMinutes)}</div>
+      <div class="stat-sub">주간 목표 ${formatMinutes(s.weeklyGoalMinutes)} · 월간 목표 ${formatMinutes(s.monthlyGoalMinutes)} · 주말 목표 ${formatMinutes(s.weekendGoalMinutes)}</div>
+      <form data-form="update-subject-goals" data-subject-id="${s.id}" class="form goals-form">
+        <label class="field"><span>주간 목표 시간(시간)</span><input type="number" name="weeklyGoalHours" min="0" step="0.5" value="${s.weeklyGoalMinutes / 60}" /></label>
+        <label class="field"><span>월간 목표 시간(시간)</span><input type="number" name="monthlyGoalHours" min="0" step="0.5" value="${s.monthlyGoalMinutes / 60}" /></label>
+        <label class="field"><span>주말 목표 시간(시간)</span><input type="number" name="weekendGoalHours" min="0" step="0.5" value="${s.weekendGoalMinutes / 60}" /></label>
+        <button class="btn btn-secondary btn-sm" type="submit">목표 수정 저장</button>
+      </form>
 
       <h4 class="section-title-sm">교재</h4>
       ${materialsHTML}
@@ -397,6 +413,7 @@ export function renderSubjects(data) {
           <label class="field"><span>과목 이름</span><input type="text" name="name" required /></label>
           <label class="field"><span>주간 목표 시간(시간)</span><input type="number" name="weeklyGoalHours" min="0" step="0.5" value="0" /></label>
           <label class="field"><span>월간 목표 시간(시간)</span><input type="number" name="monthlyGoalHours" min="0" step="0.5" value="0" /></label>
+          <label class="field"><span>주말 목표 시간(시간)</span><input type="number" name="weekendGoalHours" min="0" step="0.5" value="0" /></label>
           <button class="btn btn-primary" type="submit">과목 추가</button>
         </form>
       </div>
