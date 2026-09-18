@@ -71,14 +71,21 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 html,
 body {
   margin: 0;
   padding: 0;
+  width: 100%;
   background: var(--page);
   color: var(--text-primary);
   font-family: "Pretendard Variable", Pretendard, system-ui, -apple-system, "Segoe UI", sans-serif;
   letter-spacing: -0.01em;
+  overflow-x: hidden;
 }
 
 body {
