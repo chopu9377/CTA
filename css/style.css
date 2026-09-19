@@ -1080,7 +1080,7 @@ input[type="date"]::-webkit-date-and-time-value {
 
 .total-name {
   display: grid;
-  grid-template-columns: auto minmax(0, 1.2fr) minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1.2fr) minmax(0, 1fr) auto auto;
   gap: 6px;
   align-items: center;
   margin-bottom: 8px;

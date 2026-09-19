@@ -92,6 +92,7 @@ function totalRowHTML(data, g, today) {
       <input type="text" value="${escapeHtml(g.subject)}" data-goal-field="subject" data-id="${g.id}" aria-label="과목 이름" list="subject-names" />
       <input type="text" value="${escapeHtml(g.unit)}" data-goal-field="unit" data-id="${g.id}" aria-label="단위(책·강의 이름)" list="unit-names" />
       <span class="round">${g.round}${g.targetRounds ? `/${g.targetRounds}` : ""}회독</span>
+      <button type="button" class="btn-danger" data-action="archive-goal" data-id="${g.id}" aria-label="삭제">✕</button>
     </div>
     <div class="total-inputs">
       <label class="mini-field"><span>총 분량</span><input type="number" min="0" inputmode="numeric" value="${g.total || ""}" placeholder="1200" data-goal-field="total" data-id="${g.id}" /></label>
@@ -112,7 +113,7 @@ function totalsCardHTML(data, today) {
         <div class="section-header-row"><h2 class="section-title">총 분량 · 누적 · 회독</h2><span class="chip">${TRACK_LABEL[track]}${track === active ? " (진행중)" : ""}</span></div>
         ${goals.map((g) => totalRowHTML(data, g, today)).join("")}
         ${track === active
-          ? `<p class="hint">과목 이름과 단위(연습서·인강 등)는 여기서 바로 고칠 수 있어요. 하루 목표·요일·삭제는 '오늘' 탭의 편집에서 해요.</p>
+          ? `<p class="hint">과목 이름과 단위(연습서·인강 등)는 여기서 바로 고치고, ✕로 삭제해요(지난 기록은 남아요). 하루 목표·요일은 '오늘' 탭의 편집에서 해요.</p>
         <p class="hint">'누적 푼 양'에 앱을 쓰기 전까지 푼 양을 넣으면 총 분량 기준으로 회독과 현재 진행량으로 환산돼요(주간 통계에는 잡히지 않아요). 진행량이 총 분량에 도달하면 회독이 자동으로 +1이 돼요. 총 분량을 먼저 넣고 누적을 넣어 주세요.</p>`
           : ""}
       </div>`;
