@@ -4,11 +4,12 @@ import { TRACK_LABEL, UNIT_SUGGESTIONS } from "../presets.js";
 import { escapeHtml, subjectColor, shortUnit, formatDuration } from "./shared.js";
 import { syncCardHTML } from "./syncui.js";
 
-function backupStatusText(lastBackupAt) {
+function backupStatusText(lastBackupAt, syncOn) {
   const days = exportedLastBackupDays(lastBackupAt);
+  const manual = days === null ? "" : days <= 0 ? " 파일 백업: 오늘." : ` 파일 백업: ${days}일 전.`;
+  if (syncOn) return `GitHub 동기화가 켜져 있어 자동으로 백업돼요. JSON 내보내기는 비상용이에요(큰 변경 전에 받아 두면 좋아요).${manual}`;
   if (days === null) return "아직 백업한 적이 없어요. 데이터가 소중하다면 지금 내보내기를 눌러주세요.";
-  if (days <= 0) return "오늘 백업했어요.";
-  return `마지막 백업: ${days}일 전`;
+  return days <= 0 ? "오늘 백업했어요." : `마지막 백업: ${days}일 전`;
 }
 
 function trackCardHTML(data) {
@@ -149,7 +150,7 @@ export function renderSettings(data, today, legacyExists, syncInfo) {
     </div>
     <div class="card">
       <h2 class="section-title">데이터 백업</h2>
-      <p class="stat-sub">${backupStatusText(data.meta.lastBackupAt)}</p>
+      <p class="stat-sub">${backupStatusText(data.meta.lastBackupAt, syncInfo.hasToken)}</p>
       <div class="form form-inline">
         <button class="btn btn-primary" data-action="export-data" type="button">JSON으로 내보내기</button>
         <button class="btn btn-secondary" data-action="import-data" type="button">JSON 불러오기</button>
