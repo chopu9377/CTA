@@ -25,8 +25,13 @@ function trackBarHTML(data, activeTrack, today) {
 function noticesHTML(data, ctx, activeTrack, today) {
   const notices = [];
   const first = data.tracks[1];
-  if (activeTrack === 2 && first.activeFrom && today >= first.activeFrom) {
+  // 1차 집중 기간 = 활성 시작일 ~ 시험일. 시험이 끝난 뒤에는 1차 전환을 다시 묻지 않는다.
+  const inFocusWindow = first.activeFrom && today >= first.activeFrom && (!first.examDate || today <= first.examDate);
+  if (activeTrack === 2 && inFocusWindow) {
     notices.push(`<div class="notice">1차 활성 시작일이 지났어요. 1차로 전환할까요? <button class="btn btn-sm btn-secondary" data-action="set-track" data-track="1" type="button">1차로 전환</button></div>`);
+  }
+  if (activeTrack === 1 && first.examDate && today > first.examDate) {
+    notices.push(`<div class="notice">1차 시험일이 지났어요. 2차로 돌아갈까요? <button class="btn btn-sm btn-secondary" data-action="set-track" data-track="2" type="button">2차로 전환</button></div>`);
   }
   const undecided = pendingSettlements(data, ctx, today).length;
   if (undecided) {
