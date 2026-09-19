@@ -56,7 +56,16 @@ function presetsHTML() {
   </div>`;
 }
 
-function pickerHTML(pick, goal) {
+function undoInfoHTML(data, today) {
+  const entries = data.entries.filter((e) => e.date === today);
+  if (!entries.length) return "";
+  const last = entries.reduce((a, b) => (b.at >= a.at ? b : a));
+  const goal = data.goals.find((g) => g.id === last.goalId);
+  return `<p class="hint">오늘 입력 ${entries.length}건 · 되돌리기를 누르면 직전 입력(${goal ? escapeHtml(goal.subject) : "?"} +${last.amount})부터 하나씩 취소돼요.</p>`;
+}
+
+function pickerHTML(pick, goal, data, today) {
+  const count = data.entries.filter((e) => e.date === today).length;
   return `<div class="card">
     <div class="section-header-row"><h2 class="section-title">푼 개수 추가</h2><span class="chip">${escapeHtml(goal.subject)} · ${escapeHtml(goal.unit)}</span></div>
     <div class="picker"><div class="picker-scroll" id="picker" data-pick="${pick}">
@@ -64,8 +73,9 @@ function pickerHTML(pick, goal) {
     </div></div>
     <div class="form-inline picker-actions">
       <button class="btn btn-primary" data-action="add-entry" type="button">+ 추가</button>
-      <button class="btn btn-secondary" data-action="undo-entry" type="button">되돌리기</button>
+      <button class="btn btn-secondary" data-action="undo-entry" type="button">되돌리기${count ? ` (${count})` : ""}</button>
     </div>
+    ${undoInfoHTML(data, today)}
     <p class="hint">과목을 탭 → 0~10 스크롤 → 추가. 여러 번 눌러 누적해요. 목표를 넘긴 양은 이월분부터 갚아요.</p>
   </div>`;
 }
@@ -114,6 +124,6 @@ export function renderToday(data, ctx, today, ui) {
           ? goals.map((g) => goalRowHTML(data, ctx, rowFor(g), selected && g.id === selected.id, scheduledToday(g) ? recommendation(data, g, today, weekend) : null)).join("")
           : `<p class="empty-state">목표가 없어요. 편집에서 추가해보세요.</p>`}
     </div>
-    ${ui.editing || !selected ? "" : pickerHTML(ui.pick, selected)}
+    ${ui.editing || !selected ? "" : pickerHTML(ui.pick, selected, data, today)}
   </section>`;
 }

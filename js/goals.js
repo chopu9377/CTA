@@ -86,6 +86,15 @@ export function addEntry(goalId, amount, date = todayStr()) {
   return { entry, rolled };
 }
 
+// 그날 입력한 기록을 최신 것부터 하나씩 취소한다(실수로 여러 번 눌렀을 때).
+export function removeLastEntryOn(date) {
+  const entries = getData().entries.filter((e) => e.date === date);
+  if (!entries.length) return null;
+  const last = entries.reduce((a, b) => (b.at >= a.at ? b : a));
+  removeEntry(last.id);
+  return last;
+}
+
 export function removeEntry(entryId) {
   const data = getData();
   const entry = data.entries.find((e) => e.id === entryId);

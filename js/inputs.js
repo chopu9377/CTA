@@ -3,6 +3,7 @@ import { todayStr } from "./dates.js";
 import { buildContext, pendingSettlements, trackAt } from "./stats.js";
 import { EXAM_SUBJECTS } from "./presets.js";
 import { paceSlotHTML, weekLoadHTML } from "./ui.js";
+import * as sync from "./sync.js";
 
 function refreshLoadSlot() {
   const slot = document.querySelector("[data-slot-load]");
@@ -96,7 +97,14 @@ export function bindInputHandlers({ ui, render, toast, closeSheet, announceRound
     const el = event.target;
 
     if (el.dataset.goalField) applyGoalField(el);
-    else if (el.dataset.trackField) {
+    else if (el.dataset.syncField) {
+      const value = el.value.trim();
+      if (value) sync.saveConfig({ [el.dataset.syncField]: value });
+      if (el.dataset.syncField === "token") {
+        el.value = "";
+        el.placeholder = "저장됨 · 바꾸려면 새로 입력";
+      }
+    } else if (el.dataset.trackField) {
       const field = el.dataset.trackField;
       const value = field === "examEstimated" ? el.checked : el.value || null;
       storage.setTrackInfo(Number(el.dataset.track), { [field]: value });

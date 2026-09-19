@@ -33,6 +33,7 @@
   storage.js    # 저장 관련 함수의 창구(app이 여기서만 import). 날짜·설정·시험·백업 변경 + 아래 두 파일 재export
   store.js      # localStorage 읽기/쓰기, 기본값·정규화(normalize), 스냅샷
   goals.js      # 목표·기록(entries)·회독 변경
+  sync.js       # GitHub 저장소 JSON과 동기화(브라우저에서 GitHub API 직접 호출, 토큰은 별도 키)
   stats.js      # 하루 상태·이월 상환·주간 쿼터·월별 집계 등 순수 계산 로직
   dates.js      # 날짜 문자열 헬퍼
   presets.js    # 트랙별 기본 목표, 시험 과목, 과목 색 슬롯
@@ -47,6 +48,7 @@
     history.js    # 공부기록 화면
     settings.js   # 설정 화면
     settle.js     # 이월 확인 하단 시트
+    syncui.js     # 설정의 GitHub 동기화 카드, 동기화 충돌 선택 시트
 /data/holidays.json          # 공휴일 목록(정기 작업이 갱신, 서비스워커가 미리 캐시)
 /.github/workflows/          # 공휴일 갱신 작업(앱 코드가 아니라 저장소 자동화)
 /manifest.json

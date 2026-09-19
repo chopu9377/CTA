@@ -2,6 +2,7 @@ import { formatMD, WEEKDAY_LABELS } from "../dates.js";
 import { exportedLastBackupDays, trackAt, paceFor, weeklyLoad } from "../stats.js";
 import { TRACK_LABEL, UNIT_SUGGESTIONS } from "../presets.js";
 import { escapeHtml, subjectColor, shortUnit, formatDuration } from "./shared.js";
+import { syncCardHTML } from "./syncui.js";
 
 function backupStatusText(lastBackupAt) {
   const days = exportedLastBackupDays(lastBackupAt);
@@ -127,8 +128,9 @@ function customColorCardHTML(data) {
     <p class="hint">기본 색 12개를 다 쓴 뒤 추가된 과목이에요.</p></div>`;
 }
 
-export function renderSettings(data, today, legacyExists) {
+export function renderSettings(data, today, legacyExists, syncInfo) {
   return `<section class="view">
+    ${syncCardHTML(syncInfo)}
     ${trackCardHTML(data)}
     ${planCardHTML(data)}
     <div class="card">

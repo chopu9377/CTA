@@ -4,8 +4,10 @@ import { buildContext, pendingSettlements } from "./stats.js";
 import { loadHolidays } from "./holidays.js";
 import { renderWeek, renderToday, renderExam, renderHistory, renderSettings } from "./ui.js";
 import { renderSettleSheet } from "./ui/settle.js";
+import { conflictSheetHTML } from "./ui/syncui.js";
 import { createActions } from "./actions.js";
 import { bindInputHandlers } from "./inputs.js";
+import { initSync, getSyncInfo } from "./sync.js";
 
 const root = document.getElementById("view-root");
 const overlay = document.getElementById("overlay-root");
@@ -20,8 +22,7 @@ const ui = {
   hiddenSeries: { 1: new Set(), 2: new Set() },
   selectedGoalId: null,
   editing: false,
-  pick: 5,
-  lastEntryId: null
+  pick: 5
 };
 
 let toastTimer = null;
@@ -42,7 +43,7 @@ function render() {
   else if (ui.view === "today") root.innerHTML = renderToday(data, ctx, today, ui);
   else if (ui.view === "exam") root.innerHTML = renderExam(data, ui, today);
   else if (ui.view === "history") root.innerHTML = renderHistory(data, ctx, today);
-  else root.innerHTML = renderSettings(data, today, storage.legacyDataJson() !== null);
+  else root.innerHTML = renderSettings(data, today, storage.legacyDataJson() !== null, getSyncInfo());
 
   tabButtons.forEach((btn) => btn.classList.toggle("active", btn.dataset.view === ui.view));
   const picker = document.getElementById("picker");
@@ -71,7 +72,22 @@ function closeSheet() {
   render();
 }
 
-const { actions, announceRounds } = createActions({ ui, render, toast, overlay, showSettleSheet, closeSheet });
+let conflictResolver = null;
+
+function askConflict(info) {
+  return new Promise((resolve) => {
+    conflictResolver = resolve;
+    overlay.innerHTML = conflictSheetHTML(info);
+  });
+}
+
+function resolveConflict(choice) {
+  overlay.innerHTML = "";
+  if (conflictResolver) conflictResolver(choice === "later" ? null : choice);
+  conflictResolver = null;
+}
+
+const { actions, announceRounds } = createActions({ ui, render, toast, overlay, showSettleSheet, closeSheet, resolveConflict });
 bindInputHandlers({ ui, render, toast, closeSheet, announceRounds });
 
 document.addEventListener("click", (event) => {
@@ -93,7 +109,20 @@ document.addEventListener(
 
 render();
 loadHolidays().then(render);
-showSettleSheet({ silent: true });
+
+// 열 때 GitHub와 먼저 맞추고(다른 기기 데이터가 들어올 수 있음) 그 다음에 이월 확인을 묻는다
+initSync({
+  toast,
+  askConflict,
+  onApplied() {
+    toast("GitHub에서 최신 데이터를 불러왔어요");
+    render();
+  },
+  onStatus(text) {
+    const el = document.querySelector("[data-sync-status]");
+    if (el) el.textContent = text;
+  }
+}).then(() => showSettleSheet({ silent: true }));
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {

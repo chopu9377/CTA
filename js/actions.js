@@ -1,6 +1,14 @@
 import * as storage from "./storage.js";
 import { todayStr } from "./dates.js";
 import { trackAt, paceFor } from "./stats.js";
+import * as sync from "./sync.js";
+
+const SYNC_RESULT_TEXT = {
+  pushed: "GitHub에 올렸어요",
+  adopted: "GitHub에서 불러왔어요",
+  same: "이미 최신이에요",
+  deferred: "나중에 다시 물어볼게요"
+};
 
 function downloadJson(json, filename) {
   const blob = new Blob([json], { type: "application/json" });
@@ -15,7 +23,7 @@ function downloadJson(json, filename) {
 }
 
 // data-action 값 → 처리 함수. app.js가 클릭을 위임해서 호출한다.
-export function createActions({ ui, render, toast, overlay, showSettleSheet, closeSheet }) {
+export function createActions({ ui, render, toast, overlay, showSettleSheet, closeSheet, resolveConflict }) {
   function currentGoalId() {
     const data = storage.getData();
     const goals = data.goals.filter((g) => !g.archived && g.track === trackAt(data, todayStr()));
@@ -68,20 +76,19 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
       }
       const result = storage.addEntry(goalId, ui.pick);
       if (!result) return;
-      ui.lastEntryId = result.entry.id;
       const goal = storage.getData().goals.find((g) => g.id === goalId);
       if (result.rolled) announceRounds(goalId, result.rolled);
       else toast(`${goal.subject} +${ui.pick}`);
       render();
     },
     "undo-entry"() {
-      if (!ui.lastEntryId) {
-        toast("되돌릴 입력이 없어요");
+      const removed = storage.removeLastEntryOn(todayStr());
+      if (!removed) {
+        toast("오늘 되돌릴 입력이 없어요");
         return;
       }
-      storage.removeEntry(ui.lastEntryId);
-      ui.lastEntryId = null;
-      toast("되돌렸어요");
+      const goal = storage.getData().goals.find((g) => g.id === removed.goalId);
+      toast(`${goal ? goal.subject : "입력"} −${removed.amount} 취소했어요`);
       render();
     },
     "toggle-edit"() {
@@ -154,6 +161,24 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
     },
     "import-data"() {
       document.getElementById("import-file-input").click();
+    },
+    async "sync-now"() {
+      if (!sync.isConfigured()) {
+        toast("저장소와 토큰을 먼저 입력해 주세요");
+        return;
+      }
+      toast("동기화 중…");
+      const result = await sync.syncNow();
+      toast(result === "error" ? `동기화 실패: ${sync.lastError()}` : SYNC_RESULT_TEXT[result] || "완료");
+    },
+    "sync-disconnect"() {
+      if (!confirm("GitHub 연결을 해제할까요? 이 기기의 토큰이 지워져요(GitHub의 데이터는 그대로예요).")) return;
+      sync.disconnect();
+      toast("연결을 해제했어요");
+      render();
+    },
+    "conflict-choice"(btn) {
+      resolveConflict(btn.dataset.choice);
     },
     "export-legacy"() {
       downloadJson(storage.legacyDataJson(), `cta-legacy-backup-${todayStr()}.json`);

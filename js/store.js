@@ -28,8 +28,17 @@ export function uid() {
   return "id-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
 }
 
-export function persist() {
+let changeListener = null;
+
+// 동기화 모듈이 "사용자가 바꾼 것"을 알 수 있게 하는 알림. 하루 스냅샷 같은 자동 저장은 quiet로 저장한다.
+export function setChangeListener(fn) {
+  changeListener = fn;
+}
+
+export function persist({ quiet = false } = {}) {
+  if (!quiet) cache.meta.updatedAt = new Date().toISOString();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(cache));
+  if (!quiet && changeListener) changeListener();
 }
 
 export function ensureColor(data, name) {
@@ -86,7 +95,7 @@ function emptyData() {
       weekendHours: DEFAULT_WEEKEND_HOURS,
       bufferDays: DEFAULT_BUFFER_DAYS
     },
-    meta: { lastBackupAt: null }
+    meta: { lastBackupAt: null, updatedAt: null }
   };
   Object.assign(data.subjectColors, SUBJECT_COLOR_SLOTS);
   [2, 1].forEach((track) => GOAL_PRESETS[track].forEach(([subject, unit]) => data.goals.push(newGoal(track, subject, unit))));
@@ -115,7 +124,7 @@ function normalize(data) {
     data.exams[t] = Array.isArray(data.exams[t]) ? data.exams[t] : [];
   });
   data.settings = { ...base.settings, ...(data.settings || {}) };
-  data.meta = { lastBackupAt: null, ...(data.meta || {}) };
+  data.meta = { lastBackupAt: null, updatedAt: null, ...(data.meta || {}) };
   data.goals.forEach((g) => {
     g.weekdays = Array.isArray(g.weekdays) ? g.weekdays : [...ALL_WEEKDAYS];
     g.total = g.total || 0;
@@ -145,9 +154,10 @@ export function getData() {
   return cache;
 }
 
-export function replaceData(parsed) {
+// 백업 불러오기/동기화로 통째로 교체할 때. 변경 알림은 보내지 않는다(불러온 데이터를 다시 올릴 필요 없음).
+export function replaceData(parsed, { quiet = false } = {}) {
   cache = normalize(parsed);
-  persist();
+  persist({ quiet });
 }
 
 // 시작일부터 오늘까지 그날 목표를 고정(스냅샷)해둔다. 이후 목표를 바꿔도 지난 날 판정이 흔들리지 않게 하기 위함.
@@ -160,7 +170,7 @@ export function freezeDayTargets(today = todayStr()) {
       changed = true;
     }
   }
-  if (changed) persist();
+  if (changed) persist({ quiet: true });
 }
 
 export function refreshToday() {

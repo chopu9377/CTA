@@ -1,4 +1,4 @@
-const CACHE_NAME = "cta-static-v16";
+const CACHE_NAME = "cta-static-v17";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -9,6 +9,8 @@ const APP_SHELL = [
   "./js/goals.js",
   "./js/actions.js",
   "./js/inputs.js",
+  "./js/sync.js",
+  "./js/ui/syncui.js",
   "./js/stats.js",
   "./js/dates.js",
   "./js/presets.js",
@@ -56,6 +58,8 @@ function networkFirst(request) {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+  // GitHub API 응답은 절대 캐시하지 않는다(동기화가 옛 데이터를 보게 되므로)
+  if (new URL(event.request.url).hostname === "api.github.com") return;
   if (new URL(event.request.url).pathname.endsWith("/data/holidays.json")) {
     event.respondWith(networkFirst(event.request));
     return;

@@ -1053,6 +1053,10 @@ textarea {
   min-width: 0;
 }
 
+.card .field {
+  margin-bottom: 12px;
+}
+
 .field input,
 .goal-edit-main input {
   width: 100%;
