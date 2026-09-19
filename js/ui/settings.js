@@ -1,8 +1,8 @@
-import { formatMD, WEEKDAY_LABELS } from "../dates.js";
 import { exportedLastBackupDays, trackAt } from "../stats.js";
-import { paceFor, weeklyLoad } from "../plan.js";
+import { paceFor } from "../plan.js";
 import { TRACK_LABEL, UNIT_SUGGESTIONS } from "../presets.js";
-import { escapeHtml, subjectColor, shortUnit, formatDuration } from "./shared.js";
+import { paceHTML, planTreeHTML } from "./plantree.js";
+import { escapeHtml, subjectColor } from "./shared.js";
 import { syncCardHTML } from "./syncui.js";
 
 function backupStatusText(lastBackupAt, syncOn) {
@@ -36,22 +36,6 @@ function trackCardHTML(data) {
   </div>`;
 }
 
-function paceHTML(g, pace) {
-  if (!pace) return `<p class="hint">시험일·총 분량·목표 회독을 입력하면 평일/주말 권장량이 계산돼요.</p>`;
-  if (pace.rawLeft <= 0) return `<p class="hint">목표 회독을 이미 채웠어요.</p>`;
-  if (pace.left <= 0) return `<p class="hint">다른 트랙 집중 기간의 유지분(${pace.maintCredit})만으로 목표 회독을 채울 수 있어요.</p>`;
-  if (pace.perWeekday === null) return `<p class="hint">마감일(${formatMD(pace.endDate)})까지 이 목표의 공부일이 남아 있지 않아요.</p>`;
-  const unit = escapeHtml(shortUnit(g.unit));
-  const same = pace.perWeekday === g.weekdayTarget && pace.perWeekend === g.weekendTarget;
-  return `<div class="pace-line">
-    <span>권장 <b>평일 ${pace.perWeekday}${unit} · 주말 ${pace.perWeekend}${unit}</b>
-      <small>(남은 ${pace.left}${pace.maintCredit ? `, 유지분 ${pace.maintCredit} 반영` : ""} · ${formatMD(pace.endDate)} 마감 · 평일 ${pace.weekdayDays}일 / 주말 ${pace.weekendDays}일)</small></span>
-    ${same
-      ? `<span class="chip">현재 목표와 같아요</span>`
-      : `<button class="btn btn-secondary btn-sm" data-action="apply-pace" data-id="${g.id}" data-weekday="${pace.perWeekday}" data-weekend="${pace.perWeekend}" type="button">평일 ${g.weekdayTarget}→${pace.perWeekday} · 주말 ${g.weekendTarget}→${pace.perWeekend} 적용</button>`}
-  </div>`;
-}
-
 function planCardHTML(data) {
   const s = data.settings;
   const field = (key, value, label) =>
@@ -65,33 +49,6 @@ function planCardHTML(data) {
     </div>
     <p class="hint">목표 회독을 시험 며칠 전에 끝내는 페이스로 권장량을 계산해요(마지막 기간은 모의고사·복습용). 평일:주말 양의 비율은 공부 가능 시간 비율을 따르고, 공휴일은 주말로 봐요.</p>
   </div>`;
-}
-
-function loadSectionHTML(data, track, today, active) {
-  const info = data.tracks[track];
-  const label = `${TRACK_LABEL[track]}${active ? " (진행 중)" : info.activeFrom ? ` (${formatMD(info.activeFrom)}부터 집중)` : ""}`;
-  const { rows, paced, total, maintenance } = weeklyLoad(data, track, today);
-  if (!paced) {
-    return `<div class="load-section"><div class="load-title">${label}</div>
-      <p class="hint">시험일·총 분량·목표 회독을 입력하면 요일별 예상 공부 시간을 점검해줘요.</p></div>`;
-  }
-  return `<div class="load-section"><div class="load-title">${label}</div><div class="load-list">${rows
-    .map((r) => {
-      const over = r.minutes > r.limit;
-      const pct = r.limit ? Math.min(100, (r.minutes / r.limit) * 100) : 0;
-      return `<div class="load-row"><span class="load-dow">${WEEKDAY_LABELS[r.dow]}</span>
-        <div class="meter-track"><div class="meter-fill${over ? " bad" : ""}" style="width:${pct}%"></div></div>
-        <span class="load-min${over ? " over" : ""}">${formatDuration(r.minutes)} / ${formatDuration(r.limit)}</span></div>`;
-    })
-    .join("")}</div>
-    <p class="hint">단위당 소요 시간 × 권장량 합계예요(다른 트랙 유지 목표${maintenance ? ` ${maintenance}개` : ""} 포함). 빨간색은 공부 가능 시간을 넘는 날${paced < total ? ` · 권장량이 계산된 목표 ${paced}/${total}개 기준` : ""}. 요일 패턴은 '오늘' 탭 편집의 프리셋으로 바꿀 수 있어요.</p>
-    <button class="btn btn-secondary" data-action="apply-all-pace" data-track="${track}" type="button">${TRACK_LABEL[track]} 권장량 한 번에 적용</button></div>`;
-}
-
-// 권장량을 그대로 따랐을 때의 요일별 예상 시간(진행 중 트랙과 다른 트랙 둘 다). 입력이 바뀔 때 이 부분만 다시 그린다.
-export function weekLoadHTML(data, today) {
-  const active = trackAt(data, today);
-  return [active, active === 2 ? 1 : 2].map((t) => loadSectionHTML(data, t, today, t === active)).join("");
 }
 
 // 입력칸은 그대로 두고 이 부분만 다시 그린다(칸을 옮길 때 포커스가 끊기지 않게)
@@ -149,15 +106,21 @@ function customColorCardHTML(data) {
     <p class="hint">기본 색 12개를 다 쓴 뒤 추가된 과목이에요.</p></div>`;
 }
 
-export function renderSettings(data, today, legacyExists, syncInfo) {
+function planDeriveCardHTML(data, today, open) {
+  return `<div class="card">
+    <div class="section-header-row"><h2 class="section-title">권장량 도출</h2>
+      <button class="btn btn-primary btn-sm" data-action="toggle-plan" type="button">${open ? "접기" : "권장량 도출"}</button></div>
+    <p class="hint" style="margin-top:0">시험일·총 분량·목표 회독으로 하루 권장량을 계산해요. 버튼을 누르면 트랙 > 과목별로 무엇이 채워졌고 무엇이 비었는지(✗)와 결과를 한눈에 보여줘요.</p>
+    <div data-slot-plan>${open ? planTreeHTML(data, today) : ""}</div>
+  </div>`;
+}
+
+export function renderSettings(data, today, legacyExists, syncInfo, ui) {
   return `<section class="view">
     ${syncCardHTML(syncInfo)}
     ${trackCardHTML(data)}
     ${planCardHTML(data)}
-    <div class="card">
-      <h2 class="section-title">요일별 권장 학습 시간 점검</h2>
-      <div data-slot-load>${weekLoadHTML(data, today)}</div>
-    </div>
+    ${planDeriveCardHTML(data, today, ui.planOpen)}
     ${totalsCardHTML(data, today)}
     <datalist id="subject-names">${[...new Set(data.goals.map((g) => g.subject))].map((n) => `<option value="${escapeHtml(n)}">`).join("")}</datalist>
     <datalist id="unit-names">${UNIT_SUGGESTIONS.map((n) => `<option value="${n}">`).join("")}</datalist>

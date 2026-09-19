@@ -48,6 +48,7 @@
     exam.js       # 시험 기록 화면
     history.js    # 공부기록 화면
     settings.js   # 설정 화면
+    plantree.js   # 설정의 "권장량 도출" 트리(입력 상태·결과·요일별 예상 시간)
     settle.js     # 이월 확인 하단 시트
     syncui.js     # 설정의 GitHub 동기화 카드, 동기화 충돌 선택 시트
 /data/holidays.json          # 공휴일 목록(정기 작업이 갱신, 서비스워커가 미리 캐시)

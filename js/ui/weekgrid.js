@@ -26,7 +26,7 @@ function cellHTML(day, { mini, today }) {
 export function weekHTML(week, { mini, today, currentIndex }) {
   const status = week.complete
     ? `<b class="ok-text">완료 ✓</b>`
-    : `달성 ${week.ok}/${week.activeCount}${week.pending ? ` · 이월 ${week.pending}` : ""}`;
+    : `달성 ${week.ok}/${week.activeCount}일${week.pending ? ` · 이월 ${week.pending}일` : ""}`;
   return `<div class="week${mini ? " mini" : ""}${week.complete ? " done" : ""}${week.index === currentIndex ? " current" : ""}">
     <div class="week-head"><b>${week.index + 1}주차 <span class="muted">${formatMD(week.start)}–${formatMD(week.end)}</span></b><span>${status}</span></div>
     <div class="days">

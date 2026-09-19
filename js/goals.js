@@ -58,7 +58,7 @@ export function applyWeekdayPreset(track, presetKey) {
   const data = getData();
   data.goals.forEach((g) => {
     if (g.archived || g.track !== track) return;
-    const days = weekdaysForPreset(presetKey, track, g.subject);
+    const days = weekdaysForPreset(presetKey, track, g.subject, g.unit);
     if (days) g.weekdays = days;
   });
   refreshToday();

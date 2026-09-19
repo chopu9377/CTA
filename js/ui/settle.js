@@ -1,12 +1,16 @@
 import { formatKoreanDate } from "../dates.js";
 import { escapeHtml } from "./shared.js";
+import { countUnit } from "../presets.js";
 
 // 앱을 열 때 미달분이 있으면 이월/버림을 묻는 하단 시트. 밀린 날은 묶어서 한 번에 묻는다.
 export function renderSettleSheet(days, data) {
   const nameOf = (goalId) => {
     const goal = data.goals.find((g) => g.id === goalId);
-    if (!goal) return "삭제된 목표";
-    return goal.unit.includes("강") ? `${goal.subject} 인강` : goal.subject;
+    return goal ? goal.subject : "삭제된 목표";
+  };
+  const unitOf = (goalId) => {
+    const goal = data.goals.find((g) => g.id === goalId);
+    return goal ? countUnit(goal.unit) : "";
   };
 
   return `<div class="sheet-backdrop">
@@ -21,7 +25,7 @@ export function renderSettleSheet(days, data) {
         .map(
           (day) => `<div class="settle-item">
             <div class="settle-date">${formatKoreanDate(day.date)}</div>
-            <div class="settle-what">${day.shortfalls.map((s) => `${escapeHtml(nameOf(s.goalId))} ${s.amount}`).join(" · ")}</div>
+            <div class="settle-what">${day.shortfalls.map((s) => `${escapeHtml(nameOf(s.goalId))} ${s.amount}${escapeHtml(unitOf(s.goalId))}`).join(" · ")}</div>
             <div class="seg">
               <label><input type="radio" name="d:${day.date}" value="carried" checked /><span>이월</span></label>
               <label><input type="radio" name="d:${day.date}" value="dropped" /><span>버림</span></label>

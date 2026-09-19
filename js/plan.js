@@ -1,5 +1,6 @@
 import { addDays, weekdayOf } from "./dates.js";
 import { trackAt, effectiveKind, isWeekendLike, targetsFor } from "./stats.js";
+import { countUnit, weekdaysForPreset } from "./presets.js";
 
 // 계획상 그날 활성인 트랙. 오늘·과거는 실제 전환 기록을 따르고, 미래는 "1차 활성 시작일 ~ 1차 시험일 전날"이
 // 1차 집중 기간이고 그 밖은 2차라고 본다(두 날짜가 모두 있어야 계획으로 인정).
@@ -47,6 +48,25 @@ export function dayLoad(data, dateStr, today) {
   return { minutes, limit: limitMinutes(data, dateStr), weekend: isWeekendLike(dateStr) };
 }
 
+// 한 주(일~토, 공휴일 무시) 목표 합계를 단위별로 센다. 요일 프리셋이 주간 총량을 얼마나 바꾸는지 보여줄 때 쓴다.
+export function weeklyVolume(goals, daysOf = (g) => g.weekdays) {
+  const totals = {};
+  goals.forEach((g) => {
+    const perWeek = daysOf(g).reduce((sum, dow) => sum + (dow === 0 || dow === 6 ? g.weekendTarget : g.weekdayTarget), 0);
+    const unit = countUnit(g.unit);
+    totals[unit] = (totals[unit] || 0) + perWeek;
+  });
+  return totals;
+}
+
+export function presetImpact(data, track, presetKey) {
+  const goals = data.goals.filter((g) => !g.archived && g.track === track);
+  return {
+    before: weeklyVolume(goals),
+    after: weeklyVolume(goals, (g) => weekdaysForPreset(presetKey, track, g.subject, g.unit) || g.weekdays)
+  };
+}
+
 function cumulativeOf(goal) {
   return (goal.round - 1) * goal.total + goal.progress;
 }
@@ -56,6 +76,15 @@ function workLeft(goal) {
   if (goal.total <= 0) return null;
   if (goal.targetRounds > 0) return Math.max(0, goal.targetRounds * goal.total - cumulativeOf(goal));
   return goal.total - goal.progress;
+}
+
+// 권장량 계산에 빠진 입력. 설정의 "권장량 도출" 트리가 무엇을 채워야 하는지 알려 주는 데 쓴다.
+export function paceMissing(data, goal) {
+  const missing = [];
+  if (!data.tracks[goal.track].examDate) missing.push({ field: "examDate", label: "시험일" });
+  if (goal.total <= 0) missing.push({ field: "total", label: "총 분량" });
+  if (goal.targetRounds <= 0) missing.push({ field: "targetRounds", label: "목표 회독" });
+  return missing;
 }
 
 // 그 트랙을 실제로 공부하는 날인가(다른 트랙 집중 기간은 제외)

@@ -1,7 +1,8 @@
 import * as storage from "./storage.js";
 import { todayStr } from "./dates.js";
-import { trackAt } from "./stats.js";
-import { paceFor, maintenanceGoals } from "./plan.js";
+import { trackAt, buildContext, dayReport } from "./stats.js";
+import { paceFor, maintenanceGoals, presetImpact } from "./plan.js";
+import { WEEKDAY_PRESETS, countUnit } from "./presets.js";
 import * as sync from "./sync.js";
 
 const SYNC_RESULT_TEXT = {
@@ -43,10 +44,20 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
     if (goal) toast(`${goal.subject} 1회독 완료! ${goal.round}회독을 시작해요`);
   }
 
+  // 휠 기본값: 오늘 그 과목의 남은 목표량(없으면 지금 값 유지)
+  function suggestedPick(goalId) {
+    const data = storage.getData();
+    const today = todayStr();
+    const row = dayReport(data, buildContext(data), today, today).rows.find((r) => r.goal.id === goalId);
+    const left = row ? row.target - row.done : 0;
+    return left > 0 ? Math.min(10, left) : ui.pick;
+  }
+
   const actions = {
     "set-track"(btn) {
       storage.setActiveTrack(Number(btn.dataset.track));
       ui.selectedGoalId = null;
+      ui.pickerOpen = false;
       render();
     },
     "toggle-focus"() {
@@ -70,8 +81,33 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
       });
     },
     "select-goal"(btn) {
+      const same = ui.pickerOpen && ui.selectedGoalId === btn.dataset.id;
       ui.selectedGoalId = btn.dataset.id;
+      ui.pickerAnim = !ui.pickerOpen;
+      ui.pickerOpen = !same;
+      ui.revealSelected = ui.pickerOpen;
+      if (ui.pickerOpen) ui.pick = suggestedPick(btn.dataset.id);
       render();
+    },
+    "close-picker"() {
+      ui.pickerOpen = false;
+      render();
+    },
+    "toggle-quiet"() {
+      ui.quietOpen = !ui.quietOpen;
+      render();
+    },
+    "toggle-plan"() {
+      ui.planOpen = !ui.planOpen;
+      render();
+    },
+    "goto-input"(btn) {
+      const { id, track, field } = btn.dataset;
+      const selector = id ? `input[data-goal-field="${field}"][data-id="${id}"]` : `input[data-track-field="${field}"][data-track="${track}"]`;
+      const input = document.querySelector(selector);
+      if (!input) return;
+      input.scrollIntoView({ behavior: "smooth", block: "center" });
+      input.focus({ preventScroll: true });
     },
     "add-entry"() {
       const goalId = currentGoalId();
@@ -84,7 +120,7 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
       if (!result) return;
       const goal = storage.getData().goals.find((g) => g.id === goalId);
       if (result.rolled) announceRounds(goalId, result.rolled);
-      else toast(`${goal.subject} +${ui.pick}`);
+      else toast(`${goal.subject} +${ui.pick}${countUnit(goal.unit)}`);
       render();
     },
     "undo-entry"() {
@@ -94,7 +130,7 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
         return;
       }
       const goal = storage.getData().goals.find((g) => g.id === removed.goalId);
-      toast(`${goal ? goal.subject : "입력"} −${removed.amount} 취소했어요`);
+      toast(`${goal ? goal.subject : "입력"} −${removed.amount}${goal ? countUnit(goal.unit) : ""} 취소했어요`);
       render();
     },
     "toggle-edit"() {
@@ -123,9 +159,14 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
       render();
     },
     "apply-preset"(btn) {
-      if (!confirm("현재 과목별 요일 설정을 이 프리셋으로 바꿀까요?")) return;
-      storage.applyWeekdayPreset(trackAt(storage.getData(), todayStr()), btn.dataset.preset);
-      toast("요일 패턴을 적용했어요");
+      const track = trackAt(storage.getData(), todayStr());
+      const { before, after } = presetImpact(storage.getData(), track, btn.dataset.preset);
+      const units = [...new Set([...Object.keys(before), ...Object.keys(after)])];
+      const volume = units.map((u) => `${u} ${before[u] || 0} → ${after[u] || 0}`).join(" · ");
+      const label = WEEKDAY_PRESETS.find((p) => p.key === btn.dataset.preset).label;
+      if (!confirm(`"${label}"으로 요일을 바꿀까요?\n\n하루 목표량은 그대로라 주간 목표 합계가 이렇게 바뀌어요.\n${volume}`)) return;
+      storage.applyWeekdayPreset(track, btn.dataset.preset);
+      toast(`요일 패턴을 적용했어요 · 주간 ${volume}`);
       render();
     },
     "toggle-weekday"(btn) {

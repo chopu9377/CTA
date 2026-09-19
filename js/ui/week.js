@@ -1,8 +1,8 @@
 import { addDays, monthKey } from "../dates.js";
 import { trackAt, weekReport, weekQuotas, currentWeekIndex, daysUntil, pendingSettlements, historyEnd } from "../stats.js";
 import { focusRows } from "../plan.js";
-import { TRACK_LABEL } from "../presets.js";
-import { escapeHtml, ringHTML, subjectColor, shortUnit } from "./shared.js";
+import { TRACK_LABEL, countUnit } from "../presets.js";
+import { escapeHtml, ringHTML, subjectColor } from "./shared.js";
 import { legendHTML, weekHTML } from "./weekgrid.js";
 
 function ddayText(info, today) {
@@ -46,7 +46,7 @@ function focusHTML(data, track, today) {
   return `<p class="hint">남은 분량 ÷ 남은 공부일수(${days}일, ${from} 기준)만 봅니다. 휴식·복습일은 제외.</p>
     <table class="focus-table"><tr><th>과목</th><th>남은 분량</th><th>하루 필요</th></tr>
     ${rows.map((r) => `<tr>
-      <td><i class="swatch" style="background:${subjectColor(data, r.goal.subject)}"></i>${escapeHtml(r.goal.subject)}<span class="unit">${escapeHtml(shortUnit(r.goal.unit))}</span></td>
+      <td><i class="swatch" style="background:${subjectColor(data, r.goal.subject)}"></i>${escapeHtml(r.goal.subject)}<span class="unit">${escapeHtml(countUnit(r.goal.unit))}</span></td>
       <td>${r.remaining === null ? "총 분량 미입력" : r.remaining}</td>
       <td>${r.perDay === null ? "-" : `<b>${r.perDay.toFixed(1)}</b>`}</td></tr>`).join("")}</table>`;
 }
@@ -60,7 +60,7 @@ function quotaHTML(data, ctx, track, weekIndex) {
     <div class="ring-grid">${q.rings.map((r) => `<div class="ring-cell">
       ${ringHTML(subjectColor(data, r.goal.subject), r.pct)}
       <div class="ring-name">${escapeHtml(r.goal.subject)}</div>
-      <div class="ring-count">${r.done}/${r.quota} ${escapeHtml(shortUnit(r.goal.unit))}</div></div>`).join("")}</div>
+      <div class="ring-count">${r.done}/${r.quota}${escapeHtml(countUnit(r.goal.unit))}</div></div>`).join("")}</div>
   </div>`;
 }
 

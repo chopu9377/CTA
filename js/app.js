@@ -22,7 +22,12 @@ const ui = {
   hiddenSeries: { 1: new Set(), 2: new Set() },
   selectedGoalId: null,
   editing: false,
-  pick: 5
+  pick: 5,
+  pickerOpen: false,
+  pickerAnim: false,
+  revealSelected: false,
+  quietOpen: false,
+  planOpen: false
 };
 
 let toastTimer = null;
@@ -43,12 +48,25 @@ function render() {
   else if (ui.view === "today") root.innerHTML = renderToday(data, ctx, today, ui);
   else if (ui.view === "exam") root.innerHTML = renderExam(data, ui, today);
   else if (ui.view === "history") root.innerHTML = renderHistory(data, ctx, today);
-  else root.innerHTML = renderSettings(data, today, storage.legacyDataJson() !== null, getSyncInfo());
+  else root.innerHTML = renderSettings(data, today, storage.legacyDataJson() !== null, getSyncInfo(), ui);
 
   tabButtons.forEach((btn) => btn.classList.toggle("active", btn.dataset.view === ui.view));
   const picker = document.getElementById("picker");
   if (picker) picker.scrollTop = ui.pick * PICKER_ITEM_HEIGHT;
+  if (ui.revealSelected) revealSelectedRow();
   showAppVersion();
+}
+
+// 고른 과목 행이 입력 시트에 가려지면 시트 위로 스크롤해서 보이게 한다
+function revealSelectedRow() {
+  ui.revealSelected = false;
+  const row = root.querySelector(".goal-row.selected");
+  const sheet = root.querySelector(".picker-sheet");
+  if (!row || !sheet) return;
+  const limit = sheet.getBoundingClientRect().top - 8;
+  const rect = row.getBoundingClientRect();
+  if (rect.bottom > limit) window.scrollBy({ top: rect.bottom - limit, behavior: "smooth" });
+  else if (rect.top < 60) window.scrollBy({ top: rect.top - 60, behavior: "smooth" });
 }
 
 // 서비스워커 캐시 이름(cta-static-vN)에서 지금 받아 둔 앱 버전을 읽어 설정 화면에 보여준다
@@ -64,6 +82,7 @@ function showAppVersion() {
 function switchView(view) {
   ui.view = view;
   ui.editing = false;
+  ui.pickerOpen = false;
   render();
   window.scrollTo(0, 0);
 }
@@ -113,6 +132,8 @@ document.addEventListener(
   (event) => {
     if (event.target.id === "picker") {
       ui.pick = Math.min(10, Math.max(0, Math.round(event.target.scrollTop / PICKER_ITEM_HEIGHT)));
+      const add = document.querySelector('[data-action="add-entry"]');
+      if (add) add.textContent = `+ ${ui.pick}${add.dataset.unit} 추가`;
     }
   },
   true

@@ -25,10 +25,6 @@ export function formatDuration(minutes) {
   return m ? `${h}시간 ${m}분` : `${h}시간`;
 }
 
-export function shortUnit(unit) {
-  return unit.replace("연습서 ", "").replace("객관식 ", "").replace("(강)", "");
-}
-
 // 채워질수록 진해지다가 100%면 꽉 찬 원 + 체크
 export function ringHTML(color, pct) {
   const r = 26;

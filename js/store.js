@@ -10,9 +10,10 @@ import {
   DEFAULT_WEEKDAY_HOURS,
   DEFAULT_WEEKEND_HOURS,
   DEFAULT_BUFFER_DAYS,
-  defaultTarget,
+  defaultTargets,
   defaultMinutesPerUnit,
-  defaultMaintenance
+  defaultMaintenance,
+  weekdaysForPreset
 } from "./presets.js";
 
 // v2는 목표 단위를 시간(분)에서 수량으로 바꾼 개편판이라 저장 키를 새로 쓴다.
@@ -60,8 +61,8 @@ export function newGoal(track, subject, unit) {
     track,
     subject,
     unit,
-    weekdayTarget: defaultTarget(unit),
-    weekendTarget: defaultTarget(unit),
+    weekdayTarget: defaultTargets(unit).weekday,
+    weekendTarget: defaultTargets(unit).weekend,
     minutesPerUnit: defaultMinutesPerUnit(unit),
     maintWeekdayTarget: defaultMaintenance(unit).weekday,
     maintWeekendTarget: defaultMaintenance(unit).weekend,
@@ -101,7 +102,13 @@ function emptyData() {
     meta: { lastBackupAt: null, updatedAt: null }
   };
   Object.assign(data.subjectColors, SUBJECT_COLOR_SLOTS);
-  [2, 1].forEach((track) => GOAL_PRESETS[track].forEach(([subject, unit]) => data.goals.push(newGoal(track, subject, unit))));
+  [2, 1].forEach((track) =>
+    GOAL_PRESETS[track].forEach(([subject, unit]) => {
+      const goal = newGoal(track, subject, unit);
+      goal.weekdays = weekdaysForPreset("recommended", track, subject, unit) || goal.weekdays;
+      data.goals.push(goal);
+    })
+  );
   return data;
 }
 

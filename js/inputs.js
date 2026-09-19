@@ -2,12 +2,12 @@ import * as storage from "./storage.js";
 import { todayStr } from "./dates.js";
 import { buildContext, pendingSettlements, trackAt } from "./stats.js";
 import { EXAM_SUBJECTS } from "./presets.js";
-import { paceSlotHTML, weekLoadHTML } from "./ui.js";
+import { paceSlotHTML, planTreeHTML } from "./ui.js";
 import * as sync from "./sync.js";
 
 function refreshLoadSlot() {
-  const slot = document.querySelector("[data-slot-load]");
-  if (slot) slot.innerHTML = weekLoadHTML(storage.getData(), todayStr());
+  const slot = document.querySelector("[data-slot-plan]");
+  if (slot && slot.innerHTML.trim()) slot.innerHTML = planTreeHTML(storage.getData(), todayStr());
 }
 
 function refreshPaceSlot(goalId) {
@@ -108,6 +108,7 @@ export function bindInputHandlers({ ui, render, toast, closeSheet, announceRound
       const field = el.dataset.trackField;
       const value = field === "examEstimated" || field === "maintain" ? el.checked : el.value || null;
       storage.setTrackInfo(Number(el.dataset.track), { [field]: value });
+      refreshAllPaceSlots();
     } else if (el.dataset.settingNum) {
       storage.setSetting(el.dataset.settingNum, Math.max(0, Number(el.value) || 0));
       refreshAllPaceSlots();

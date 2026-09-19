@@ -1,8 +1,8 @@
 import { formatKoreanDate, weekdayOf, WEEKDAY_LABELS } from "../dates.js";
 import { trackAt, dayReport } from "../stats.js";
 import { paceFor, dayLoad, maintenanceGoals, maintenanceTargets } from "../plan.js";
-import { UNIT_SUGGESTIONS, WEEKDAY_PRESETS, TRACK_LABEL } from "../presets.js";
-import { escapeHtml, subjectColor, shortUnit, formatDuration } from "./shared.js";
+import { UNIT_SUGGESTIONS, WEEKDAY_PRESETS, TRACK_LABEL, countUnit } from "../presets.js";
+import { escapeHtml, subjectColor, formatDuration } from "./shared.js";
 
 function carryOf(data, ctx, goalId) {
   return data.carries
@@ -24,10 +24,10 @@ function goalRowHTML(data, ctx, row, selected, rec, tag = "") {
   return `<div class="goal-row${selected ? " selected" : ""}${fin ? " fin" : ""}${tag ? " maint" : ""}" data-action="select-goal" data-id="${goal.id}">
     <div>
       <div class="goal-name"><i class="swatch" style="background:${subjectColor(data, goal.subject)}"></i>${escapeHtml(goal.subject)}<span class="round">${goal.round}${goal.targetRounds ? `/${goal.targetRounds}` : ""}회독</span></div>
-      <div class="goal-meta"><span class="unit">${escapeHtml(goal.unit)}</span>${tag ? `<span class="unit maint-tag">${tag}</span>` : ""}${carry ? `<span class="unit carry">이월 ${carry}</span>` : ""}</div>
-      ${rec ? `<div class="goal-rec">권장 <b>${rec}${escapeHtml(shortUnit(goal.unit))}</b></div>` : ""}
+      <div class="goal-meta"><span class="unit">${escapeHtml(goal.unit)}</span>${tag ? `<span class="unit maint-tag">${tag}</span>` : ""}${carry ? `<span class="unit carry">이월 ${carry}${escapeHtml(countUnit(goal.unit))}</span>` : ""}</div>
+      ${rec ? `<div class="goal-rec">권장 <b>${rec}${escapeHtml(countUnit(goal.unit))}</b></div>` : ""}
     </div>
-    <div class="goal-count">${target > 0 ? `${done} / ${target}${fin ? " ✓" : ""}` : `${done}<small> 오늘 목표 없음</small>`}</div>
+    <div class="goal-count">${target > 0 ? `${done} / ${target}<small>${escapeHtml(countUnit(goal.unit))}</small>${fin ? " ✓" : ""}` : `${done}<small>${escapeHtml(countUnit(goal.unit))} · 오늘 목표 없음</small>`}</div>
   </div>`;
 }
 
@@ -65,20 +65,30 @@ function undoInfoHTML(data, today) {
   return `<p class="hint">오늘 입력 ${entries.length}건 · 되돌리기를 누르면 직전 입력(${goal ? escapeHtml(goal.subject) : "?"} +${last.amount})부터 하나씩 취소돼요.</p>`;
 }
 
-function pickerHTML(pick, goal, data, today) {
+// 과목을 탭하면 탭바 위로 올라오는 입력 시트. 목록이 길어도 스크롤 없이 고르고 바로 추가할 수 있다.
+function pickerSheetHTML(pick, goal, data, today, animate) {
   const count = data.entries.filter((e) => e.date === today).length;
-  return `<div class="card">
-    <div class="section-header-row"><h2 class="section-title">푼 개수 추가</h2><span class="chip">${escapeHtml(goal.subject)} · ${escapeHtml(goal.unit)}</span></div>
+  return `<div class="picker-sheet${animate ? " sheet-in" : ""}">
+    <div class="picker-sheet-head">
+      <span class="chip">${escapeHtml(goal.subject)} · ${escapeHtml(goal.unit)}</span>
+      <button class="sheet-close" data-action="close-picker" type="button" aria-label="입력창 닫기">✕</button>
+    </div>
     <div class="picker"><div class="picker-scroll" id="picker" data-pick="${pick}">
       ${Array.from({ length: 11 }, (_, i) => `<div class="picker-item">${i}</div>`).join("")}
     </div></div>
     <div class="form-inline picker-actions">
-      <button class="btn btn-primary" data-action="add-entry" type="button">+ 추가</button>
+      <button class="btn btn-primary" data-action="add-entry" data-unit="${escapeHtml(countUnit(goal.unit))}" type="button">+ ${pick}${escapeHtml(countUnit(goal.unit))} 추가</button>
       <button class="btn btn-secondary" data-action="undo-entry" type="button">되돌리기${count ? ` (${count})` : ""}</button>
     </div>
-    ${undoInfoHTML(data, today)}
-    <p class="hint">과목을 탭 → 0~10 스크롤 → 추가. 여러 번 눌러 누적해요. 목표를 넘긴 양은 이월분부터 갚아요.</p>
+    ${undoInfoHTML(data, today) || `<p class="hint">0~10을 스크롤 → 추가. 여러 번 눌러 누적해요. 목표를 넘긴 양은 이월분부터 갚아요.</p>`}
   </div>`;
+}
+
+// 시트가 닫혀 있을 때도 실수한 입력을 되돌릴 수 있게 목록 아래에 한 줄 둔다.
+function undoLineHTML(data, today) {
+  const count = data.entries.filter((e) => e.date === today).length;
+  if (!count) return "";
+  return `<div class="undo-line"><span>오늘 입력 ${count}건</span><button class="btn btn-secondary btn-sm" data-action="undo-entry" type="button">되돌리기 (${count})</button></div>`;
 }
 
 function dayNoticeHTML(data, today, report) {
@@ -113,11 +123,29 @@ export function renderToday(data, ctx, today, ui) {
   const maintGoals = maintenanceGoals(data, today, today);
   const maintTargets = maintenanceTargets(data, today, today);
   const selected = [...goals, ...maintGoals].find((g) => g.id === ui.selectedGoalId) || goals[0] || maintGoals[0];
+  const sheetOpen = !ui.editing && ui.pickerOpen && !!selected;
   const weekend = dayLoad(data, today, today).weekend;
   const scheduledToday = (g) => !report.kind && g.weekdays.includes(weekdayOf(today));
   const names = [...new Set(data.goals.map((g) => g.subject))];
+  const animate = sheetOpen && ui.pickerAnim;
+  ui.pickerAnim = false;
 
-  return `<section class="view">
+  // 오늘 목표도 이월도 기록도 없는 과목은 접어 둔다(탭하면 펼쳐지고, 골라서 추가 입력은 가능)
+  const isQuiet = (g) => {
+    const row = rowFor(g);
+    return row.target <= 0 && row.done <= 0 && !carryOf(data, ctx, g.id);
+  };
+  const activeGoals = goals.filter((g) => !isQuiet(g));
+  const quietGoals = goals.filter(isQuiet);
+  const quietOpen = ui.quietOpen || (sheetOpen && quietGoals.some((g) => g.id === selected.id));
+  const rowHTML = (g) => goalRowHTML(data, ctx, rowFor(g), sheetOpen && g.id === selected.id, scheduledToday(g) ? recommendation(data, g, today, weekend) : null);
+  const quietHTML = quietGoals.length
+    ? `<button class="quiet-toggle" data-action="toggle-quiet" type="button" aria-expanded="${quietOpen}">
+        <span>오늘 목표 없는 과목 ${quietGoals.length}개</span><span class="chev${quietOpen ? " open" : ""}">›</span></button>
+       ${quietOpen ? quietGoals.map(rowHTML).join("") : ""}`
+    : "";
+
+  return `<section class="view${sheetOpen ? " picker-open" : ""}">
     <div class="card">
       <div class="section-header-row"><h2 class="section-title">오늘 ${formatKoreanDate(today)}</h2>
         <button class="btn btn-secondary btn-sm" data-action="toggle-edit" type="button">${ui.editing ? "완료" : "편집"}</button></div>
@@ -134,10 +162,11 @@ export function renderToday(data, ctx, today, ui) {
            <datalist id="subject-names">${names.map((n) => `<option value="${escapeHtml(n)}">`).join("")}</datalist>
            <datalist id="unit-names">${UNIT_SUGGESTIONS.map((n) => `<option value="${n}">`).join("")}</datalist>`
         : goals.length
-          ? goals.map((g) => goalRowHTML(data, ctx, rowFor(g), selected && g.id === selected.id, scheduledToday(g) ? recommendation(data, g, today, weekend) : null)).join("")
+          ? `${activeGoals.map(rowHTML).join("")}${quietHTML}`
           : `<p class="empty-state">목표가 없어요. 편집에서 추가해보세요.</p>`}
-      ${ui.editing ? "" : maintSectionHTML(data, ctx, today, maintGoals, maintTargets, selected)}
+      ${ui.editing ? "" : maintSectionHTML(data, ctx, today, maintGoals, maintTargets, sheetOpen ? selected : null)}
+      ${ui.editing || sheetOpen ? "" : undoLineHTML(data, today)}
     </div>
-    ${ui.editing || !selected ? "" : pickerHTML(ui.pick, selected, data, today)}
+    ${sheetOpen ? pickerSheetHTML(ui.pick, selected, data, today, animate) : ""}
   </section>`;
 }
