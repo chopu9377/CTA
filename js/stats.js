@@ -1,288 +1,205 @@
-function pad(n) {
-  return String(n).padStart(2, "0");
-}
+import { addDays, diffDays, weekdayOf, monthKey } from "./dates.js";
+import { holidayName } from "./holidays.js";
 
-export function toISODate(d) {
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
-export function startOfWeek(refDate) {
-  const d = new Date(refDate);
-  d.setHours(0, 0, 0, 0);
-  const day = (d.getDay() + 6) % 7; // Monday = 0 ... Sunday = 6
-  d.setDate(d.getDate() - day);
-  return d;
-}
-
-export function endOfWeek(refDate) {
-  const start = startOfWeek(refDate);
-  const end = new Date(start);
-  end.setDate(start.getDate() + 6);
-  end.setHours(23, 59, 59, 999);
-  return end;
-}
-
-export function startOfMonth(refDate) {
-  const d = new Date(refDate);
-  return new Date(d.getFullYear(), d.getMonth(), 1);
-}
-
-export function endOfMonth(refDate) {
-  const d = new Date(refDate);
-  return new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
-}
-
-function isInRange(dateStr, start, end) {
-  const d = new Date(dateStr + "T00:00:00");
-  return d >= start && d <= end;
-}
-
-export function isWeekend(dateStr) {
-  const day = new Date(dateStr + "T00:00:00").getDay();
-  return day === 0 || day === 6;
-}
-
-export function logsInRange(logs, start, end) {
-  return logs.filter((l) => isInRange(l.date, start, end));
-}
-
-export function sumMinutes(logs) {
-  return logs.reduce((sum, l) => sum + (l.durationMinutes || 0), 0);
-}
-
-export function achievementRate(actualMinutes, goalMinutes) {
-  if (!goalMinutes || goalMinutes <= 0) return null;
-  return Math.round((actualMinutes / goalMinutes) * 100);
-}
-
-// "주간 목표"(weeklyGoalMinutes)는 평일(월~금) 한 주치 목표를 뜻하고, 월간 목표는 이제
-// 따로 입력받지 않는다 — (평일 목표 + 주말 목표) x 4주로 자동 계산한다.
-const WEEKS_PER_MONTH = 4;
-
-export function monthlyGoalFor(subject) {
-  return ((subject.weeklyGoalMinutes || 0) + (subject.weekendGoalMinutes || 0)) * WEEKS_PER_MONTH;
-}
-
-export function periodSummary(data, refDate = new Date()) {
-  const weekStart = startOfWeek(refDate);
-  const weekEnd = endOfWeek(refDate);
-  const monthStart = startOfMonth(refDate);
-  const monthEnd = endOfMonth(refDate);
-
-  const weekLogs = logsInRange(data.logs, weekStart, weekEnd);
-  const monthLogs = logsInRange(data.logs, monthStart, monthEnd);
-  const weekendLogs = weekLogs.filter((l) => isWeekend(l.date));
-  const weekdayLogs = weekLogs.filter((l) => !isWeekend(l.date));
-
-  const weekdayGoal = data.subjects.reduce((sum, s) => sum + (s.weeklyGoalMinutes || 0), 0);
-  const monthGoal = data.subjects.reduce((sum, s) => sum + monthlyGoalFor(s), 0);
-  const weekendGoal = data.subjects.reduce((sum, s) => sum + (s.weekendGoalMinutes || 0), 0);
-
-  const weekdayActual = sumMinutes(weekdayLogs);
-  const monthActual = sumMinutes(monthLogs);
-  const weekendActual = sumMinutes(weekendLogs);
-  const totalActual = sumMinutes(data.logs);
-
-  return {
-    weekday: { actual: weekdayActual, goal: weekdayGoal, rate: achievementRate(weekdayActual, weekdayGoal) },
-    month: { actual: monthActual, goal: monthGoal, rate: achievementRate(monthActual, monthGoal) },
-    weekend: { actual: weekendActual, goal: weekendGoal, rate: achievementRate(weekendActual, weekendGoal) },
-    total: { actual: totalActual }
-  };
-}
-
-export function subjectStats(data, refDate = new Date()) {
-  const weekStart = startOfWeek(refDate);
-  const weekEnd = endOfWeek(refDate);
-  const monthStart = startOfMonth(refDate);
-  const monthEnd = endOfMonth(refDate);
-
-  return data.subjects.map((s) => {
-    const subjectLogs = data.logs.filter((l) => l.subjectId === s.id);
-    const weekLogs = logsInRange(subjectLogs, weekStart, weekEnd);
-    const weekdayActual = sumMinutes(weekLogs.filter((l) => !isWeekend(l.date)));
-    const weekendActual = sumMinutes(weekLogs.filter((l) => isWeekend(l.date)));
-    const monthActual = sumMinutes(logsInRange(subjectLogs, monthStart, monthEnd));
-    const monthGoal = monthlyGoalFor(s);
-    return {
-      id: s.id,
-      name: s.name,
-      weekdayActual,
-      weekdayGoal: s.weeklyGoalMinutes || 0,
-      weekdayRate: achievementRate(weekdayActual, s.weeklyGoalMinutes),
-      weekendActual,
-      weekendGoal: s.weekendGoalMinutes || 0,
-      weekendRate: achievementRate(weekendActual, s.weekendGoalMinutes),
-      monthActual,
-      monthGoal,
-      monthRate: achievementRate(monthActual, monthGoal),
-      totalActual: sumMinutes(subjectLogs)
-    };
+export function trackAt(data, dateStr) {
+  let track = 2;
+  data.trackSwitches.forEach((s) => {
+    if (s.from <= dateStr) track = s.track;
   });
+  return track;
 }
 
-export function subjectBreakdown(data, start, end) {
-  const logs = start && end ? logsInRange(data.logs, start, end) : data.logs;
-  return data.subjects
-    .map((s) => ({
-      id: s.id,
-      name: s.name,
-      minutes: sumMinutes(logs.filter((l) => l.subjectId === s.id))
-    }))
-    .filter((s) => s.minutes > 0)
-    .sort((a, b) => b.minutes - a.minutes);
+// 휴식/복습으로 지정한 날(또는 "공휴일 자동 휴식" 옵션이 켜진 공휴일)은 그날 목표가 없다.
+export function effectiveKind(data, dateStr) {
+  const kind = data.dayKinds[dateStr];
+  if (kind) return kind;
+  if (data.settings.holidayAutoRest && holidayName(dateStr)) return "rest";
+  return null;
 }
 
-export function dailyPlanTotal(plan) {
-  if (!plan) return 0;
-  return Object.values(plan).reduce((sum, m) => sum + (m || 0), 0);
+export function computeTargets(data, dateStr) {
+  if (effectiveKind(data, dateStr)) return {};
+  const track = trackAt(data, dateStr);
+  const weekday = weekdayOf(dateStr);
+  const targets = {};
+  data.goals.forEach((g) => {
+    if (g.archived || g.track !== track || g.dailyTarget <= 0 || !g.weekdays.includes(weekday)) return;
+    targets[g.id] = g.dailyTarget;
+  });
+  return targets;
 }
 
-export function dailyPlanProgress(data, dateStr) {
-  const plan = data.dailyPlans[dateStr] || null;
-  const dayLogs = data.logs.filter((l) => l.date === dateStr);
-  const actualBySubject = new Map();
-  dayLogs.forEach((l) => {
-    actualBySubject.set(l.subjectId, (actualBySubject.get(l.subjectId) || 0) + (l.durationMinutes || 0));
+export function targetsFor(data, dateStr) {
+  return data.dayTargets[dateStr] || computeTargets(data, dateStr);
+}
+
+export function buildContext(data) {
+  const sums = new Map();
+  const byDate = new Map();
+  data.entries.forEach((e) => {
+    const key = `${e.goalId}|${e.date}`;
+    sums.set(key, (sums.get(key) || 0) + e.amount);
+    byDate.set(e.date, (byDate.get(e.date) || 0) + e.amount);
+  });
+  return { sums, byDate, remaining: carryRemaining(data, sums) };
+}
+
+// 그날 목표를 넘겨 푼 양(초과분)이 이월분을 오래된 순서로 갚는다.
+function carryRemaining(data, sums) {
+  const remaining = new Map();
+  const carriesByGoal = new Map();
+  data.carries.forEach((c) => {
+    remaining.set(c.id, c.amount);
+    if (!carriesByGoal.has(c.goalId)) carriesByGoal.set(c.goalId, []);
+    carriesByGoal.get(c.goalId).push(c);
   });
 
-  const perSubject = plan
-    ? Object.keys(plan).map((subjectId) => {
-        const subject = data.subjects.find((s) => s.id === subjectId);
-        const goal = plan[subjectId] || 0;
-        const actual = actualBySubject.get(subjectId) || 0;
-        return { subjectId, name: subject ? subject.name : "삭제된 과목", goal, actual, rate: achievementRate(actual, goal) };
-      })
-    : [];
+  const excessByGoal = new Map();
+  sums.forEach((done, key) => {
+    const [goalId, date] = key.split("|");
+    if (!carriesByGoal.has(goalId)) return;
+    const excess = done - (targetsFor(data, date)[goalId] || 0);
+    if (excess <= 0) return;
+    if (!excessByGoal.has(goalId)) excessByGoal.set(goalId, []);
+    excessByGoal.get(goalId).push({ date, excess });
+  });
 
-  const totalGoal = dailyPlanTotal(plan);
-  const totalActual = sumMinutes(dayLogs);
-  return {
-    hasPlan: !!plan,
-    perSubject,
-    totalGoal,
-    totalActual,
-    totalRate: achievementRate(totalActual, totalGoal)
-  };
+  carriesByGoal.forEach((carries, goalId) => {
+    carries.sort((a, b) => a.fromDate.localeCompare(b.fromDate));
+    (excessByGoal.get(goalId) || [])
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .forEach((ex) => {
+        let pool = ex.excess;
+        carries.forEach((c) => {
+          if (pool <= 0 || c.fromDate >= ex.date) return;
+          const pay = Math.min(pool, remaining.get(c.id));
+          remaining.set(c.id, remaining.get(c.id) - pay);
+          pool -= pay;
+        });
+      });
+  });
+  return remaining;
 }
 
-function startOfDay(refDate) {
-  const d = new Date(refDate);
-  d.setHours(0, 0, 0, 0);
-  return d;
+export function dayReport(data, ctx, dateStr, today) {
+  const kind = effectiveKind(data, dateStr);
+  const targets = targetsFor(data, dateStr);
+  const rows = Object.keys(targets).map((goalId) => ({
+    goal: data.goals.find((g) => g.id === goalId),
+    target: targets[goalId],
+    done: ctx.sums.get(`${goalId}|${dateStr}`) || 0
+  })).filter((r) => r.goal);
+  const shortfalls = rows.filter((r) => r.done < r.target).map((r) => ({ goalId: r.goal.id, amount: r.target - r.done }));
+  const totalDone = ctx.byDate.get(dateStr) || 0;
+  const decision = data.settlements[dateStr];
+
+  let status;
+  if (dateStr > today) status = kind || "future";
+  else if (kind) status = kind;
+  else if (!rows.length) status = totalDone > 0 ? "full" : dateStr === today ? "today" : "none";
+  else if (!shortfalls.length) status = "full";
+  else if (dateStr === today) status = "today";
+  else if (decision === "carried") {
+    const paid = data.carries.filter((c) => c.fromDate === dateStr).every((c) => ctx.remaining.get(c.id) <= 0);
+    status = paid ? "carried" : "pending";
+  } else status = totalDone > 0 ? "partial" : "miss";
+
+  const undecided = dateStr < today && !kind && shortfalls.length > 0 && decision === undefined;
+  return { date: dateStr, kind, status, rows, shortfalls, undecided, totalDone, holiday: holidayName(dateStr) };
 }
 
-function endOfDay(refDate) {
-  const d = new Date(refDate);
-  d.setHours(23, 59, 59, 999);
-  return d;
+const NEUTRAL = ["rest", "review", "none"];
+
+export function weekReport(data, ctx, weekIndex, today) {
+  const start = addDays(data.startDate, weekIndex * 7);
+  const days = Array.from({ length: 7 }, (_, i) => dayReport(data, ctx, addDays(start, i), today));
+  const active = days.filter((d) => !NEUTRAL.includes(d.status) && d.status !== "future");
+  const ok = days.filter((d) => d.status === "full" || d.status === "carried").length;
+  const pending = days.filter((d) => d.status === "pending").length;
+  const blocked = days.some((d) => ["today", "future", "pending", "partial", "miss"].includes(d.status));
+  return { index: weekIndex, start, end: addDays(start, 6), days, ok, activeCount: active.length, pending, complete: ok > 0 && !blocked };
 }
 
-function windowAverage(logs, today, days) {
-  const start = new Date(today);
-  start.setDate(today.getDate() - (days - 1));
-  const windowLogs = logsInRange(logs, start, endOfDay(today));
-  const totalMinutes = sumMinutes(windowLogs);
-  const dailyAvg = totalMinutes / days;
-  return { dailyAvg, weeklyAvg: dailyAvg * 7, totalMinutes, days };
+export function currentWeekIndex(data, today) {
+  return Math.max(0, Math.floor(diffDays(data.startDate, today) / 7));
 }
 
-// "전체 기간" 평균은 첫 기록일부터 오늘까지의 달력일수로 나눈다. 기록을 시작하기 전
-// 날짜는 계산에서 제외한다 — 시작 전 날짜를 "0분 공부"로 잘못 취급하지 않기 위함.
-export function studyVolumeStats(data, refDate = new Date()) {
-  if (!data.logs.length) return { hasData: false };
-
-  const today = startOfDay(refDate);
-  const firstDateStr = data.logs.map((l) => l.date).sort()[0];
-  const firstDate = startOfDay(new Date(firstDateStr + "T00:00:00"));
-  const totalDays = Math.max(1, Math.round((today - firstDate) / 86400000) + 1);
-  const totalMinutes = sumMinutes(data.logs);
-  const allTimeDailyAvg = totalMinutes / totalDays;
-
-  return {
-    hasData: true,
-    allTime: { dailyAvg: allTimeDailyAvg, weeklyAvg: allTimeDailyAvg * 7, totalMinutes, totalDays },
-    last7: windowAverage(data.logs, today, 7),
-    last30: windowAverage(data.logs, today, 30)
-  };
+export function weekQuotas(data, ctx, weekIndex, track) {
+  const start = addDays(data.startDate, weekIndex * 7);
+  const dates = Array.from({ length: 7 }, (_, i) => addDays(start, i));
+  const rings = data.goals
+    .filter((g) => !g.archived && g.track === track)
+    .map((goal) => {
+      const quota = dates.reduce((sum, d) => sum + (targetsFor(data, d)[goal.id] || 0), 0);
+      const done = dates.reduce((sum, d) => sum + (ctx.sums.get(`${goal.id}|${d}`) || 0), 0);
+      return { goal, quota, done, pct: quota > 0 ? Math.min(100, (done / quota) * 100) : 0 };
+    });
+  const counted = rings.filter((r) => r.quota > 0);
+  const overall = counted.length ? Math.round(counted.reduce((s, r) => s + r.pct, 0) / counted.length) : 0;
+  const workdays = dates.filter((d) => !effectiveKind(data, d)).length;
+  const rest = dates.filter((d) => effectiveKind(data, d) === "rest").length;
+  const review = dates.filter((d) => effectiveKind(data, d) === "review").length;
+  return { rings, overall, workdays, rest, review };
 }
 
-export function daysUntil(dateStr, refDate = new Date()) {
-  if (!dateStr) return null;
-  const target = new Date(dateStr + "T00:00:00");
-  const today = new Date(refDate);
-  today.setHours(0, 0, 0, 0);
-  return Math.round((target.getTime() - today.getTime()) / 86400000);
-}
-
-export function currentStreak(data, refDate = new Date()) {
-  const dateSet = new Set(data.logs.map((l) => l.date));
-  const cursor = new Date(refDate);
-  cursor.setHours(0, 0, 0, 0);
-
-  if (!dateSet.has(toISODate(cursor))) {
-    cursor.setDate(cursor.getDate() - 1);
-    if (!dateSet.has(toISODate(cursor))) return 0;
+export function pendingSettlements(data, ctx, today) {
+  const days = [];
+  for (let d = data.startDate; d < today; d = addDays(d, 1)) {
+    const report = dayReport(data, ctx, d, today);
+    if (report.undecided) days.push(report);
   }
-
-  let streak = 0;
-  while (dateSet.has(toISODate(cursor))) {
-    streak++;
-    cursor.setDate(cursor.getDate() - 1);
-  }
-  return streak;
+  return days;
 }
 
-export function examCalendarCells(data, refDate = new Date(), maxDays = 120) {
-  const examDate = data.meta.examDate;
-  if (!examDate) return null;
+export function historyEnd(data, today) {
+  const dates = [1, 2].map((t) => data.tracks[t].examDate).filter(Boolean);
+  const last = dates.length ? dates.sort().pop() : addDays(today, 84);
+  return last > today ? last : today;
+}
 
-  const today = new Date(refDate);
-  today.setHours(0, 0, 0, 0);
-  const end = new Date(examDate + "T00:00:00");
-  const totalDays = Math.round((end.getTime() - today.getTime()) / 86400000);
-  if (totalDays < 0) return { cells: [], totalDays, truncated: false };
-
-  const minutesByDate = new Map();
-  data.logs.forEach((l) => {
-    minutesByDate.set(l.date, (minutesByDate.get(l.date) || 0) + (l.durationMinutes || 0));
-  });
-
-  const count = Math.min(totalDays, maxDays) + 1; // inclusive of today
-  const cells = [];
-  for (let i = 0; i < count; i++) {
-    const d = new Date(today);
-    d.setDate(today.getDate() + i);
-    const dateStr = toISODate(d);
-    const minutes = minutesByDate.get(dateStr) || 0;
-    const dailyGoal = dailyPlanTotal(data.dailyPlans[dateStr]);
-
-    let status;
-    if (d.getTime() > today.getTime()) {
-      status = "future";
-    } else if (dailyGoal > 0) {
-      status = minutes >= dailyGoal ? "done" : minutes > 0 ? "partial" : "empty";
-    } else {
-      status = minutes > 0 ? "done" : "empty";
+export function monthGroups(data, ctx, today) {
+  const end = historyEnd(data, today);
+  const weekCount = Math.ceil((diffDays(data.startDate, end) + 1) / 7);
+  const groups = [];
+  for (let w = 0; w < weekCount; w++) {
+    const week = weekReport(data, ctx, w, today);
+    const key = monthKey(week.start);
+    let group = groups[groups.length - 1];
+    if (!group || group.key !== key) {
+      group = { key, weeks: [], ok: 0, active: 0 };
+      groups.push(group);
     }
-
-    cells.push({ date: dateStr, minutes, status, dailyGoal });
+    group.weeks.push(week);
+    group.ok += week.ok;
+    group.active += week.activeCount;
   }
-
-  return { cells, totalDays, truncated: totalDays > maxDays };
+  return groups;
 }
 
-export function allTags(data) {
-  const set = new Set();
-  data.logs.forEach((l) => (l.tags || []).forEach((t) => set.add(t)));
-  return Array.from(set).sort((a, b) => a.localeCompare(b, "ko"));
+export function daysUntil(dateStr, today) {
+  return dateStr ? diffDays(today, dateStr) : null;
 }
 
-export function formatMinutes(minutes) {
-  const total = Math.max(0, Math.round(minutes || 0));
-  const h = Math.floor(total / 60);
-  const m = total % 60;
-  if (h === 0) return `${m}분`;
-  if (m === 0) return `${h}시간`;
-  return `${h}시간 ${m}분`;
+export function studyDaysBetween(data, fromStr, toStr) {
+  let count = 0;
+  for (let d = fromStr; d <= toStr; d = addDays(d, 1)) if (!effectiveKind(data, d)) count++;
+  return count;
+}
+
+export function focusRows(data, track, today) {
+  const info = data.tracks[track];
+  const from = info.activeFrom && info.activeFrom > today ? info.activeFrom : today;
+  const days = info.examDate ? Math.max(1, studyDaysBetween(data, from, info.examDate)) : null;
+  const rows = data.goals
+    .filter((g) => !g.archived && g.track === track)
+    .map((goal) => {
+      const remaining = goal.total > 0 ? goal.total - goal.progress : null;
+      return { goal, remaining, perDay: remaining !== null && days ? remaining / days : null };
+    });
+  return { rows, days, from };
+}
+
+export function exportedLastBackupDays(lastBackupAt) {
+  if (!lastBackupAt) return null;
+  return Math.floor((Date.now() - new Date(lastBackupAt).getTime()) / 86400000);
 }

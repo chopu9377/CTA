@@ -1,0 +1,50 @@
+name: Update holidays
+
+# 공공데이터포털 "한국천문연구원 특일 정보" API로 data/holidays.json을 갱신한다.
+# 저장소 Settings > Secrets and variables > Actions 에 DATA_GO_KR_KEY 를 등록해야 동작한다.
+on:
+  schedule:
+    - cron: "0 20 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch holidays
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+        run: |
+          set -euo pipefail
+          this_year=$(date +%Y)
+          : > /tmp/holidays.tsv
+          for year in "$this_year" "$((this_year + 1))"; do
+            for month in 01 02 03 04 05 06 07 08 09 10 11 12; do
+              curl -fsS "https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo?serviceKey=${DATA_GO_KR_KEY}&solYear=${year}&solMonth=${month}&_type=json&numOfRows=50" \
+                | jq -r '.response.body.items.item? | if type=="array" then .[] elif type=="object" then . else empty end | select(.isHoliday=="Y") | "\(.locdate)\t\(.dateName)"' \
+                >> /tmp/holidays.tsv
+            done
+          done
+          jq -Rn '[inputs | split("\t")] | map({key: (.[0] | .[0:4] + "-" + .[4:6] + "-" + .[6:8]), value: .[1]}) | from_entries' \
+            < /tmp/holidays.tsv > /tmp/holidays.json
+          # API 오류로 목록이 비었을 때 기존 파일을 덮어쓰지 않는다
+          test "$(jq 'length' /tmp/holidays.json)" -ge 10
+          mkdir -p data
+          cp /tmp/holidays.json data/holidays.json
+
+      - name: Commit if changed
+        run: |
+          if git diff --quiet -- data/holidays.json; then
+            echo "No changes"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/holidays.json
+          git commit -m "Update holidays"
+          git push

@@ -1,4 +1,4 @@
-const CACHE_NAME = "cta-static-v14";
+const CACHE_NAME = "cta-static-v15";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -6,14 +6,19 @@ const APP_SHELL = [
   "./js/app.js",
   "./js/storage.js",
   "./js/stats.js",
+  "./js/dates.js",
+  "./js/presets.js",
+  "./js/holidays.js",
   "./js/ui.js",
   "./js/ui/shared.js",
-  "./js/ui/dashboard.js",
-  "./js/ui/log.js",
-  "./js/ui/goal.js",
-  "./js/ui/volume.js",
-  "./js/ui/subjects.js",
+  "./js/ui/weekgrid.js",
+  "./js/ui/week.js",
+  "./js/ui/today.js",
+  "./js/ui/exam.js",
+  "./js/ui/history.js",
   "./js/ui/settings.js",
+  "./js/ui/settle.js",
+  "./data/holidays.json",
   "./manifest.json",
   "./icons/icon-180.png",
   "./icons/icon-192.png",
@@ -34,8 +39,23 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
+// 공휴일 목록은 정기 작업이 갱신하므로 네트워크를 먼저 시도하고, 실패하면 캐시를 쓴다.
+function networkFirst(request) {
+  return fetch(request)
+    .then((response) => {
+      const copy = response.clone();
+      caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+      return response;
+    })
+    .catch(() => caches.match(request));
+}
+
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+  if (new URL(event.request.url).pathname.endsWith("/data/holidays.json")) {
+    event.respondWith(networkFirst(event.request));
+    return;
+  }
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;

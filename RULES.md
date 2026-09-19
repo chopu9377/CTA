@@ -27,18 +27,24 @@
 /index.html
 /css/style.css
 /js/
-  app.js        # 진입점, 화면 전환/초기화
-  storage.js    # 데이터 읽기/쓰기 (localStorage 또는 IndexedDB) + 백업 내보내기/가져오기
-  stats.js      # 달성률(%), 누적, 회독 집계 계산 로직
+  app.js        # 진입점, 이벤트 위임(클릭/제출/변경), 화면 전환/초기화
+  storage.js    # 데이터 읽기/쓰기(localStorage) + 백업 내보내기/가져오기
+  stats.js      # 하루 상태·이월 상환·주간 쿼터·월별 집계 등 순수 계산 로직
+  dates.js      # 날짜 문자열 헬퍼
+  presets.js    # 트랙별 기본 목표, 시험 과목, 과목 색 슬롯
+  holidays.js   # data/holidays.json 로드, 공휴일 이름 조회
   ui.js         # 화면별 렌더 함수를 다시 내보내는 배럴(barrel) 파일
   ui/
-    shared.js     # 여러 화면이 같이 쓰는 작은 헬퍼(escapeHtml, rateText 등)
-    dashboard.js  # 대시보드 화면
-    log.js        # 기록 화면
-    goal.js       # 목표(날짜별 시간 배분) 화면
-    volume.js     # 공부량체크 화면
-    subjects.js   # 과목/교재 관리 화면
+    shared.js     # 여러 화면이 같이 쓰는 작은 헬퍼(escapeHtml, 링 SVG, 과목 색 등)
+    weekgrid.js   # 주 카드/범례 (주간·공부기록 화면 공용)
+    week.js       # 주간 화면
+    today.js      # 오늘 화면
+    exam.js       # 시험 기록 화면
+    history.js    # 공부기록 화면
     settings.js   # 설정 화면
+    settle.js     # 이월 확인 하단 시트
+/data/holidays.json          # 공휴일 목록(정기 작업이 갱신, 서비스워커가 미리 캐시)
+/.github/workflows/          # 공휴일 갱신 작업(앱 코드가 아니라 저장소 자동화)
 /manifest.json
 /service-worker.js
 /icons/
@@ -57,7 +63,7 @@
 - 저장하는 최상위 객체에 스키마 버전 필드(`schemaVersion`)를 포함해 향후 구조 변경 시
   마이그레이션할 수 있게 한다.
 - **데이터를 읽을 때 `schemaVersion`이 다르다고 곧바로 초기화하지 않는다.** `storage.js`의
-  `normalize()`처럼, 배열(`subjects`, `logs`)이 존재하는 한 누락된 필드는 기본값으로
+  `normalize()`처럼, 배열(`goals`, `entries`)이 존재하는 한 누락된 필드는 기본값으로
   채워서 기존 데이터를 최대한 살린다. 완전히 읽을 수 없는 경우에만 빈 데이터로 초기화한다.
   앱을 배포(코드 업데이트)해도 브라우저의 `localStorage` 자체는 그대로 남아있으므로,
   이 규칙을 지키면 배포 때문에 사용자의 기존 기록이 사라지는 일이 없다.
@@ -100,6 +106,8 @@
 
 ## 8. 하지 말아야 할 것
 
-- 서버/백엔드 코드 작성 (v1은 완전히 클라이언트 사이드)
+- 서버/백엔드 코드 작성 (앱은 완전히 클라이언트 사이드). 인증키가 필요한 외부 API는 앱에서 직접
+  호출하지 않고, GitHub Actions가 받아 정적 파일(`data/`)로 저장하게 한다. API 키를 코드/저장소에
+  넣지 않는다(GitHub Secrets 사용).
 - 로그인/인증, 다중 사용자 대비 코드
 - 사용하지 않는 기능을 위한 추상화나 설정 옵션 미리 만들기

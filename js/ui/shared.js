@@ -8,14 +8,34 @@ export function escapeHtml(str) {
   }[ch]));
 }
 
-export function rateText(rate) {
-  return rate === null ? "목표 미설정" : `${rate}%`;
-}
-
 export function clampPct(rate) {
   return Math.min(100, Math.max(0, rate || 0));
 }
 
-export function roundBadgeText(rounds, target) {
-  return target > 0 ? `${rounds}/${target}회독` : `${rounds}회독`;
+export function subjectColor(data, name) {
+  const color = data.subjectColors[name];
+  return typeof color === "number" ? `var(--series-${color})` : color || "#8a8a8a";
+}
+
+export function shortUnit(unit) {
+  return unit.replace("연습서 ", "").replace("객관식 ", "").replace("(강)", "");
+}
+
+// 채워질수록 진해지다가 100%면 꽉 찬 원 + 체크
+export function ringHTML(color, pct) {
+  const r = 26;
+  const c = 2 * Math.PI * r;
+  const done = pct >= 100;
+  const opacity = (0.35 + 0.65 * (pct / 100)).toFixed(2);
+  const track = `<circle cx="32" cy="32" r="${r}" fill="none" stroke="${color}" stroke-opacity=".14" stroke-width="7" />`;
+  if (done) {
+    return `<svg viewBox="0 0 64 64" width="66" height="66">${track}
+      <circle cx="32" cy="32" r="29.5" fill="${color}" />
+      <path d="M20 33 l8 8 l16 -17" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" /></svg>`;
+  }
+  const arc = pct > 0
+    ? `<circle cx="32" cy="32" r="${r}" fill="none" stroke="${color}" stroke-opacity="${opacity}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${(c * pct / 100).toFixed(2)} ${c.toFixed(2)}" transform="rotate(-90 32 32)" />`
+    : "";
+  return `<svg viewBox="0 0 64 64" width="66" height="66">${track}${arc}
+    <text x="32" y="36" text-anchor="middle" font-size="13" font-weight="700" fill="${color}" fill-opacity="${opacity}">${Math.round(pct)}%</text></svg>`;
 }
