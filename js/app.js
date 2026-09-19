@@ -48,6 +48,17 @@ function render() {
   tabButtons.forEach((btn) => btn.classList.toggle("active", btn.dataset.view === ui.view));
   const picker = document.getElementById("picker");
   if (picker) picker.scrollTop = ui.pick * PICKER_ITEM_HEIGHT;
+  showAppVersion();
+}
+
+// 서비스워커 캐시 이름(cta-static-vN)에서 지금 받아 둔 앱 버전을 읽어 설정 화면에 보여준다
+function showAppVersion() {
+  const el = document.querySelector("[data-app-version]");
+  if (!el || !window.caches) return;
+  caches.keys().then((keys) => {
+    const name = keys.filter((k) => k.startsWith("cta-static-")).sort().pop();
+    if (name) el.textContent = ` · ${name.replace("cta-static-", "")}`;
+  });
 }
 
 function switchView(view) {
@@ -125,6 +136,14 @@ initSync({
 }).then(() => showSettleSheet({ silent: true }));
 
 if ("serviceWorker" in navigator) {
+  // 새 서비스워커가 활성화되면 한 번 새로고침해서 새 버전 화면으로 바꾼다(첫 설치는 제외)
+  const hadController = !!navigator.serviceWorker.controller;
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (!hadController || reloaded) return;
+    reloaded = true;
+    location.reload();
+  });
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("./service-worker.js").catch((err) => console.error("SW registration failed", err));
   });

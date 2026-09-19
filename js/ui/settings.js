@@ -158,6 +158,6 @@ export function renderSettings(data, today, legacyExists, syncInfo) {
       ${legacyExists ? `<p class="hint">이전 버전(시간 기준) 기록이 이 기기에 남아 있어요.</p>
         <button class="btn btn-secondary btn-sm" data-action="export-legacy" type="button">이전 버전 데이터 내보내기</button>` : ""}
     </div>
-    <div class="card"><h2 class="section-title">앱 정보</h2><p class="stat-sub">CTA · 세무사 수험용 공부 기록 트래커</p></div>
+    <div class="card"><h2 class="section-title">앱 정보</h2><p class="stat-sub">CTA · 세무사 수험용 공부 기록 트래커<span data-app-version></span></p></div>
   </section>`;
 }
