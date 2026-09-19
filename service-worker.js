@@ -1,4 +1,4 @@
-const CACHE_NAME = "cta-static-v13";
+const CACHE_NAME = "cta-static-v14";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -7,7 +7,15 @@ const APP_SHELL = [
   "./js/storage.js",
   "./js/stats.js",
   "./js/ui.js",
+  "./js/ui/shared.js",
+  "./js/ui/dashboard.js",
+  "./js/ui/log.js",
+  "./js/ui/goal.js",
+  "./js/ui/volume.js",
+  "./js/ui/subjects.js",
+  "./js/ui/settings.js",
   "./manifest.json",
+  "./icons/icon-180.png",
   "./icons/icon-192.png",
   "./icons/icon-512.png"
 ];

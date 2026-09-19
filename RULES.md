@@ -30,14 +30,25 @@
   app.js        # 진입점, 화면 전환/초기화
   storage.js    # 데이터 읽기/쓰기 (localStorage 또는 IndexedDB) + 백업 내보내기/가져오기
   stats.js      # 달성률(%), 누적, 회독 집계 계산 로직
-  ui.js         # DOM 렌더링 함수들
+  ui.js         # 화면별 렌더 함수를 다시 내보내는 배럴(barrel) 파일
+  ui/
+    shared.js     # 여러 화면이 같이 쓰는 작은 헬퍼(escapeHtml, rateText 등)
+    dashboard.js  # 대시보드 화면
+    log.js        # 기록 화면
+    goal.js       # 목표(날짜별 시간 배분) 화면
+    volume.js     # 공부량체크 화면
+    subjects.js   # 과목/교재 관리 화면
+    settings.js   # 설정 화면
 /manifest.json
 /service-worker.js
 /icons/
 ```
 
 역할별로 파일을 나누되, 과도하게 쪼개지 않는다. 파일 하나가 너무 커지면(대략 300줄 이상)
-그때 분리한다.
+그때 분리한다. `js/ui.js`가 여러 화면을 한 파일에 다 담아 300줄을 크게 넘겼던 적이 있어
+`js/ui/` 밑에 화면 단위 파일로 나눴다 — `js/app.js`의 `import ... from "./ui.js"`가 안 바뀌게
+`ui.js`는 각 화면 파일의 렌더 함수를 다시 내보내는 배럴로만 남겨둔다. 새 화면을 추가할 때도
+같은 패턴(화면별 파일 + `ui.js`에 재export 한 줄 추가)을 따른다.
 
 ## 4. 데이터 저장 규칙
 
