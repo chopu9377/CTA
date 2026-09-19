@@ -78,9 +78,9 @@ function totalRowHTML(data, g, today) {
       <button type="button" class="btn-danger" data-action="archive-goal" data-id="${g.id}" aria-label="삭제">✕</button>
     </div>
     <div class="total-inputs">
-      <label class="mini-field"><span>총 분량</span><input type="number" min="0" inputmode="numeric" value="${g.total || ""}" placeholder="1200" data-goal-field="total" data-id="${g.id}" /></label>
-      <label class="mini-field"><span>누적 푼 양</span><input type="number" min="0" inputmode="numeric" value="${cumulative || ""}" placeholder="340" data-goal-field="cumulative" data-id="${g.id}" /></label>
-      <label class="mini-field"><span>목표 회독</span><input type="number" min="0" inputmode="numeric" value="${g.targetRounds || ""}" placeholder="3" data-goal-field="targetRounds" data-id="${g.id}" /></label>
+      <label class="mini-field"><span>총 분량</span><input type="number" min="0" inputmode="numeric" value="${g.total || ""}" placeholder="예) 1200" data-goal-field="total" data-id="${g.id}" /></label>
+      <label class="mini-field"><span>누적 푼 양</span><input type="number" min="0" inputmode="numeric" value="${cumulative || ""}" placeholder="0 (예: 340)" data-goal-field="cumulative" data-id="${g.id}" /></label>
+      <label class="mini-field"><span>목표 회독</span><input type="number" min="0" inputmode="numeric" value="${g.targetRounds || ""}" placeholder="예) 3" data-goal-field="targetRounds" data-id="${g.id}" /></label>
       <label class="mini-field"><span>하루 목표</span><select data-goal-field="planMode" data-id="${g.id}"><option value="fixed"${g.planMode === "auto" ? "" : " selected"}>고정</option><option value="auto"${g.planMode === "auto" ? " selected" : ""}>자동</option></select></label>
       <label class="mini-field"><span>1개당 소요(분)</span><input type="number" min="1" inputmode="numeric" value="${g.minutesPerUnit}" data-goal-field="minutesPerUnit" data-id="${g.id}" /></label>
       <label class="mini-field"><span>유지 평일</span><input type="number" min="0" inputmode="numeric" value="${g.maintWeekdayTarget}" data-goal-field="maintWeekdayTarget" data-id="${g.id}" /></label>
