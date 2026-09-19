@@ -297,44 +297,6 @@ body {
 }
 
 /* toggle switch */
-.switch-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.sw {
-  position: relative;
-  width: 44px;
-  height: 26px;
-  border: none;
-  border-radius: 999px;
-  background: var(--gridline);
-  transition: background 0.2s ease;
-}
-
-.sw::after {
-  content: "";
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: #fff;
-  transition: left 0.2s ease;
-}
-
-.sw.on {
-  background: var(--accent);
-}
-
-.sw.on::after {
-  left: 21px;
-}
-
 /* week grid */
 .legend {
   display: flex;
@@ -768,26 +730,6 @@ body {
   width: 100%;
 }
 
-.load-section + .load-section {
-  margin-top: 22px;
-  padding-top: 18px;
-  border-top: 1px solid var(--gridline);
-}
-
-.load-title {
-  margin-bottom: 10px;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--text-secondary);
-}
-
-.load-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-bottom: 4px;
-}
-
 .load-row {
   display: grid;
   grid-template-columns: 22px minmax(0, 1fr) 118px;
@@ -813,11 +755,6 @@ body {
 
 .meter-fill.bad {
   background: var(--danger);
-}
-
-.load-list + .hint + .btn {
-  margin-top: 12px;
-  width: 100%;
 }
 
 .goal-edit-main {
@@ -947,30 +884,6 @@ body {
   margin-top: 3px;
 }
 
-.focus-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-
-.focus-table th,
-.focus-table td {
-  padding: 9px 4px;
-  text-align: right;
-  border-bottom: 1px solid var(--gridline);
-}
-
-.focus-table th:first-child,
-.focus-table td:first-child {
-  text-align: left;
-}
-
-.focus-table th {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--text-muted);
-}
-
 .total-row {
   margin-bottom: 16px;
 }
@@ -983,24 +896,6 @@ body {
   margin-bottom: 8px;
   font-size: 14px;
   font-weight: 700;
-}
-
-.pace-line {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 10px;
-  padding: 10px 12px;
-  border-radius: var(--radius-sm);
-  background: var(--page);
-  font-size: 13px;
-  color: var(--text-secondary);
-}
-
-.pace-line small {
-  color: var(--text-muted);
 }
 
 .total-inputs {
@@ -1449,11 +1344,7 @@ textarea:focus {
   margin: 0;
 }
 
-.tree-leaf .pace-line {
-  margin: 0;
-}
-
-.tree-body {
+.tree-leaf .tree-body {
   margin-top: 8px;
 }
 
@@ -1496,4 +1387,69 @@ textarea:focus {
 .goal-edit-main input:disabled {
   opacity: 0.55;
   background: var(--page);
+}
+
+/* 오늘 탭 편집: 자동 목표는 평일/주말 숫자 칸이 없다 */
+.goal-edit-head.compact,
+.goal-edit-main.compact {
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.1fr) 28px;
+}
+
+.auto-cell {
+  grid-column: span 2;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* 시험 기록의 기준선 토글 */
+.switch-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.sw {
+  position: relative;
+  width: 44px;
+  height: 26px;
+  border: none;
+  border-radius: 999px;
+  background: var(--gridline);
+  transition: background 0.2s ease;
+}
+
+.sw::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  transition: left 0.2s ease;
+}
+
+.sw.on {
+  background: var(--accent);
+}
+
+.sw.on::after {
+  left: 21px;
+}
+
+
+/* 권장량 도출 트리 */
+.load-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.tree-body {
+  margin-top: 8px;
 }

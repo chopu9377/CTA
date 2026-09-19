@@ -1,5 +1,5 @@
 import { addDays, todayStr } from "./dates.js";
-import { getData, persist, uid, refreshToday, replaceData, findGoal } from "./store.js";
+import { getData, persist, uid, refreshToday, replaceData, findGoal, markReplan } from "./store.js";
 import { isAutoGoal, canRedistribute } from "./weekplan.js";
 
 // app.js는 저장 관련 함수를 모두 이 파일에서 가져온다(핵심은 store.js, 목표·기록 변경은 goals.js).
@@ -16,9 +16,15 @@ export function cycleDayKind(dateStr) {
   else next = null;
   if (next) data.dayKinds[dateStr] = next;
   else delete data.dayKinds[dateStr];
-  if (dateStr <= todayStr()) refreshToday();
+  // 이번 주 안의 휴식/복습 변경만 이번 주 계획을 다시 나눈다(다른 주는 그 주가 시작될 때 반영된다)
+  if (weekOf(data, dateStr) === weekOf(data, todayStr())) markReplan();
+  if (dateStr <= todayStr() || weekOf(data, dateStr) === weekOf(data, todayStr())) refreshToday();
   persist();
   return { next, blockedReview: current === "rest" && next === null };
+}
+
+function weekOf(data, dateStr) {
+  return Math.floor((new Date(dateStr) - new Date(data.startDate)) / 86400000 / 7);
 }
 
 function hasReviewInWeek(data, dateStr) {
@@ -52,6 +58,10 @@ export function settleDay(dateStr, decision, shortfalls) {
 export function setTrackInfo(track, patch) {
   const data = getData();
   Object.assign(data.tracks[track], patch);
+  if (["examDate", "activeFrom", "maintain"].some((k) => k in patch)) {
+    markReplan();
+    refreshToday();
+  }
   persist();
 }
 
@@ -60,6 +70,7 @@ export function setActiveTrack(track) {
   const today = todayStr();
   data.trackSwitches = data.trackSwitches.filter((s) => s.from !== today);
   data.trackSwitches.push({ from: today, track });
+  markReplan();
   refreshToday();
   persist();
 }
@@ -67,7 +78,10 @@ export function setActiveTrack(track) {
 export function setSetting(key, value) {
   const data = getData();
   data.settings[key] = value;
-  if (key === "holidayAutoRest") refreshToday();
+  if (["weekdayHours", "weekendHours", "bufferDays", "holidayAutoRest"].includes(key)) {
+    markReplan();
+    refreshToday();
+  }
   persist();
 }
 

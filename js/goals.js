@@ -1,6 +1,9 @@
 import { todayStr } from "./dates.js";
 import { weekdaysForPreset } from "./presets.js";
-import { getData, persist, uid, ensureColor, newGoal, refreshToday, findGoal } from "./store.js";
+import { getData, persist, uid, ensureColor, newGoal, refreshToday, findGoal, markReplan } from "./store.js";
+
+// 이 필드가 바뀌면 자동 목표의 이번 주 계획을 오늘부터 새로 나눈다
+const PLAN_FIELDS = ["total", "targetRounds", "weekdays", "maintWeekdayTarget", "maintWeekendTarget"];
 
 function rollRounds(goal) {
   let rolled = 0;
@@ -28,6 +31,7 @@ export function updateGoal(goalId, patch) {
   if (!goal) return { rolled: 0 };
   const oldName = goal.subject;
   Object.assign(goal, patch);
+  if (PLAN_FIELDS.some((k) => k in patch)) markReplan([goal]);
   if (patch.subject) {
     ensureColor(data, goal.subject);
     if (!data.goals.some((g) => g.subject === oldName)) delete data.subjectColors[oldName];
@@ -50,6 +54,8 @@ export function setCumulative(goalId, amount) {
     goal.round = 1;
     goal.progress = value;
   }
+  markReplan([goal]);
+  refreshToday();
   persist();
   return { round: goal.round, progress: goal.progress, total: goal.total };
 }
@@ -61,6 +67,7 @@ export function applyWeekdayPreset(track, presetKey) {
     const days = weekdaysForPreset(presetKey, track, g.subject, g.unit);
     if (days) g.weekdays = days;
   });
+  markReplan(data.goals.filter((g) => g.track === track));
   refreshToday();
   persist();
 }

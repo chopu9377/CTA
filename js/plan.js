@@ -1,6 +1,6 @@
 import { addDays, weekdayOf } from "./dates.js";
 import { trackAt, effectiveKind, isWeekendLike, targetsFor } from "./stats.js";
-import { countUnit, weekdaysForPreset } from "./presets.js";
+import { weekdaysForPreset } from "./presets.js";
 
 // 계획상 그날 활성인 트랙. 오늘·과거는 실제 전환 기록을 따르고, 미래는 "1차 활성 시작일 ~ 1차 시험일 전날"이
 // 1차 집중 기간이고 그 밖은 2차라고 본다(두 날짜가 모두 있어야 계획으로 인정).
@@ -48,22 +48,13 @@ export function dayLoad(data, dateStr, today) {
   return { minutes, limit: limitMinutes(data, dateStr), weekend: isWeekendLike(dateStr) };
 }
 
-// 한 주(일~토, 공휴일 무시) 목표 합계를 단위별로 센다. 요일 프리셋이 주간 총량을 얼마나 바꾸는지 보여줄 때 쓴다.
-export function weeklyVolume(goals, daysOf = (g) => g.weekdays) {
-  const totals = {};
-  goals.forEach((g) => {
-    const perWeek = daysOf(g).reduce((sum, dow) => sum + (dow === 0 || dow === 6 ? g.weekendTarget : g.weekdayTarget), 0);
-    const unit = countUnit(g.unit);
-    totals[unit] = (totals[unit] || 0) + perWeek;
-  });
-  return totals;
-}
-
+// 요일 프리셋이 바꾸는 "과목 × 공부 요일" 칸 수(확인 창에서 얼마나 바뀌는지 보여준다)
 export function presetImpact(data, track, presetKey) {
   const goals = data.goals.filter((g) => !g.archived && g.track === track);
+  const count = (daysOf) => goals.reduce((sum, g) => sum + daysOf(g).length, 0);
   return {
-    before: weeklyVolume(goals),
-    after: weeklyVolume(goals, (g) => weekdaysForPreset(presetKey, track, g.subject, g.unit) || g.weekdays)
+    before: count((g) => g.weekdays),
+    after: count((g) => weekdaysForPreset(presetKey, track, g.subject, g.unit) || g.weekdays)
   };
 }
 
@@ -124,45 +115,3 @@ export function paceFor(data, goal, today) {
   return { ...result, perWeekday, perWeekend: Math.ceil(perWeekday * ratio) };
 }
 
-// 그 트랙을 집중할 때 권장량을 그대로 따른 요일별(월~일) 예상 공부 시간과 공부 가능 시간.
-// 다른 트랙의 유지 목표도 시간에 포함한다.
-export function weeklyLoad(data, track, today) {
-  const goals = data.goals.filter((g) => !g.archived && g.track === track);
-  const paces = goals.map((goal) => ({ goal, pace: paceFor(data, goal, today) })).filter((p) => p.pace);
-  const other = track === 1 ? 2 : 1;
-  const maintenance = data.tracks[other].maintain ? data.goals.filter((g) => !g.archived && g.track === other) : [];
-  const rows = [1, 2, 3, 4, 5, 6, 0].map((dow) => {
-    const weekend = dow === 0 || dow === 6;
-    let minutes = paces.reduce((sum, { goal, pace }) => {
-      if (!goal.weekdays.includes(dow)) return sum;
-      return sum + (weekend ? pace.perWeekend : pace.perWeekday) * goal.minutesPerUnit;
-    }, 0);
-    minutes += maintenance.reduce((sum, g) => {
-      if (!g.weekdays.includes(dow)) return sum;
-      return sum + (weekend ? g.maintWeekendTarget : g.maintWeekdayTarget) * g.minutesPerUnit;
-    }, 0);
-    const hours = weekend ? data.settings.weekendHours : data.settings.weekdayHours;
-    return { dow, minutes, limit: Math.round(hours * 60) };
-  });
-  return { rows, paced: paces.length, total: goals.length, maintenance: maintenance.length };
-}
-
-export function focusRows(data, track, today) {
-  const info = data.tracks[track];
-  const from = info.activeFrom && info.activeFrom > today ? info.activeFrom : today;
-  let days = null;
-  if (info.examDate) {
-    days = 0;
-    for (let d = from; d < info.examDate; d = addDays(d, 1)) {
-      if (!effectiveKind(data, d) && studiesTrackOn(data, track, d, today)) days++;
-    }
-    days = Math.max(1, days);
-  }
-  const rows = data.goals
-    .filter((g) => !g.archived && g.track === track)
-    .map((goal) => {
-      const remaining = workLeft(goal);
-      return { goal, remaining, perDay: remaining !== null && days ? remaining / days : null };
-    });
-  return { rows, days, from };
-}

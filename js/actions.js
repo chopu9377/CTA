@@ -1,7 +1,7 @@
 import * as storage from "./storage.js";
 import { todayStr } from "./dates.js";
 import { trackAt, buildContext, dayReport } from "./stats.js";
-import { paceFor, maintenanceGoals, presetImpact } from "./plan.js";
+import { maintenanceGoals, presetImpact } from "./plan.js";
 import { WEEKDAY_PRESETS, countUnit } from "./presets.js";
 import * as sync from "./sync.js";
 
@@ -58,10 +58,6 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
       storage.setActiveTrack(Number(btn.dataset.track));
       ui.selectedGoalId = null;
       ui.pickerOpen = false;
-      render();
-    },
-    "toggle-focus"() {
-      storage.setSetting("focusMode", !storage.getData().settings.focusMode);
       render();
     },
     "cycle-day"(btn) {
@@ -145,36 +141,14 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
       ui.editing = !ui.editing;
       render();
     },
-    "apply-pace"(btn) {
-      storage.updateGoal(btn.dataset.id, { weekdayTarget: Number(btn.dataset.weekday), weekendTarget: Number(btn.dataset.weekend) });
-      toast("평일/주말 목표에 적용했어요");
-      render();
-    },
-    "apply-all-pace"(btn) {
-      const data = storage.getData();
-      const today = todayStr();
-      const track = Number(btn.dataset.track) || trackAt(data, today);
-      let count = 0;
-      data.goals
-        .filter((g) => !g.archived && g.track === track)
-        .forEach((goal) => {
-          const pace = paceFor(data, goal, today);
-          if (!pace || pace.perWeekday === null || pace.left <= 0) return;
-          storage.updateGoal(goal.id, { weekdayTarget: pace.perWeekday, weekendTarget: pace.perWeekend });
-          count++;
-        });
-      toast(count ? `${count}개 목표에 권장량을 적용했어요` : "적용할 권장량이 없어요");
-      render();
-    },
     "apply-preset"(btn) {
       const track = trackAt(storage.getData(), todayStr());
       const { before, after } = presetImpact(storage.getData(), track, btn.dataset.preset);
-      const units = [...new Set([...Object.keys(before), ...Object.keys(after)])];
-      const volume = units.map((u) => `${u} ${before[u] || 0} → ${after[u] || 0}`).join(" · ");
+      const change = `과목별 공부 요일 합계 ${before}칸 → ${after}칸`;
       const label = WEEKDAY_PRESETS.find((p) => p.key === btn.dataset.preset).label;
-      if (!confirm(`"${label}"으로 요일을 바꿀까요?\n\n하루 목표량은 그대로라 주간 목표 합계가 이렇게 바뀌어요.\n${volume}`)) return;
+      if (!confirm(`"${label}"으로 요일을 바꿀까요?\n\n${change}으로 바뀌어요.\n자동 계획 과목은 남은 요일에 맞춰 목표를 다시 나눠요.`)) return;
       storage.applyWeekdayPreset(track, btn.dataset.preset);
-      toast(`요일 패턴을 적용했어요 · 주간 ${volume}`);
+      toast(`요일 패턴을 적용했어요 · ${change}`);
       render();
     },
     "toggle-weekday"(btn) {

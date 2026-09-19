@@ -76,7 +76,8 @@ export function newGoal(track, subject, unit) {
     archived: false,
     // 새 목표는 자동 계획이 기본. 시험일·총 분량·목표 회독이 비어 있는 동안에는 알아서 고정 목표를 쓴다.
     planMode: "auto",
-    autoFrom: todayStr() > DEFAULT_START_DATE ? todayStr() : DEFAULT_START_DATE
+    autoFrom: todayStr() > DEFAULT_START_DATE ? todayStr() : DEFAULT_START_DATE,
+    replanFrom: null
   };
 }
 
@@ -98,7 +99,6 @@ function emptyData() {
     exams: { 1: [], 2: [] },
     subjectColors: {},
     settings: {
-      focusMode: false,
       holidayAutoRest: false,
       weekdayHours: DEFAULT_WEEKDAY_HOURS,
       weekendHours: DEFAULT_WEEKEND_HOURS,
@@ -156,6 +156,7 @@ function normalize(data) {
     g.archived = !!g.archived;
     g.planMode = g.planMode === "auto" ? "auto" : "fixed";
     g.autoFrom = g.planMode === "auto" && g.autoFrom ? g.autoFrom : null;
+    g.replanFrom = g.planMode === "auto" && g.replanFrom ? g.replanFrom : null;
     ensureColor(data, g.subject);
   });
   return data;
@@ -190,6 +191,15 @@ export function freezeDayTargets(today = todayStr()) {
     }
   }
   if (changed) persist({ quiet: true });
+}
+
+// 계획에 영향을 주는 변경(총 분량·요일·시험일·휴식일 등)을 한 날부터 자동 목표를 "그날 진도 기준으로 남은 요일에 다시 나눈다".
+// 그 주 앞날들은 이미 굳었고, 못 한 양은 새 계획의 남은 분량에 들어간다.
+export function markReplan(goals = getData().goals) {
+  const today = todayStr();
+  goals.forEach((g) => {
+    if (!g.archived && g.planMode === "auto") g.replanFrom = today;
+  });
 }
 
 export function refreshToday() {

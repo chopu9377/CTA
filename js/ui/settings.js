@@ -1,9 +1,8 @@
 import { exportedLastBackupDays, trackAt } from "../stats.js";
-import { paceFor } from "../plan.js";
 import { isAutoGoal } from "../weekplan.js";
 import { formatMD } from "../dates.js";
 import { TRACK_LABEL, UNIT_SUGGESTIONS } from "../presets.js";
-import { paceHTML, planTreeHTML } from "./plantree.js";
+import { planTreeHTML } from "./plantree.js";
 import { escapeHtml, subjectColor } from "./shared.js";
 import { syncCardHTML } from "./syncui.js";
 
@@ -65,7 +64,7 @@ export function paceSlotHTML(data, g, today) {
   return `<div class="meter-track"><div class="meter-fill" style="width:${pct}%"></div></div>
     <div class="hint">이번 회독 ${g.progress}${g.total ? ` / ${g.total} · ${pct}%` : " · 총 분량을 입력하면 진도율과 회독이 계산돼요"}</div>
     ${autoHintHTML(data, g)}
-    ${isAutoGoal(data, g) ? "" : paceHTML(g, paceFor(data, g, today))}`;
+`;
 }
 
 function totalRowHTML(data, g, today) {

@@ -1,6 +1,5 @@
 import { addDays, monthKey } from "../dates.js";
 import { trackAt, weekReport, weekQuotas, currentWeekIndex, daysUntil, pendingSettlements, historyEnd } from "../stats.js";
-import { focusRows } from "../plan.js";
 import { absorbedShortfalls } from "../weekplan.js";
 import { TRACK_LABEL, countUnit } from "../presets.js";
 import { escapeHtml, ringHTML, subjectColor } from "./shared.js";
@@ -45,17 +44,6 @@ function noticesHTML(data, ctx, activeTrack, today) {
   return notices.join("");
 }
 
-function focusHTML(data, track, today) {
-  const { rows, days, from } = focusRows(data, track, today);
-  if (!days) return `<p class="empty-state">설정에서 ${TRACK_LABEL[track]} 시험일을 입력하면 하루 필요량이 계산돼요.</p>`;
-  return `<p class="hint">남은 분량 ÷ 남은 공부일수(${days}일, ${from} 기준)만 봅니다. 휴식·복습일은 제외.</p>
-    <table class="focus-table"><tr><th>과목</th><th>남은 분량</th><th>하루 필요</th></tr>
-    ${rows.map((r) => `<tr>
-      <td><i class="swatch" style="background:${subjectColor(data, r.goal.subject)}"></i>${escapeHtml(r.goal.subject)}<span class="unit">${escapeHtml(countUnit(r.goal.unit))}</span></td>
-      <td>${r.remaining === null ? "총 분량 미입력" : r.remaining}</td>
-      <td>${r.perDay === null ? "-" : `<b>${r.perDay.toFixed(1)}</b>`}</td></tr>`).join("")}</table>`;
-}
-
 function quotaHTML(data, ctx, track, weekIndex) {
   const q = weekQuotas(data, ctx, weekIndex, track);
   const meta = `진도일 ${q.workdays}일${q.rest ? ` · 휴식 ${q.rest}` : ""}${q.review ? ` · 복습 ${q.review}` : ""}`;
@@ -84,7 +72,6 @@ function monthWeeksHTML(data, ctx, today) {
 
 export function renderWeek(data, ctx, today) {
   const track = trackAt(data, today);
-  const focus = data.settings.focusMode;
   const monthNumber = Number(today.slice(5, 7));
   return `<section class="view">
     ${trackBarHTML(data, track, today)}
@@ -92,11 +79,10 @@ export function renderWeek(data, ctx, today) {
     <div class="card">
       <div class="section-header-row">
         <h2 class="section-title">${monthNumber}월 주간 현황</h2>
-        <span class="switch-row">집중 모드 <button class="sw${focus ? " on" : ""}" data-action="toggle-focus" type="button" aria-label="집중 모드"></button></span>
       </div>
-      ${focus ? focusHTML(data, track, today) : `${legendHTML()}${monthWeeksHTML(data, ctx, today)}
-        <p class="hint">이번 달 주간만 보여요(지난 기록은 '공부기록' 탭). 미래 칸을 탭: 1번 휴식 → 2번 복습(주 1일) → 3번 원상복귀.</p>`}
+      ${legendHTML()}${monthWeeksHTML(data, ctx, today)}
+      <p class="hint">이번 달 주간만 보여요(지난 기록은 '공부기록' 탭). 미래 칸을 탭: 1번 휴식 → 2번 복습(주 1일) → 3번 원상복귀.</p>
     </div>
-    ${focus ? "" : quotaHTML(data, ctx, track, currentWeekIndex(data, today))}
+    ${quotaHTML(data, ctx, track, currentWeekIndex(data, today))}
   </section>`;
 }

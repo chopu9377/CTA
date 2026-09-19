@@ -30,7 +30,7 @@ export function renderSettleSheet(days, data) {
           return `<div class="settle-item">
             <div class="settle-date">${formatKoreanDate(day.date)}</div>
             <div class="settle-what">${asked.map(text).join(" · ")}</div>
-            ${later.length ? `<div class="settle-what">${later.map(text).join(" · ")} — 이번 주에 다시 나눌 공부일이 없어 다음 주 계획에 자동 반영돼요</div>` : ""}
+            ${later.length ? `<div class="settle-what">${later.map(text).join(" · ")} — 이번 주 계획에 이미 반영됐거나 다시 나눌 공부일이 없어서 자동으로 반영돼요</div>` : ""}
             <div class="seg">
               <label><input type="radio" name="d:${day.date}" value="carried" checked /><span>이월</span></label>
               <label><input type="radio" name="d:${day.date}" value="dropped" /><span>${skipLabel}</span></label>

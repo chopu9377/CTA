@@ -108,7 +108,8 @@ function buildWeek(data, goal, weekStart, today) {
   const info = data.tracks[goal.track];
   const endDate = addDays(info.examDate, -data.settings.bufferDays);
   const auto = goal.planMode === "auto" && !!goal.autoFrom;
-  const effStart = auto && goal.autoFrom > weekStart ? goal.autoFrom : weekStart;
+  const planStart = auto ? [goal.autoFrom, goal.replanFrom].filter(Boolean).sort().pop() : null;
+  const effStart = planStart && planStart > weekStart ? planStart : weekStart;
   const upcoming = goal.track === 1 && !!info.activeFrom && info.activeFrom > today;
   const calcFrom = upcoming && info.activeFrom > effStart ? info.activeFrom : effStart;
   const cumulativeAtStart = cumulativeOf(goal) - entriesOf(data, goal.id, effStart);
@@ -118,7 +119,7 @@ function buildWeek(data, goal, weekStart, today) {
   const plan = runPlan(days, left0, weekStart);
   const thisWeek = plan.weeks.find((w) => w.key === 0) || { days: [], need: 0, total: 0, amounts: [] };
   const amountByDate = new Map(thisWeek.days.map((d, i) => [d.date, thisWeek.amounts[i]]));
-  return { weekStart, endDate, rawLeftAtStart, credit, left0, plan, thisWeek, amountByDate };
+  return { weekStart, effStart, endDate, rawLeftAtStart, credit, left0, plan, thisWeek, amountByDate };
 }
 
 // 저장 데이터가 바뀔 때마다(version.js) 비운다. 화면을 그릴 때 같은 주 계획을 여러 번 묻기 때문에 필요하다.
@@ -151,7 +152,8 @@ function carryDays(week, c) {
 function carryShare(data, goal, week, dateStr) {
   let sum = 0;
   data.carries.forEach((c) => {
-    if (c.goalId !== goal.id || !c.redistribute || weekStartOf(data, c.fromDate) !== week.weekStart) return;
+    // 새 출발(effStart) 이전 날의 이월은 새 계획의 남은 분량에 이미 들어 있으므로 다시 얹지 않는다
+    if (c.goalId !== goal.id || !c.redistribute || weekStartOf(data, c.fromDate) !== week.weekStart || c.fromDate < week.effStart) return;
     const days = carryDays(week, c);
     const index = days.findIndex((d) => d.date === dateStr);
     if (index >= 0) sum += distribute(c.amount, days)[index];
@@ -175,7 +177,7 @@ export function autoApplies(data, goal, dateStr) {
 // 그날 미달분을 같은 주 안에서 다시 나눌 수 있는가(오늘 포함 남은 공부일이 있는가)
 export function canRedistribute(data, goal, fromDate, today) {
   const week = getWeek(data, goal, weekStartOf(data, fromDate), today);
-  return week.thisWeek.days.some((d) => d.date > fromDate && d.date >= today);
+  return fromDate >= week.effStart && week.thisWeek.days.some((d) => d.date > fromDate && d.date >= today);
 }
 
 // 이월해서 나눠 얹은 양을 그 몫이 붙은 날들에서 다 채웠는지
@@ -210,13 +212,27 @@ export function movedOut(data, goalId, dates) {
     .reduce((sum, c) => sum + c.amount, 0);
 }
 
+// 그 주 목표량. 자동 목표가 주 중간에 새 출발(replan)했다면 그 이전 날은 실제 한 양으로 확정하고, 이후는 새 계획의 목표를 쓴다
+// (이전 날에 못 한 양은 새 계획의 남은 분량에 이미 들어 있어서 목표에 두 번 세면 안 된다).
+export function weekQuota(data, sums, goal, dates) {
+  const today = todayStr();
+  let from = dates[0];
+  if (isAutoGoal(data, goal) && weekStartOf(data, from) <= weekStartOf(data, today)) {
+    const effStart = getWeek(data, goal, weekStartOf(data, from), today).effStart;
+    if (effStart > from) from = effStart;
+  }
+  const sumOf = (d) => sums.get(`${goal.id}|${d}`) || 0;
+  const before = dates.filter((d) => d < from).reduce((s, d) => s + sumOf(d), 0);
+  const rest = dates.filter((d) => d >= from);
+  return before + rest.reduce((s, d) => s + (targetsFor(data, d)[goal.id] || 0), 0) - movedOut(data, goal.id, rest);
+}
+
 // 이번 주 현재/주간 목표
 export function weekProgress(data, ctx, goal, today) {
   const start = weekStartOf(data, today);
   const dates = Array.from({ length: 7 }, (_, i) => addDays(start, i));
-  const quota = dates.reduce((sum, d) => sum + (targetsFor(data, d)[goal.id] || 0), 0) - movedOut(data, goal.id, dates);
   const done = dates.reduce((sum, d) => sum + (ctx.sums.get(`${goal.id}|${d}`) || 0), 0);
-  return { quota, done };
+  return { quota: weekQuota(data, ctx.sums, goal, dates), done };
 }
 
 // 지난주(자동 계획으로 통째로 돌던 주)에 못 채운 양. 새 주 계획에 이미 들어 있다는 안내에 쓴다. 주 초반에만 돌려준다.
@@ -228,7 +244,7 @@ export function absorbedShortfalls(data, ctx, today) {
   data.goals.forEach((goal) => {
     if (goal.archived || !isAutoGoal(data, goal) || goal.autoFrom > prev) return;
     const dates = Array.from({ length: 7 }, (_, i) => addDays(prev, i));
-    const planned = dates.reduce((sum, d) => sum + (targetsFor(data, d)[goal.id] || 0), 0) - movedOut(data, goal.id, dates);
+    const planned = weekQuota(data, ctx.sums, goal, dates);
     const done = dates.reduce((sum, d) => sum + (ctx.sums.get(`${goal.id}|${d}`) || 0), 0);
     if (planned > done) list.push({ goal, amount: planned - done });
   });
@@ -305,11 +321,6 @@ export function planPreview(data, goal, today) {
   const actual = actualPace(data, goal, today, basis.upcoming);
   const status = judge({ finished: rawLeftNow <= 0, covered, noDays: leftNow > 0 && !now.days.length, impossible, actual, plannedFinish, endDate });
 
-  const pace = paceFor(data, goal, today);
-  const oldWeekTotal = pace && pace.perWeekday !== null
-    ? thisWeek.days.reduce((sum, d) => sum + (isWeekendLike(d.date) ? pace.perWeekend : pace.perWeekday), 0)
-    : null;
-
   return {
     weekStart: basis.weekStart,
     upcoming: basis.upcoming,
@@ -328,8 +339,7 @@ export function planPreview(data, goal, today) {
     status,
     impossible,
     needMin: leftNow * goal.minutesPerUnit,
-    capacityMin,
-    oldWeekTotal
+    capacityMin
   };
 }
 
@@ -360,4 +370,34 @@ export function trackFeasibility(data, track, today) {
     availMin += Math.max(0, limitMinutes(data, d) - used);
   }
   return { needMin, availMin, ratio: availMin > 0 ? needMin / availMin : null, counted, total: goals.length, from, end };
+}
+
+// 이번 주(1차가 아직 시작 전이면 집중이 시작되는 주) 계획의 날짜별 예상 공부 시간과 공부 가능 시간.
+// 계획을 계산할 수 있는 과목은 그 주 배분 × 1개당 소요 시간, 그렇지 않은 과목은 고정 목표를 쓰고, 다른 트랙 유지 목표도 더한다.
+export function weekLoadRows(data, track, today) {
+  const info = data.tracks[track];
+  const upcoming = track === 1 && !!info.activeFrom && info.activeFrom > today;
+  const start = weekStartOf(data, upcoming ? info.activeFrom : today);
+  const goals = data.goals.filter((g) => !g.archived && g.track === track);
+  const previews = new Map(goals.map((g) => [g.id, planPreview(data, g, today)]));
+  const rows = Array.from({ length: 7 }, (_, i) => {
+    const date = addDays(start, i);
+    let minutes = 0;
+    goals.forEach((g) => {
+      const preview = previews.get(g.id);
+      let amount = 0;
+      if (preview) amount = preview.weekDays.find((d) => d.date === date)?.amount || 0;
+      else if (!effectiveKind(data, date) && g.weekdays.includes(weekdayOf(date)) && !(upcoming && date < info.activeFrom)) {
+        amount = isWeekendLike(date) ? g.weekendTarget : g.weekdayTarget;
+      }
+      minutes += amount * g.minutesPerUnit;
+    });
+    const maint = maintenanceTargets(data, date, today);
+    minutes += Object.keys(maint).reduce((sum, id) => {
+      const g = data.goals.find((x) => x.id === id);
+      return sum + (g ? maint[id] * g.minutesPerUnit : 0);
+    }, 0);
+    return { date, dow: weekdayOf(date), minutes, limit: limitMinutes(data, date) };
+  });
+  return { rows, start, upcoming, planned: [...previews.values()].filter(Boolean).length, total: goals.length };
 }

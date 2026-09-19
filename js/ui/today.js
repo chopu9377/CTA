@@ -1,6 +1,6 @@
 import { formatKoreanDate, weekdayOf, WEEKDAY_LABELS } from "../dates.js";
 import { trackAt, dayReport } from "../stats.js";
-import { paceFor, dayLoad, maintenanceGoals, maintenanceTargets } from "../plan.js";
+import { dayLoad, maintenanceGoals, maintenanceTargets } from "../plan.js";
 import { isAutoGoal, weekProgress, isLastStudyDay } from "../weekplan.js";
 import { UNIT_SUGGESTIONS, WEEKDAY_PRESETS, TRACK_LABEL, countUnit } from "../presets.js";
 import { escapeHtml, subjectColor, formatDuration } from "./shared.js";
@@ -11,14 +11,7 @@ function carryOf(data, ctx, goalId) {
     .reduce((sum, c) => sum + Math.max(0, ctx.remaining.get(c.id) || 0), 0);
 }
 
-function recommendation(data, goal, today, weekend) {
-  const pace = paceFor(data, goal, today);
-  if (!pace) return null;
-  const amount = weekend ? pace.perWeekend : pace.perWeekday;
-  return amount > 0 ? amount : null;
-}
-
-function goalRowHTML(data, ctx, row, selected, rec, tag = "", auto = null) {
+function goalRowHTML(data, ctx, row, selected, tag = "", auto = null) {
   const { goal, target, done } = row;
   const carry = carryOf(data, ctx, goal.id);
   const fin = target > 0 && done >= target;
@@ -26,27 +19,25 @@ function goalRowHTML(data, ctx, row, selected, rec, tag = "", auto = null) {
     <div>
       <div class="goal-name"><i class="swatch" style="background:${subjectColor(data, goal.subject)}"></i>${escapeHtml(goal.subject)}<span class="round">${goal.round}${goal.targetRounds ? `/${goal.targetRounds}` : ""}회독</span></div>
       <div class="goal-meta"><span class="unit">${escapeHtml(goal.unit)}</span>${tag ? `<span class="unit maint-tag">${tag}</span>` : ""}${carry ? `<span class="unit carry">이월 ${carry}${escapeHtml(countUnit(goal.unit))}</span>` : ""}${auto ? `<span class="unit auto-tag">자동 · 이번 주 ${auto.progress.done}/${auto.progress.quota}</span>` : ""}</div>
-      ${rec ? `<div class="goal-rec">권장 <b>${rec}${escapeHtml(countUnit(goal.unit))}</b></div>` : ""}
       ${auto && auto.last && !fin ? `<div class="goal-rec">이번 주 마지막 공부일 · 못 채우면 다음 주 계획에 자동 반영돼요</div>` : ""}
     </div>
     <div class="goal-count">${target > 0 ? `${done} / ${target}<small>${escapeHtml(countUnit(goal.unit))}</small>${fin ? " ✓" : ""}` : `${done}<small>${escapeHtml(countUnit(goal.unit))} · 오늘 목표 없음</small>`}</div>
   </div>`;
 }
 
-function goalEditHTML(goal, auto = false) {
+// auto: 자동 계획 목표라 평일/주말 숫자를 쓰지 않는다. compact: 목록 전체가 자동이라 숫자 칸 자리를 아예 없앤다.
+function goalEditHTML(goal, auto = false, compact = false) {
   const chips = WEEKDAY_LABELS.map(
     (label, day) => `<button type="button" class="chip-btn${goal.weekdays.includes(day) ? " on" : ""}" data-action="toggle-weekday" data-id="${goal.id}" data-day="${day}">${label}</button>`
   ).join("");
   const num = (field, value, label) =>
-    auto
-      ? `<input type="number" value="" placeholder="자동" disabled aria-label="${label}(자동 계획)" />`
-      : `<input type="number" min="0" inputmode="numeric" value="${value}" data-goal-field="${field}" data-id="${goal.id}" aria-label="${label}" />`;
+    `<input type="number" min="0" inputmode="numeric" value="${value}" data-goal-field="${field}" data-id="${goal.id}" aria-label="${label}" />`;
+  const targets = compact ? "" : auto ? `<span class="auto-cell">자동 계획</span>` : `${num("weekdayTarget", goal.weekdayTarget, "평일 목표")}${num("weekendTarget", goal.weekendTarget, "주말 목표")}`;
   return `<div class="goal-edit">
-    <div class="goal-edit-main">
+    <div class="goal-edit-main${compact ? " compact" : ""}">
       <input type="text" value="${escapeHtml(goal.subject)}" data-goal-field="subject" data-id="${goal.id}" aria-label="과목" list="subject-names" />
       <input type="text" value="${escapeHtml(goal.unit)}" data-goal-field="unit" data-id="${goal.id}" aria-label="단위" list="unit-names" />
-      ${num("weekdayTarget", goal.weekdayTarget, "평일 목표")}
-      ${num("weekendTarget", goal.weekendTarget, "주말 목표")}
+      ${targets}
       <button type="button" class="btn-danger" data-action="archive-goal" data-id="${goal.id}" aria-label="삭제">✕</button>
     </div>
     <div class="weekday-chips">${chips}</div>
@@ -115,7 +106,7 @@ function maintSectionHTML(data, ctx, today, maintGoals, maintTargets, selected) 
   const label = TRACK_LABEL[maintGoals[0].track];
   return `<div class="maint-title">${label} 유지 · 가볍게 <small>(못 채워도 미달로 안 세요)</small></div>
     ${maintGoals
-      .map((g) => goalRowHTML(data, ctx, { goal: g, target: maintTargets[g.id] || 0, done: ctx.sums.get(`${g.id}|${today}`) || 0 }, selected && g.id === selected.id, null, "유지"))
+      .map((g) => goalRowHTML(data, ctx, { goal: g, target: maintTargets[g.id] || 0, done: ctx.sums.get(`${g.id}|${today}`) || 0 }, selected && g.id === selected.id, "유지"))
       .join("")}`;
 }
 
@@ -128,9 +119,8 @@ export function renderToday(data, ctx, today, ui) {
   const maintTargets = maintenanceTargets(data, today, today);
   const selected = [...goals, ...maintGoals].find((g) => g.id === ui.selectedGoalId) || goals[0] || maintGoals[0];
   const sheetOpen = !ui.editing && ui.pickerOpen && !!selected;
-  const weekend = dayLoad(data, today, today).weekend;
-  const scheduledToday = (g) => !report.kind && g.weekdays.includes(weekdayOf(today));
   const names = [...new Set(data.goals.map((g) => g.subject))];
+  const allAuto = goals.length > 0 && goals.every((g) => isAutoGoal(data, g));
   const animate = sheetOpen && ui.pickerAnim;
   ui.pickerAnim = false;
 
@@ -144,7 +134,7 @@ export function renderToday(data, ctx, today, ui) {
   const quietOpen = ui.quietOpen || (sheetOpen && quietGoals.some((g) => g.id === selected.id));
   const rowHTML = (g) => {
     const auto = isAutoGoal(data, g) ? { progress: weekProgress(data, ctx, g, today), last: !report.kind && isLastStudyDay(data, g, today) } : null;
-    return goalRowHTML(data, ctx, rowFor(g), sheetOpen && g.id === selected.id, !auto && scheduledToday(g) ? recommendation(data, g, today, weekend) : null, "", auto);
+    return goalRowHTML(data, ctx, rowFor(g), sheetOpen && g.id === selected.id, "", auto);
   };
   const quietHTML = quietGoals.length
     ? `<button class="quiet-toggle" data-action="toggle-quiet" type="button" aria-expanded="${quietOpen}">
@@ -159,13 +149,13 @@ export function renderToday(data, ctx, today, ui) {
       ${ui.editing ? "" : dayNoticeHTML(data, today, report)}
       ${ui.editing
         ? `${presetsHTML()}
-           <div class="goal-edit-head"><span>과목</span><span>단위</span><span>평일</span><span>주말</span><span></span></div>
-           ${goals.map((g) => goalEditHTML(g, isAutoGoal(data, g))).join("")}
+           <div class="goal-edit-head${allAuto ? " compact" : ""}"><span>과목</span><span>단위</span>${allAuto ? "" : "<span>평일</span><span>주말</span>"}<span></span></div>
+           ${goals.map((g) => goalEditHTML(g, isAutoGoal(data, g), allAuto)).join("")}
            <form data-form="add-goal" class="form goal-add">
              <div class="goal-add-fields"><input type="text" name="subject" placeholder="과목 이름" required list="subject-names" /><input type="text" name="unit" placeholder="단위(예: 문제)" required list="unit-names" /></div>
              <button class="btn btn-secondary" type="submit">+ 목표 추가</button>
            </form>
-           <p class="hint">이름·단위·평일/주말 목표·요일을 직접 수정해요. 삭제해도 지난 기록은 남아요. 같은 과목 이름이면 색도 같아요. 공휴일은 주말로 계산해요.</p>
+           <p class="hint">${allAuto ? "이름·단위·요일을 직접 수정해요. 하루 목표는 자동 계획이 계산해요." : "이름·단위·요일(고정 목표는 평일/주말 목표도)을 직접 수정해요."} 삭제해도 지난 기록은 남아요. 같은 과목 이름이면 색도 같아요. 공휴일은 주말로 계산해요.</p>
            <datalist id="subject-names">${names.map((n) => `<option value="${escapeHtml(n)}">`).join("")}</datalist>
            <datalist id="unit-names">${UNIT_SUGGESTIONS.map((n) => `<option value="${n}">`).join("")}</datalist>`
         : goals.length

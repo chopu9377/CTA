@@ -1,25 +1,9 @@
 import { formatMD, addDays, WEEKDAY_LABELS } from "../dates.js";
 import { trackAt } from "../stats.js";
-import { paceFor, paceMissing, weeklyLoad, hasFocusPlan } from "../plan.js";
-import { planPreview, trackFeasibility, isAutoGoal } from "../weekplan.js";
+import { paceMissing, hasFocusPlan } from "../plan.js";
+import { planPreview, trackFeasibility, isAutoGoal, weekLoadRows } from "../weekplan.js";
 import { TRACK_LABEL, countUnit } from "../presets.js";
 import { escapeHtml, subjectColor, formatDuration } from "./shared.js";
-
-export function paceHTML(g, pace) {
-  if (!pace) return `<p class="hint">시험일·총 분량·목표 회독을 입력하면 평일/주말 권장량이 계산돼요.</p>`;
-  if (pace.rawLeft <= 0) return `<p class="hint">목표 회독을 이미 채웠어요.</p>`;
-  if (pace.left <= 0) return `<p class="hint">다른 트랙 집중 기간의 유지분(${pace.maintCredit})만으로 목표 회독을 채울 수 있어요.</p>`;
-  if (pace.perWeekday === null) return `<p class="hint">마감일(${formatMD(pace.endDate)})까지 이 목표의 공부일이 남아 있지 않아요.</p>`;
-  const unit = escapeHtml(countUnit(g.unit));
-  const same = pace.perWeekday === g.weekdayTarget && pace.perWeekend === g.weekendTarget;
-  return `<div class="pace-line">
-    <span>권장 <b>평일 ${pace.perWeekday}${unit} · 주말 ${pace.perWeekend}${unit}</b>
-      <small>(남은 ${pace.left}${unit}${pace.maintCredit ? `, 유지분 ${pace.maintCredit} 반영` : ""} · ${formatMD(pace.endDate)} 마감 · 평일 ${pace.weekdayDays}일 / 주말 ${pace.weekendDays}일)</small></span>
-    ${same
-      ? `<span class="chip">현재 목표와 같아요</span>`
-      : `<button class="btn btn-secondary btn-sm" data-action="apply-pace" data-id="${g.id}" data-weekday="${pace.perWeekday}" data-weekend="${pace.perWeekend}" type="button">평일 ${g.weekdayTarget}→${pace.perWeekday} · 주말 ${g.weekendTarget}→${pace.perWeekend} 적용</button>`}
-  </div>`;
-}
 
 const MARKS = { ok: "✓", bad: "✗", info: "·" };
 const leaf = (state, html) => `<li class="tree-leaf ${state}"><span class="tree-mark">${MARKS[state]}</span><div>${html}</div></li>`;
@@ -76,7 +60,6 @@ function previewHTML(data, g, today) {
     leaf("info", `${weekLabel} 약 <b>${p.weekNeed.toFixed(1)}${unit}</b> → <b>${p.weekTotal}${unit}</b> 배분: ${days}${p.upcoming ? "" : ` <small>(지금 ${p.doneThisWeek}/${p.weekTotal})</small>`}`),
     leaf("info", p.covered ? `목표 마감 <b>${formatMD(p.endDate)}</b> · 다른 트랙 집중 기간의 유지 분량만으로 목표 회독이 채워져요` : `목표 마감 <b>${formatMD(p.endDate)}</b> · 계획상 완료 <b>${p.plannedFinish ? formatMD(p.plannedFinish) : "-"}</b>`),
     leaf("info", `실제 페이스 예상: ${actual}`),
-    p.oldWeekTotal === null ? "" : leaf("info", `<small>지금 권장(올림 방식)은 이번 주 ${p.oldWeekTotal}${unit}${p.oldWeekTotal !== p.weekTotal ? ` · 새 방식 ${p.weekTotal}${unit}` : ""}</small>`),
     leaf(tone === "bad" ? "bad" : "info", `상태 ${tag(label, tone)}${p.status.basis === "plan" ? " <small>(계획 기준)</small>" : ""}${p.impossible ? ` <small>· 남은 공부 가능 시간(${formatDuration(p.capacityMin)})으로는 이 과목만으로도 끝내기 어려워요</small>` : ""}`)
   ].join("");
   const upcomingNote = p.upcoming ? `<li class="tree-leaf info"><span class="tree-mark">·</span><div><small>아직 집중 시작 전이에요. ${formatMD(g.track === 1 ? data.tracks[1].activeFrom : p.weekStart)}에 집중을 시작한다고 가정한 미리보기이고, 그때까지의 기록·시험일 변경에 따라 달라져요.</small></div></li>` : "";
@@ -96,7 +79,6 @@ function feasibilityLeaf(data, track, today) {
 function goalNode(data, g, today) {
   const missing = paceMissing(data, g);
   const own = missing.filter((m) => m.field !== "examDate");
-  const pace = paceFor(data, g, today);
   const unit = countUnit(g.unit);
   const cumulative = (g.round - 1) * g.total + g.progress;
   const tag = own.length ? `<span class="tree-tag bad">입력 ${own.length}개 필요</span>` : `<span class="tree-tag ok">계산됨</span>`;
@@ -110,15 +92,15 @@ function goalNode(data, g, today) {
       ${input("total", "총 분량", g.total, unit)}
       ${input("targetRounds", "목표 회독", g.targetRounds, "회독")}
       ${leaf("info", `누적 푼 양 ${cumulative}${unit}${g.total > 0 && cumulative === 0 ? " (앱 쓰기 전에 푼 양이 있으면 입력)" : ""}`)}
-      ${missing.length ? leaf("info", "빨간 항목(공통 조건 포함)을 채우면 권장량이 계산돼요") : g.planMode === "auto" ? leaf("ok", "<b>자동 계획 적용 중</b> <small>· 아래 미리보기의 이번 주 배분이 오늘 목표가 돼요</small>") : leaf("ok", paceHTML(g, pace))}
+      ${missing.length ? leaf("info", "빨간 항목(공통 조건 포함)을 채우면 자동 계획이 계산돼요") : g.planMode === "auto" ? leaf("ok", "<b>자동 계획 적용 중</b> <small>· 아래 이번 주 배분이 오늘 목표가 돼요</small>") : leaf("info", "<b>고정 목표</b> <small>· 오늘 탭 편집의 평일/주말 숫자를 써요. 설정 과목 카드에서 \"자동\"으로 바꾸면 계산한 목표를 써요</small>")}
       ${missing.length ? "" : previewHTML(data, g, today)}
     </ul>
   </li>`;
 }
 
 function loadNode(data, track, today) {
-  const { rows, paced, total, maintenance } = weeklyLoad(data, track, today);
-  if (!paced) return "";
+  const { rows, start, upcoming, planned, total } = weekLoadRows(data, track, today);
+  if (!planned) return "";
   const list = rows
     .map((r) => {
       const over = r.minutes > r.limit;
@@ -129,10 +111,9 @@ function loadNode(data, track, today) {
     })
     .join("");
   return `<li class="tree-goal">
-    <div class="tree-head"><b>요일별 예상 공부 시간</b><span class="tree-tag">${paced}/${total}개 기준</span></div>
+    <div class="tree-head"><b>${upcoming ? `집중 시작 주(${formatMD(start)}~)` : "이번 주"} 요일별 예상 공부 시간</b><span class="tree-tag">${planned}/${total}개 과목 기준</span></div>
     <div class="tree-body"><div class="load-list">${list}</div>
-    <p class="hint">단위당 소요 시간 × 권장량 합계(다른 트랙 유지 목표${maintenance ? ` ${maintenance}개` : ""} 포함). 빨간색은 공부 가능 시간을 넘는 날이에요. 요일 패턴은 '오늘' 탭 편집의 프리셋으로 바꿀 수 있어요.</p>
-    <button class="btn btn-secondary" data-action="apply-all-pace" data-track="${track}" type="button">${TRACK_LABEL[track]} 권장량 한 번에 적용</button></div>
+    <p class="hint">이번 주 계획의 개수 × 1개당 소요 시간에 다른 트랙 유지 목표를 더한 값이에요. 빨간색은 공부 가능 시간을 넘는 날이에요. 요일은 '오늘' 탭 편집의 프리셋/요일 칩으로 바꿀 수 있어요.</p></div>
   </li>`;
 }
 

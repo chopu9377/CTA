@@ -1,6 +1,6 @@
 import { addDays, diffDays, weekdayOf, monthKey } from "./dates.js";
 import { holidayName } from "./holidays.js";
-import { autoApplies, autoTargetOn, canRedistribute, redistributionState, isAutoGoal, movedOut } from "./weekplan.js";
+import { autoApplies, autoTargetOn, canRedistribute, redistributionState, isAutoGoal, weekQuota } from "./weekplan.js";
 
 export function trackAt(data, dateStr) {
   let track = 2;
@@ -154,7 +154,7 @@ export function weekQuotas(data, ctx, weekIndex, track) {
   const rings = data.goals
     .filter((g) => !g.archived && g.track === track)
     .map((goal) => {
-      const quota = dates.reduce((sum, d) => sum + (targetsFor(data, d)[goal.id] || 0), 0) - movedOut(data, goal.id, dates);
+      const quota = weekQuota(data, ctx.sums, goal, dates);
       const done = dates.reduce((sum, d) => sum + (ctx.sums.get(`${goal.id}|${d}`) || 0), 0);
       return { goal, quota, done, pct: quota > 0 ? Math.min(100, (done / quota) * 100) : 0 };
     });
