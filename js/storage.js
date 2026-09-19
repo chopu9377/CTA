@@ -54,6 +54,7 @@ function newGoal(track, subject, unit) {
     total: 0,
     round: 1,
     progress: 0,
+    targetRounds: 0,
     archived: false
   };
 }
@@ -111,6 +112,7 @@ function normalize(data) {
     g.total = g.total || 0;
     g.round = g.round || 1;
     g.progress = g.progress || 0;
+    g.targetRounds = g.targetRounds || 0;
     g.dailyTarget = g.dailyTarget || 0;
     g.archived = !!g.archived;
     ensureColor(data, g.subject);

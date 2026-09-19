@@ -186,6 +186,32 @@ export function studyDaysBetween(data, fromStr, toStr) {
   return count;
 }
 
+function cumulativeOf(goal) {
+  return (goal.round - 1) * goal.total + goal.progress;
+}
+
+// 목표 회독까지 남은 분량. 목표 회독이 없으면 현재 회독의 남은 분량.
+function workLeft(goal) {
+  if (goal.total <= 0) return null;
+  if (goal.targetRounds > 0) return Math.max(0, goal.targetRounds * goal.total - cumulativeOf(goal));
+  return goal.total - goal.progress;
+}
+
+// 권장 하루량 = 남은 분량 ÷ 시험일까지 남은 공부일수(휴식·복습일과 이 목표의 쉬는 요일 제외).
+export function paceFor(data, goal, today) {
+  const info = data.tracks[goal.track];
+  if (!info.examDate || goal.total <= 0 || goal.targetRounds <= 0) return null;
+  const from = goal.track === 1 && info.activeFrom && info.activeFrom > today ? info.activeFrom : today;
+  let days = 0;
+  for (let d = from; d < info.examDate; d = addDays(d, 1)) {
+    if (!effectiveKind(data, d) && goal.weekdays.includes(weekdayOf(d))) days++;
+  }
+  const left = workLeft(goal);
+  if (!days || left <= 0) return { left, days, perDay: left <= 0 ? 0 : null, perWeek: null };
+  const perDay = Math.ceil(left / days);
+  return { left, days, perDay, perWeek: perDay * goal.weekdays.length };
+}
+
 export function focusRows(data, track, today) {
   const info = data.tracks[track];
   const from = info.activeFrom && info.activeFrom > today ? info.activeFrom : today;
@@ -193,7 +219,7 @@ export function focusRows(data, track, today) {
   const rows = data.goals
     .filter((g) => !g.archived && g.track === track)
     .map((goal) => {
-      const remaining = goal.total > 0 ? goal.total - goal.progress : null;
+      const remaining = workLeft(goal);
       return { goal, remaining, perDay: remaining !== null && days ? remaining / days : null };
     });
   return { rows, days, from };

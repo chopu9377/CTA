@@ -15,7 +15,7 @@ function goalRowHTML(data, ctx, row, selected) {
   const fin = target > 0 && done >= target;
   return `<div class="goal-row${selected ? " selected" : ""}${fin ? " fin" : ""}" data-action="select-goal" data-id="${goal.id}">
     <div>
-      <div class="goal-name"><i class="swatch" style="background:${subjectColor(data, goal.subject)}"></i>${escapeHtml(goal.subject)}<span class="round">${goal.round}회독</span></div>
+      <div class="goal-name"><i class="swatch" style="background:${subjectColor(data, goal.subject)}"></i>${escapeHtml(goal.subject)}<span class="round">${goal.round}${goal.targetRounds ? `/${goal.targetRounds}` : ""}회독</span></div>
       <div class="goal-meta"><span class="unit">${escapeHtml(goal.unit)}</span>${carry ? `<span class="unit carry">이월 ${carry}</span>` : ""}</div>
     </div>
     <div class="goal-count">${target > 0 ? `${done} / ${target}${fin ? " ✓" : ""}` : `${done}<small> 오늘 목표 없음</small>`}</div>

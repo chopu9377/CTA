@@ -3,7 +3,7 @@ import { todayStr } from "./dates.js";
 import { buildContext, pendingSettlements, trackAt } from "./stats.js";
 import { loadHolidays } from "./holidays.js";
 import { EXAM_SUBJECTS } from "./presets.js";
-import { renderWeek, renderToday, renderExam, renderHistory, renderSettings } from "./ui.js";
+import { renderWeek, renderToday, renderExam, renderHistory, renderSettings, paceSlotHTML } from "./ui.js";
 import { renderSettleSheet } from "./ui/settle.js";
 
 const root = document.getElementById("view-root");
@@ -155,6 +155,11 @@ const actions = {
     ui.editing = !ui.editing;
     render();
   },
+  "apply-pace"(btn) {
+    storage.updateGoal(btn.dataset.id, { dailyTarget: Number(btn.dataset.value) });
+    toast("하루 목표에 적용했어요");
+    render();
+  },
   "toggle-weekday"(btn) {
     const goal = storage.getData().goals.find((g) => g.id === btn.dataset.id);
     if (!goal) return;
@@ -235,12 +240,19 @@ document.addEventListener("submit", (event) => {
   }
 });
 
+function refreshPaceSlot(goalId) {
+  const slot = document.querySelector(`[data-slot-for="${goalId}"]`);
+  const goal = storage.getData().goals.find((g) => g.id === goalId);
+  if (slot && goal) slot.innerHTML = paceSlotHTML(storage.getData(), goal, todayStr());
+}
+
 function applyGoalField(input) {
   const field = input.dataset.goalField;
   if (field === "cumulative") {
     const result = storage.setCumulative(input.dataset.id, parseInt(input.value, 10) || 0);
     const goal = storage.getData().goals.find((g) => g.id === input.dataset.id);
     if (result && goal) toast(`${goal.subject}: ${result.round}회독 ${result.progress}${result.total ? `/${result.total}` : ""}로 반영`);
+    refreshPaceSlot(input.dataset.id);
     return;
   }
   let value = input.value;
@@ -254,6 +266,8 @@ function applyGoalField(input) {
   if (rolled) {
     announceRounds(input.dataset.id, rolled);
     render();
+  } else {
+    refreshPaceSlot(input.dataset.id);
   }
 }
 
