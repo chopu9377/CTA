@@ -386,7 +386,7 @@ body {
 
 .days {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 5px;
 }
 
@@ -594,7 +594,7 @@ body {
 
 .ring-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 18px 4px;
 }
 
@@ -700,13 +700,13 @@ body {
 
 .goal-edit-main {
   display: grid;
-  grid-template-columns: 1.3fr 1.1fr 64px 32px;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.1fr) 64px 32px;
   gap: 6px;
   align-items: center;
 }
 
 .goal-add .goal-edit-main {
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .goal-edit-main input {
@@ -864,7 +864,7 @@ body {
 
 .total-inputs {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   margin-bottom: 10px;
 }
@@ -915,7 +915,7 @@ body {
 
 .form-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   margin-bottom: 10px;
 }
@@ -940,9 +940,50 @@ textarea {
   transition: border-color 0.15s ease;
 }
 
+.field,
+.mini-field {
+  min-width: 0;
+}
+
 .field input,
 .goal-edit-main input {
   width: 100%;
+}
+
+/* iOS Safari는 날짜 입력칸에 큰 기본 최소 폭을 줘서 옆 칸을 밀어낸다 */
+input[type="date"] {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 46px;
+  line-height: 1.2;
+}
+
+input[type="date"]::-webkit-date-and-time-value {
+  text-align: left;
+  min-width: 0;
+}
+
+.total-name {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1.2fr) minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.total-name input {
+  width: 100%;
+  min-width: 0;
+  padding: 9px 10px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.total-name input:last-of-type {
+  font-weight: 500;
 }
 
 input:focus,

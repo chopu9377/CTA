@@ -3,6 +3,8 @@ export const DEFAULT_FIRST_TRACK_START = "2026-12-15";
 
 export const TRACK_LABEL = { 1: "1차", 2: "2차" };
 
+export const UNIT_SUGGESTIONS = ["연습서 문제", "객관식 문제", "인강(강)", "모의고사(회)"];
+
 // 시험 점수 기록용 시험 과목 (학습 과목과 별개)
 export const EXAM_SUBJECTS = {
   1: ["회계학", "세법학", "재정학", "행정소송법"],

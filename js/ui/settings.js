@@ -1,5 +1,5 @@
 import { exportedLastBackupDays, trackAt } from "../stats.js";
-import { TRACK_LABEL } from "../presets.js";
+import { TRACK_LABEL, UNIT_SUGGESTIONS } from "../presets.js";
 import { escapeHtml, subjectColor } from "./shared.js";
 
 function backupStatusText(lastBackupAt) {
@@ -31,7 +31,12 @@ function totalRowHTML(data, g) {
   const pct = g.total > 0 ? Math.round((g.progress / g.total) * 100) : 0;
   const cumulative = (g.round - 1) * g.total + g.progress;
   return `<div class="total-row">
-    <div class="total-head"><span><i class="swatch" style="background:${subjectColor(data, g.subject)}"></i>${escapeHtml(g.subject)}<span class="unit">${escapeHtml(g.unit)}</span><span class="round">${g.round}회독</span></span></div>
+    <div class="total-name">
+      <i class="swatch" style="background:${subjectColor(data, g.subject)}"></i>
+      <input type="text" value="${escapeHtml(g.subject)}" data-goal-field="subject" data-id="${g.id}" aria-label="과목 이름" list="subject-names" />
+      <input type="text" value="${escapeHtml(g.unit)}" data-goal-field="unit" data-id="${g.id}" aria-label="단위(책·강의 이름)" list="unit-names" />
+      <span class="round">${g.round}회독</span>
+    </div>
     <div class="total-inputs">
       <label class="mini-field"><span>총 분량</span><input type="number" min="0" inputmode="numeric" value="${g.total || ""}" placeholder="예: 1200" data-goal-field="total" data-id="${g.id}" /></label>
       <label class="mini-field"><span>누적 푼 양</span><input type="number" min="0" inputmode="numeric" value="${cumulative || ""}" placeholder="예: 340" data-goal-field="cumulative" data-id="${g.id}" /></label>
@@ -50,7 +55,8 @@ function totalsCardHTML(data, today) {
         <div class="section-header-row"><h2 class="section-title">총 분량 · 누적 · 회독</h2><span class="chip">${TRACK_LABEL[track]}${track === active ? " (진행중)" : ""}</span></div>
         ${goals.map((g) => totalRowHTML(data, g)).join("")}
         ${track === active
-          ? `<p class="hint">'누적 푼 양'에 앱을 쓰기 전까지 푼 양을 넣으면 총 분량 기준으로 회독과 현재 진행량으로 환산돼요(주간 통계에는 잡히지 않아요). 진행량이 총 분량에 도달하면 회독이 자동으로 +1이 돼요. 총 분량을 먼저 넣고 누적을 넣어 주세요.</p>`
+          ? `<p class="hint">과목 이름과 단위(연습서·인강 등)는 여기서 바로 고칠 수 있어요. 하루 목표·요일·삭제는 '오늘' 탭의 편집에서 해요.</p>
+        <p class="hint">'누적 푼 양'에 앱을 쓰기 전까지 푼 양을 넣으면 총 분량 기준으로 회독과 현재 진행량으로 환산돼요(주간 통계에는 잡히지 않아요). 진행량이 총 분량에 도달하면 회독이 자동으로 +1이 돼요. 총 분량을 먼저 넣고 누적을 넣어 주세요.</p>`
           : ""}
       </div>`;
     })
@@ -69,6 +75,8 @@ export function renderSettings(data, today, legacyExists) {
   return `<section class="view">
     ${trackCardHTML(data)}
     ${totalsCardHTML(data, today)}
+    <datalist id="subject-names">${[...new Set(data.goals.map((g) => g.subject))].map((n) => `<option value="${escapeHtml(n)}">`).join("")}</datalist>
+    <datalist id="unit-names">${UNIT_SUGGESTIONS.map((n) => `<option value="${n}">`).join("")}</datalist>
     ${customColorCardHTML(data)}
     <div class="card">
       <h2 class="section-title">공휴일</h2>

@@ -1,8 +1,7 @@
 import { formatKoreanDate, WEEKDAY_LABELS } from "../dates.js";
 import { trackAt, dayReport } from "../stats.js";
+import { UNIT_SUGGESTIONS } from "../presets.js";
 import { escapeHtml, subjectColor } from "./shared.js";
-
-const UNIT_SUGGESTIONS = ["연습서 문제", "객관식 문제", "인강(강)", "모의고사(회)"];
 
 function carryOf(data, ctx, goalId) {
   return data.carries
