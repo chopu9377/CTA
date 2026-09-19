@@ -66,6 +66,7 @@ function studiesTrackOn(data, track, dateStr, today) {
 // 권장량: 시험일 `bufferDays`일 전(모의고사·복습 기간)까지 목표 회독을 끝내는 페이스.
 // 남은 분량을 공부일수로 나누되 주말은 공부 가능 시간 비율(예: 7h/4h)만큼 더 배정한다.
 // 휴식·복습일, 이 목표의 쉬는 요일, 다른 트랙 집중 기간은 공부일에서 뺀다.
+// 다른 트랙 집중 기간에 유지 모드로 하기로 한 양은 진도로 인정해 남은 분량에서 뺀다.
 export function paceFor(data, goal, today) {
   const info = data.tracks[goal.track];
   if (!info.examDate || goal.total <= 0 || goal.targetRounds <= 0) return null;
@@ -73,13 +74,17 @@ export function paceFor(data, goal, today) {
   const endDate = addDays(info.examDate, -data.settings.bufferDays);
   let weekdayDays = 0;
   let weekendDays = 0;
+  let maintCredit = 0;
   for (let d = from; d < endDate; d = addDays(d, 1)) {
-    if (effectiveKind(data, d) || !goal.weekdays.includes(weekdayOf(d)) || !studiesTrackOn(data, goal.track, d, today)) continue;
-    if (isWeekendLike(d)) weekendDays++;
+    if (effectiveKind(data, d) || !goal.weekdays.includes(weekdayOf(d))) continue;
+    if (!studiesTrackOn(data, goal.track, d, today)) {
+      if (info.maintain) maintCredit += isWeekendLike(d) ? goal.maintWeekendTarget : goal.maintWeekdayTarget;
+    } else if (isWeekendLike(d)) weekendDays++;
     else weekdayDays++;
   }
-  const left = workLeft(goal);
-  const result = { left, weekdayDays, weekendDays, endDate, perWeekday: null, perWeekend: null };
+  const rawLeft = workLeft(goal);
+  const left = Math.max(0, rawLeft - maintCredit);
+  const result = { left, rawLeft, maintCredit, weekdayDays, weekendDays, endDate, perWeekday: null, perWeekend: null };
   if (left <= 0) return { ...result, perWeekday: 0, perWeekend: 0 };
   if (!weekdayDays && !weekendDays) return result;
   if (!weekendDays) return { ...result, perWeekday: Math.ceil(left / weekdayDays), perWeekend: 0 };

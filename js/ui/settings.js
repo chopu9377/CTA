@@ -38,13 +38,14 @@ function trackCardHTML(data) {
 
 function paceHTML(g, pace) {
   if (!pace) return `<p class="hint">시험일·총 분량·목표 회독을 입력하면 평일/주말 권장량이 계산돼요.</p>`;
-  if (pace.left <= 0) return `<p class="hint">목표 회독을 이미 채웠어요.</p>`;
+  if (pace.rawLeft <= 0) return `<p class="hint">목표 회독을 이미 채웠어요.</p>`;
+  if (pace.left <= 0) return `<p class="hint">다른 트랙 집중 기간의 유지분(${pace.maintCredit})만으로 목표 회독을 채울 수 있어요.</p>`;
   if (pace.perWeekday === null) return `<p class="hint">마감일(${formatMD(pace.endDate)})까지 이 목표의 공부일이 남아 있지 않아요.</p>`;
   const unit = escapeHtml(shortUnit(g.unit));
   const same = pace.perWeekday === g.weekdayTarget && pace.perWeekend === g.weekendTarget;
   return `<div class="pace-line">
     <span>권장 <b>평일 ${pace.perWeekday}${unit} · 주말 ${pace.perWeekend}${unit}</b>
-      <small>(남은 ${pace.left} · ${formatMD(pace.endDate)} 마감 · 평일 ${pace.weekdayDays}일 / 주말 ${pace.weekendDays}일)</small></span>
+      <small>(남은 ${pace.left}${pace.maintCredit ? `, 유지분 ${pace.maintCredit} 반영` : ""} · ${formatMD(pace.endDate)} 마감 · 평일 ${pace.weekdayDays}일 / 주말 ${pace.weekendDays}일)</small></span>
     ${same
       ? `<span class="chip">현재 목표와 같아요</span>`
       : `<button class="btn btn-secondary btn-sm" data-action="apply-pace" data-id="${g.id}" data-weekday="${pace.perWeekday}" data-weekend="${pace.perWeekend}" type="button">평일 ${g.weekdayTarget}→${pace.perWeekday} · 주말 ${g.weekendTarget}→${pace.perWeekend} 적용</button>`}
