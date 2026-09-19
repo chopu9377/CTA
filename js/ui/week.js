@@ -1,5 +1,6 @@
 import { addDays, monthKey } from "../dates.js";
-import { trackAt, weekReport, weekQuotas, currentWeekIndex, daysUntil, focusRows, pendingSettlements, historyEnd } from "../stats.js";
+import { trackAt, weekReport, weekQuotas, currentWeekIndex, daysUntil, pendingSettlements, historyEnd } from "../stats.js";
+import { focusRows } from "../plan.js";
 import { TRACK_LABEL } from "../presets.js";
 import { escapeHtml, ringHTML, subjectColor, shortUnit } from "./shared.js";
 import { legendHTML, weekHTML } from "./weekgrid.js";

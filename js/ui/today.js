@@ -1,6 +1,7 @@
 import { formatKoreanDate, weekdayOf, WEEKDAY_LABELS } from "../dates.js";
-import { trackAt, dayReport, paceFor, dayLoad } from "../stats.js";
-import { UNIT_SUGGESTIONS, WEEKDAY_PRESETS } from "../presets.js";
+import { trackAt, dayReport } from "../stats.js";
+import { paceFor, dayLoad, maintenanceGoals, maintenanceTargets } from "../plan.js";
+import { UNIT_SUGGESTIONS, WEEKDAY_PRESETS, TRACK_LABEL } from "../presets.js";
 import { escapeHtml, subjectColor, shortUnit, formatDuration } from "./shared.js";
 
 function carryOf(data, ctx, goalId) {
@@ -16,14 +17,14 @@ function recommendation(data, goal, today, weekend) {
   return amount > 0 ? amount : null;
 }
 
-function goalRowHTML(data, ctx, row, selected, rec) {
+function goalRowHTML(data, ctx, row, selected, rec, tag = "") {
   const { goal, target, done } = row;
   const carry = carryOf(data, ctx, goal.id);
   const fin = target > 0 && done >= target;
-  return `<div class="goal-row${selected ? " selected" : ""}${fin ? " fin" : ""}" data-action="select-goal" data-id="${goal.id}">
+  return `<div class="goal-row${selected ? " selected" : ""}${fin ? " fin" : ""}${tag ? " maint" : ""}" data-action="select-goal" data-id="${goal.id}">
     <div>
       <div class="goal-name"><i class="swatch" style="background:${subjectColor(data, goal.subject)}"></i>${escapeHtml(goal.subject)}<span class="round">${goal.round}${goal.targetRounds ? `/${goal.targetRounds}` : ""}회독</span></div>
-      <div class="goal-meta"><span class="unit">${escapeHtml(goal.unit)}</span>${carry ? `<span class="unit carry">이월 ${carry}</span>` : ""}</div>
+      <div class="goal-meta"><span class="unit">${escapeHtml(goal.unit)}</span>${tag ? `<span class="unit maint-tag">${tag}</span>` : ""}${carry ? `<span class="unit carry">이월 ${carry}</span>` : ""}</div>
       ${rec ? `<div class="goal-rec">권장 <b>${rec}${escapeHtml(shortUnit(goal.unit))}</b></div>` : ""}
     </div>
     <div class="goal-count">${target > 0 ? `${done} / ${target}${fin ? " ✓" : ""}` : `${done}<small> 오늘 목표 없음</small>`}</div>
@@ -81,7 +82,7 @@ function pickerHTML(pick, goal, data, today) {
 }
 
 function dayNoticeHTML(data, today, report) {
-  const load = dayLoad(data, today);
+  const load = dayLoad(data, today, today);
   const type = load.weekend ? "주말" : "평일";
   const holiday = report.holiday ? ` · ${escapeHtml(report.holiday)}` : "";
   if (report.kind) {
@@ -94,13 +95,25 @@ function dayNoticeHTML(data, today, report) {
   return head + warn;
 }
 
+// 다른 트랙 집중 기간에 가볍게 이어 가는 목표. 못 채워도 달성/미달 판정·이월에 영향이 없다.
+function maintSectionHTML(data, ctx, today, maintGoals, maintTargets, selected) {
+  if (!maintGoals.length) return "";
+  const label = TRACK_LABEL[maintGoals[0].track];
+  return `<div class="maint-title">${label} 유지 · 가볍게 <small>(못 채워도 미달로 안 세요)</small></div>
+    ${maintGoals
+      .map((g) => goalRowHTML(data, ctx, { goal: g, target: maintTargets[g.id] || 0, done: ctx.sums.get(`${g.id}|${today}`) || 0 }, selected && g.id === selected.id, null, "유지"))
+      .join("")}`;
+}
+
 export function renderToday(data, ctx, today, ui) {
   const track = trackAt(data, today);
   const report = dayReport(data, ctx, today, today);
   const goals = data.goals.filter((g) => !g.archived && g.track === track);
   const rowFor = (goal) => report.rows.find((r) => r.goal.id === goal.id) || { goal, target: 0, done: ctx.sums.get(`${goal.id}|${today}`) || 0 };
-  const selected = goals.find((g) => g.id === ui.selectedGoalId) || goals[0];
-  const weekend = dayLoad(data, today).weekend;
+  const maintGoals = maintenanceGoals(data, today, today);
+  const maintTargets = maintenanceTargets(data, today, today);
+  const selected = [...goals, ...maintGoals].find((g) => g.id === ui.selectedGoalId) || goals[0] || maintGoals[0];
+  const weekend = dayLoad(data, today, today).weekend;
   const scheduledToday = (g) => !report.kind && g.weekdays.includes(weekdayOf(today));
   const names = [...new Set(data.goals.map((g) => g.subject))];
 
@@ -123,6 +136,7 @@ export function renderToday(data, ctx, today, ui) {
         : goals.length
           ? goals.map((g) => goalRowHTML(data, ctx, rowFor(g), selected && g.id === selected.id, scheduledToday(g) ? recommendation(data, g, today, weekend) : null)).join("")
           : `<p class="empty-state">목표가 없어요. 편집에서 추가해보세요.</p>`}
+      ${ui.editing ? "" : maintSectionHTML(data, ctx, today, maintGoals, maintTargets, selected)}
     </div>
     ${ui.editing || !selected ? "" : pickerHTML(ui.pick, selected, data, today)}
   </section>`;

@@ -35,6 +35,7 @@
   goals.js      # 목표·기록(entries)·회독 변경
   sync.js       # GitHub 저장소 JSON과 동기화(브라우저에서 GitHub API 직접 호출, 토큰은 별도 키)
   stats.js      # 하루 상태·이월 상환·주간 쿼터·월별 집계 등 순수 계산 로직
+  plan.js       # 권장량(회독 역산)·1차 집중 기간·유지 모드·요일별 부하 등 계획 계산(순수 함수)
   dates.js      # 날짜 문자열 헬퍼
   presets.js    # 트랙별 기본 목표, 시험 과목, 과목 색 슬롯
   holidays.js   # data/holidays.json 로드, 공휴일 이름 조회

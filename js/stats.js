@@ -40,32 +40,19 @@ export function computeTargets(data, dateStr) {
   return targets;
 }
 
-function limitMinutes(data, dateStr) {
-  const hours = isWeekendLike(dateStr) ? data.settings.weekendHours : data.settings.weekdayHours;
-  return Math.round(hours * 60);
-}
-
-// 그날 목표 합계를 (단위당 소요 시간 × 목표량)으로 환산한 예상 공부 시간과 공부 가능 시간
-export function dayLoad(data, dateStr) {
-  const targets = targetsFor(data, dateStr);
-  const minutes = Object.keys(targets).reduce((sum, goalId) => {
-    const goal = data.goals.find((g) => g.id === goalId);
-    return sum + (goal ? targets[goalId] * goal.minutesPerUnit : 0);
-  }, 0);
-  return { minutes, limit: limitMinutes(data, dateStr), weekend: isWeekendLike(dateStr) };
-}
-
 export function targetsFor(data, dateStr) {
   return data.dayTargets[dateStr] || computeTargets(data, dateStr);
 }
 
+// byDate는 그날 활성 트랙의 기록만 센다(유지 모드로 푼 다른 트랙 기록은 달성/미달 판정에 넣지 않기 위해).
 export function buildContext(data) {
   const sums = new Map();
   const byDate = new Map();
+  const goalTrack = new Map(data.goals.map((g) => [g.id, g.track]));
   data.entries.forEach((e) => {
     const key = `${e.goalId}|${e.date}`;
     sums.set(key, (sums.get(key) || 0) + e.amount);
-    byDate.set(e.date, (byDate.get(e.date) || 0) + e.amount);
+    if (goalTrack.get(e.goalId) === trackAt(data, e.date)) byDate.set(e.date, (byDate.get(e.date) || 0) + e.amount);
   });
   return { sums, byDate, remaining: carryRemaining(data, sums) };
 }
@@ -204,79 +191,6 @@ export function monthGroups(data, ctx, today) {
 
 export function daysUntil(dateStr, today) {
   return dateStr ? diffDays(today, dateStr) : null;
-}
-
-export function studyDaysBetween(data, fromStr, toStr) {
-  let count = 0;
-  for (let d = fromStr; d <= toStr; d = addDays(d, 1)) if (!effectiveKind(data, d)) count++;
-  return count;
-}
-
-function cumulativeOf(goal) {
-  return (goal.round - 1) * goal.total + goal.progress;
-}
-
-// 목표 회독까지 남은 분량. 목표 회독이 없으면 현재 회독의 남은 분량.
-function workLeft(goal) {
-  if (goal.total <= 0) return null;
-  if (goal.targetRounds > 0) return Math.max(0, goal.targetRounds * goal.total - cumulativeOf(goal));
-  return goal.total - goal.progress;
-}
-
-// 권장량: 시험일 `bufferDays`일 전(모의고사·복습 기간)까지 목표 회독을 끝내는 페이스.
-// 남은 분량을 공부일수로 나누되 주말은 공부 가능 시간 비율(예: 7h/4h)만큼 더 배정한다.
-// 휴식·복습일과 이 목표의 쉬는 요일은 공부일에서 뺀다.
-export function paceFor(data, goal, today) {
-  const info = data.tracks[goal.track];
-  if (!info.examDate || goal.total <= 0 || goal.targetRounds <= 0) return null;
-  const from = goal.track === 1 && info.activeFrom && info.activeFrom > today ? info.activeFrom : today;
-  const endDate = addDays(info.examDate, -data.settings.bufferDays);
-  let weekdayDays = 0;
-  let weekendDays = 0;
-  for (let d = from; d < endDate; d = addDays(d, 1)) {
-    if (effectiveKind(data, d) || !goal.weekdays.includes(weekdayOf(d))) continue;
-    if (isWeekendLike(d)) weekendDays++;
-    else weekdayDays++;
-  }
-  const left = workLeft(goal);
-  const result = { left, weekdayDays, weekendDays, endDate, perWeekday: null, perWeekend: null };
-  if (left <= 0) return { ...result, perWeekday: 0, perWeekend: 0 };
-  if (!weekdayDays && !weekendDays) return result;
-  if (!weekendDays) return { ...result, perWeekday: Math.ceil(left / weekdayDays), perWeekend: 0 };
-  if (!weekdayDays) return { ...result, perWeekday: 0, perWeekend: Math.ceil(left / weekendDays) };
-  const { weekdayHours, weekendHours } = data.settings;
-  const ratio = weekdayHours > 0 && weekendHours > 0 ? weekendHours / weekdayHours : 1;
-  const perWeekday = Math.ceil(left / (weekdayDays + ratio * weekendDays));
-  return { ...result, perWeekday, perWeekend: Math.ceil(perWeekday * ratio) };
-}
-
-// 권장량을 그대로 따랐을 때 요일별 예상 공부 시간(월~일)과 공부 가능 시간
-export function weeklyLoad(data, track, today) {
-  const goals = data.goals.filter((g) => !g.archived && g.track === track);
-  const paces = goals.map((goal) => ({ goal, pace: paceFor(data, goal, today) })).filter((p) => p.pace);
-  const rows = [1, 2, 3, 4, 5, 6, 0].map((dow) => {
-    const weekend = dow === 0 || dow === 6;
-    const minutes = paces.reduce((sum, { goal, pace }) => {
-      if (!goal.weekdays.includes(dow)) return sum;
-      return sum + (weekend ? pace.perWeekend : pace.perWeekday) * goal.minutesPerUnit;
-    }, 0);
-    const hours = weekend ? data.settings.weekendHours : data.settings.weekdayHours;
-    return { dow, minutes, limit: Math.round(hours * 60) };
-  });
-  return { rows, paced: paces.length, total: goals.length };
-}
-
-export function focusRows(data, track, today) {
-  const info = data.tracks[track];
-  const from = info.activeFrom && info.activeFrom > today ? info.activeFrom : today;
-  const days = info.examDate ? Math.max(1, studyDaysBetween(data, from, info.examDate)) : null;
-  const rows = data.goals
-    .filter((g) => !g.archived && g.track === track)
-    .map((goal) => {
-      const remaining = workLeft(goal);
-      return { goal, remaining, perDay: remaining !== null && days ? remaining / days : null };
-    });
-  return { rows, days, from };
 }
 
 export function exportedLastBackupDays(lastBackupAt) {

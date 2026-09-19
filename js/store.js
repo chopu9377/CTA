@@ -11,7 +11,8 @@ import {
   DEFAULT_WEEKEND_HOURS,
   DEFAULT_BUFFER_DAYS,
   defaultTarget,
-  defaultMinutesPerUnit
+  defaultMinutesPerUnit,
+  defaultMaintenance
 } from "./presets.js";
 
 // v2는 목표 단위를 시간(분)에서 수량으로 바꾼 개편판이라 저장 키를 새로 쓴다.
@@ -62,6 +63,8 @@ export function newGoal(track, subject, unit) {
     weekdayTarget: defaultTarget(unit),
     weekendTarget: defaultTarget(unit),
     minutesPerUnit: defaultMinutesPerUnit(unit),
+    maintWeekdayTarget: defaultMaintenance(unit).weekday,
+    maintWeekendTarget: defaultMaintenance(unit).weekend,
     weekdays: [...ALL_WEEKDAYS],
     total: 0,
     round: 1,
@@ -77,8 +80,8 @@ function emptyData() {
     startDate: DEFAULT_START_DATE,
     trackSwitches: [{ from: DEFAULT_START_DATE, track: 2 }],
     tracks: {
-      1: { examDate: null, examEstimated: true, activeFrom: DEFAULT_FIRST_TRACK_START },
-      2: { examDate: null, examEstimated: true, activeFrom: null }
+      1: { examDate: null, examEstimated: true, activeFrom: DEFAULT_FIRST_TRACK_START, maintain: false },
+      2: { examDate: null, examEstimated: true, activeFrom: null, maintain: true }
     },
     goals: [],
     entries: [],
@@ -136,6 +139,8 @@ function normalize(data) {
     if (g.weekendTarget === undefined) g.weekendTarget = g.dailyTarget || 0;
     delete g.dailyTarget;
     g.minutesPerUnit = g.minutesPerUnit || defaultMinutesPerUnit(g.unit);
+    if (g.maintWeekdayTarget === undefined) g.maintWeekdayTarget = defaultMaintenance(g.unit).weekday;
+    if (g.maintWeekendTarget === undefined) g.maintWeekendTarget = defaultMaintenance(g.unit).weekend;
     g.archived = !!g.archived;
     ensureColor(data, g.subject);
   });

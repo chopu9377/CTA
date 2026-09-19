@@ -670,6 +670,26 @@ body {
   margin-top: 4px;
 }
 
+.maint-title {
+  margin: 16px 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.maint-title small {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.goal-row.maint {
+  border-style: dashed;
+}
+
+.unit.maint-tag {
+  color: var(--accent);
+}
+
 .goal-meta .unit {
   margin-left: 0;
   margin-right: 4px;
@@ -746,6 +766,19 @@ body {
 .goal-add-fields input {
   min-width: 0;
   width: 100%;
+}
+
+.load-section + .load-section {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--gridline);
+}
+
+.load-title {
+  margin-bottom: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-secondary);
 }
 
 .load-list {

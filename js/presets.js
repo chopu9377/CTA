@@ -61,6 +61,12 @@ export function defaultTarget(unit) {
   return unit.includes("강") ? 1 : 5;
 }
 
+// 유지 모드(다른 트랙 집중 중 가볍게 이어 가는 양) 기본값. 인강은 주말에 1강, 문제는 평일 1개/주말 2개.
+// 유지 요일은 그 과목의 적용 요일을 따른다(요일 프리셋을 쓰면 하루 1~2과목만 닿는다).
+export function defaultMaintenance(unit) {
+  return unit.includes("강") ? { weekday: 0, weekend: 1 } : { weekday: 1, weekend: 2 };
+}
+
 export function defaultMinutesPerUnit(unit) {
   return unit.includes("강") ? 60 : 20;
 }

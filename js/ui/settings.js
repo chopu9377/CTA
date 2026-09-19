@@ -1,5 +1,6 @@
 import { formatMD, WEEKDAY_LABELS } from "../dates.js";
-import { exportedLastBackupDays, trackAt, paceFor, weeklyLoad } from "../stats.js";
+import { exportedLastBackupDays, trackAt } from "../stats.js";
+import { paceFor, weeklyLoad } from "../plan.js";
 import { TRACK_LABEL, UNIT_SUGGESTIONS } from "../presets.js";
 import { escapeHtml, subjectColor, shortUnit, formatDuration } from "./shared.js";
 import { syncCardHTML } from "./syncui.js";
@@ -27,6 +28,11 @@ function trackCardHTML(data) {
       .join("")}</div>
     <label class="field"><span>1차 활성 시작일 (이날 이후 1차로 전환을 안내해요. 2차는 일시정지·진도 보존)</span>
       <input type="date" value="${data.tracks[1].activeFrom || ""}" data-track-field="activeFrom" data-track="1" /></label>
+    <p class="hint" style="margin-top:0">1차 시작일 ~ 1차 시험일 전날은 <b>1차 집중 기간</b>이라 2차 권장량 계산에서 빠져요.</p>
+    <div class="form-grid">${[2, 1]
+      .map((t) => `<label class="check"><input type="checkbox" ${data.tracks[t].maintain ? "checked" : ""} data-track-field="maintain" data-track="${t}" /> ${TRACK_LABEL[t]} 유지 모드</label>`)
+      .join("")}</div>
+    <p class="hint" style="margin-top:0">유지 모드: 다른 트랙을 집중하는 동안 이 트랙을 가볍게 이어 가요. 과목 카드의 "유지 평일/주말" 양만 하고, 못 해도 미달·이월로 세지 않아요.</p>
   </div>`;
 }
 
@@ -60,11 +66,15 @@ function planCardHTML(data) {
   </div>`;
 }
 
-// 권장량을 그대로 따랐을 때의 요일별 예상 시간. 입력이 바뀔 때 이 부분만 다시 그린다.
-export function weekLoadHTML(data, today) {
-  const { rows, paced, total } = weeklyLoad(data, trackAt(data, today), today);
-  if (!paced) return `<p class="hint">시험일·총 분량·목표 회독을 입력하면 요일별 예상 공부 시간을 점검해줘요.</p>`;
-  return `<div class="load-list">${rows
+function loadSectionHTML(data, track, today, active) {
+  const info = data.tracks[track];
+  const label = `${TRACK_LABEL[track]}${active ? " (진행 중)" : info.activeFrom ? ` (${formatMD(info.activeFrom)}부터 집중)` : ""}`;
+  const { rows, paced, total, maintenance } = weeklyLoad(data, track, today);
+  if (!paced) {
+    return `<div class="load-section"><div class="load-title">${label}</div>
+      <p class="hint">시험일·총 분량·목표 회독을 입력하면 요일별 예상 공부 시간을 점검해줘요.</p></div>`;
+  }
+  return `<div class="load-section"><div class="load-title">${label}</div><div class="load-list">${rows
     .map((r) => {
       const over = r.minutes > r.limit;
       const pct = r.limit ? Math.min(100, (r.minutes / r.limit) * 100) : 0;
@@ -73,8 +83,14 @@ export function weekLoadHTML(data, today) {
         <span class="load-min${over ? " over" : ""}">${formatDuration(r.minutes)} / ${formatDuration(r.limit)}</span></div>`;
     })
     .join("")}</div>
-    <p class="hint">단위당 소요 시간 × 권장량 합계예요. 빨간색은 공부 가능 시간을 넘는 날${paced < total ? ` · 권장량이 계산된 목표 ${paced}/${total}개 기준` : ""}. 요일 패턴은 '오늘' 탭 편집의 프리셋으로 바꿀 수 있어요.</p>
-    <button class="btn btn-secondary" data-action="apply-all-pace" type="button">모든 권장량 한 번에 적용</button>`;
+    <p class="hint">단위당 소요 시간 × 권장량 합계예요(다른 트랙 유지 목표${maintenance ? ` ${maintenance}개` : ""} 포함). 빨간색은 공부 가능 시간을 넘는 날${paced < total ? ` · 권장량이 계산된 목표 ${paced}/${total}개 기준` : ""}. 요일 패턴은 '오늘' 탭 편집의 프리셋으로 바꿀 수 있어요.</p>
+    <button class="btn btn-secondary" data-action="apply-all-pace" data-track="${track}" type="button">${TRACK_LABEL[track]} 권장량 한 번에 적용</button></div>`;
+}
+
+// 권장량을 그대로 따랐을 때의 요일별 예상 시간(진행 중 트랙과 다른 트랙 둘 다). 입력이 바뀔 때 이 부분만 다시 그린다.
+export function weekLoadHTML(data, today) {
+  const active = trackAt(data, today);
+  return [active, active === 2 ? 1 : 2].map((t) => loadSectionHTML(data, t, today, t === active)).join("");
 }
 
 // 입력칸은 그대로 두고 이 부분만 다시 그린다(칸을 옮길 때 포커스가 끊기지 않게)
@@ -100,6 +116,8 @@ function totalRowHTML(data, g, today) {
       <label class="mini-field"><span>누적 푼 양</span><input type="number" min="0" inputmode="numeric" value="${cumulative || ""}" placeholder="340" data-goal-field="cumulative" data-id="${g.id}" /></label>
       <label class="mini-field"><span>목표 회독</span><input type="number" min="0" inputmode="numeric" value="${g.targetRounds || ""}" placeholder="3" data-goal-field="targetRounds" data-id="${g.id}" /></label>
       <label class="mini-field"><span>1개당 소요(분)</span><input type="number" min="1" inputmode="numeric" value="${g.minutesPerUnit}" data-goal-field="minutesPerUnit" data-id="${g.id}" /></label>
+      <label class="mini-field"><span>유지 평일</span><input type="number" min="0" inputmode="numeric" value="${g.maintWeekdayTarget}" data-goal-field="maintWeekdayTarget" data-id="${g.id}" /></label>
+      <label class="mini-field"><span>유지 주말</span><input type="number" min="0" inputmode="numeric" value="${g.maintWeekendTarget}" data-goal-field="maintWeekendTarget" data-id="${g.id}" /></label>
     </div>
     <div class="pace-slot" data-slot-for="${g.id}">${paceSlotHTML(data, g, today)}</div>
   </div>`;

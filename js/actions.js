@@ -1,6 +1,7 @@
 import * as storage from "./storage.js";
 import { todayStr } from "./dates.js";
-import { trackAt, paceFor } from "./stats.js";
+import { trackAt } from "./stats.js";
+import { paceFor, maintenanceGoals } from "./plan.js";
 import * as sync from "./sync.js";
 
 const SYNC_RESULT_TEXT = {
@@ -24,9 +25,14 @@ function downloadJson(json, filename) {
 
 // data-action 값 → 처리 함수. app.js가 클릭을 위임해서 호출한다.
 export function createActions({ ui, render, toast, overlay, showSettleSheet, closeSheet, resolveConflict }) {
+  // 입력 대상: 오늘 활성 트랙의 목표 + 유지 모드로 켜진 다른 트랙 목표
   function currentGoalId() {
     const data = storage.getData();
-    const goals = data.goals.filter((g) => !g.archived && g.track === trackAt(data, todayStr()));
+    const today = todayStr();
+    const goals = [
+      ...data.goals.filter((g) => !g.archived && g.track === trackAt(data, today)),
+      ...maintenanceGoals(data, today, today)
+    ];
     const selected = goals.find((g) => g.id === ui.selectedGoalId) || goals[0];
     return selected ? selected.id : null;
   }
@@ -100,12 +106,13 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
       toast("평일/주말 목표에 적용했어요");
       render();
     },
-    "apply-all-pace"() {
+    "apply-all-pace"(btn) {
       const data = storage.getData();
       const today = todayStr();
+      const track = Number(btn.dataset.track) || trackAt(data, today);
       let count = 0;
       data.goals
-        .filter((g) => !g.archived && g.track === trackAt(data, today))
+        .filter((g) => !g.archived && g.track === track)
         .forEach((goal) => {
           const pace = paceFor(data, goal, today);
           if (!pace || pace.perWeekday === null || pace.left <= 0) return;

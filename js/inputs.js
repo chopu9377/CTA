@@ -106,7 +106,7 @@ export function bindInputHandlers({ ui, render, toast, closeSheet, announceRound
       }
     } else if (el.dataset.trackField) {
       const field = el.dataset.trackField;
-      const value = field === "examEstimated" ? el.checked : el.value || null;
+      const value = field === "examEstimated" || field === "maintain" ? el.checked : el.value || null;
       storage.setTrackInfo(Number(el.dataset.track), { [field]: value });
     } else if (el.dataset.settingNum) {
       storage.setSetting(el.dataset.settingNum, Math.max(0, Number(el.value) || 0));

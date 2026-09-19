@@ -38,6 +38,12 @@
   그 목표의 쉬는 요일을 뺀 날. 시험일·총 분량·목표 회독·공부 가능 시간이 바뀌면 자동 재계산되지만,
   **목표에는 사용자가 [적용]을 눌렀을 때만** 반영한다(하루 목표가 남은 양 기준으로 매일 자동 변하면
   못 푼 분량이 이월과 이중으로 잡히기 때문). 집중 모드의 "남은 분량"도 목표 회독 기준.
+- **1차 집중 기간 제외**: 1차 활성 시작일 ~ 1차 시험일 전날(둘 다 입력돼 있어야 계획으로 인정)은 1차만
+  공부하는 기간이라 **2차 권장량의 공부일수에서 뺀다**(1차 시험이 끝나면 다시 2차 기간).
+- **유지 모드**: 다른 트랙을 집중하는 동안 이 트랙을 가볍게 이어 가는 기능(트랙별 설정, 2차 기본 켜짐).
+  목표마다 유지 평일/주말 양이 따로 있고 요일은 그 목표의 적용 요일을 따른다. 오늘 탭의 "유지" 구역에서
+  입력하며, **달성/미달 판정·이월·쿼터에는 넣지 않고**(못 채워도 괜찮음) 예상 공부 시간(과부하 경고)과 회독
+  진행에는 포함한다. 권장량 계산에서는 유지분을 진도로 치지 않는다(보수적).
 - **과부하 점검**: 목표마다 "1개당 소요 시간(분)"(문제 20분, 인강 60분 기본)을 두고, 오늘 목표 합계가
   그날 공부 가능 시간을 넘으면 오늘 탭에 경고, 설정에는 권장량을 따랐을 때의 요일별 예상 시간을 표시.
 - **요일 패턴 프리셋**(오늘 탭 편집): 매일 전 과목 / 격일 묶음 / 추천 조합. 목표마다 적용 요일이 따로
@@ -64,8 +70,8 @@
 ```
 startDate                 // 첫 주의 시작일(기본 2026-09-20). 주 = startDate 기준 7일
 trackSwitches[]           // { from, track } 언제부터 어느 트랙이 활성이었는지
-tracks[1|2]               // { examDate, examEstimated, activeFrom }
-goals[]                   // { id, track, subject, unit, weekdayTarget, weekendTarget, minutesPerUnit, weekdays[], total, targetRounds, round, progress, archived }
+tracks[1|2]               // { examDate, examEstimated, activeFrom, maintain }
+goals[]                   // { id, track, subject, unit, weekdayTarget, weekendTarget, maintWeekdayTarget, maintWeekendTarget, minutesPerUnit, weekdays[], total, targetRounds, round, progress, archived }
 entries[]                 // { id, goalId, date, amount }  푼 양(누적 입력 1건 = 1행)
 dayKinds{ date: rest|review }
 dayTargets{ date: { goalId: target } }   // 그날 목표 스냅샷(지난 날 판정이 목표 수정에 흔들리지 않게)
