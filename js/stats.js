@@ -17,16 +17,42 @@ export function effectiveKind(data, dateStr) {
   return null;
 }
 
+// 토·일과 공휴일은 주말로 본다(직장인은 공휴일에 쉬는 만큼 더 공부할 수 있는 날).
+export function isWeekendLike(dateStr) {
+  const day = weekdayOf(dateStr);
+  return day === 0 || day === 6 || !!holidayName(dateStr);
+}
+
+export function targetOn(goal, dateStr) {
+  return isWeekendLike(dateStr) ? goal.weekendTarget : goal.weekdayTarget;
+}
+
 export function computeTargets(data, dateStr) {
   if (effectiveKind(data, dateStr)) return {};
   const track = trackAt(data, dateStr);
   const weekday = weekdayOf(dateStr);
   const targets = {};
   data.goals.forEach((g) => {
-    if (g.archived || g.track !== track || g.dailyTarget <= 0 || !g.weekdays.includes(weekday)) return;
-    targets[g.id] = g.dailyTarget;
+    if (g.archived || g.track !== track || !g.weekdays.includes(weekday)) return;
+    const amount = targetOn(g, dateStr);
+    if (amount > 0) targets[g.id] = amount;
   });
   return targets;
+}
+
+function limitMinutes(data, dateStr) {
+  const hours = isWeekendLike(dateStr) ? data.settings.weekendHours : data.settings.weekdayHours;
+  return Math.round(hours * 60);
+}
+
+// 그날 목표 합계를 (단위당 소요 시간 × 목표량)으로 환산한 예상 공부 시간과 공부 가능 시간
+export function dayLoad(data, dateStr) {
+  const targets = targetsFor(data, dateStr);
+  const minutes = Object.keys(targets).reduce((sum, goalId) => {
+    const goal = data.goals.find((g) => g.id === goalId);
+    return sum + (goal ? targets[goalId] * goal.minutesPerUnit : 0);
+  }, 0);
+  return { minutes, limit: limitMinutes(data, dateStr), weekend: isWeekendLike(dateStr) };
 }
 
 export function targetsFor(data, dateStr) {
@@ -197,19 +223,47 @@ function workLeft(goal) {
   return goal.total - goal.progress;
 }
 
-// 권장 하루량 = 남은 분량 ÷ 시험일까지 남은 공부일수(휴식·복습일과 이 목표의 쉬는 요일 제외).
+// 권장량: 시험일 `bufferDays`일 전(모의고사·복습 기간)까지 목표 회독을 끝내는 페이스.
+// 남은 분량을 공부일수로 나누되 주말은 공부 가능 시간 비율(예: 7h/4h)만큼 더 배정한다.
+// 휴식·복습일과 이 목표의 쉬는 요일은 공부일에서 뺀다.
 export function paceFor(data, goal, today) {
   const info = data.tracks[goal.track];
   if (!info.examDate || goal.total <= 0 || goal.targetRounds <= 0) return null;
   const from = goal.track === 1 && info.activeFrom && info.activeFrom > today ? info.activeFrom : today;
-  let days = 0;
-  for (let d = from; d < info.examDate; d = addDays(d, 1)) {
-    if (!effectiveKind(data, d) && goal.weekdays.includes(weekdayOf(d))) days++;
+  const endDate = addDays(info.examDate, -data.settings.bufferDays);
+  let weekdayDays = 0;
+  let weekendDays = 0;
+  for (let d = from; d < endDate; d = addDays(d, 1)) {
+    if (effectiveKind(data, d) || !goal.weekdays.includes(weekdayOf(d))) continue;
+    if (isWeekendLike(d)) weekendDays++;
+    else weekdayDays++;
   }
   const left = workLeft(goal);
-  if (!days || left <= 0) return { left, days, perDay: left <= 0 ? 0 : null, perWeek: null };
-  const perDay = Math.ceil(left / days);
-  return { left, days, perDay, perWeek: perDay * goal.weekdays.length };
+  const result = { left, weekdayDays, weekendDays, endDate, perWeekday: null, perWeekend: null };
+  if (left <= 0) return { ...result, perWeekday: 0, perWeekend: 0 };
+  if (!weekdayDays && !weekendDays) return result;
+  if (!weekendDays) return { ...result, perWeekday: Math.ceil(left / weekdayDays), perWeekend: 0 };
+  if (!weekdayDays) return { ...result, perWeekday: 0, perWeekend: Math.ceil(left / weekendDays) };
+  const { weekdayHours, weekendHours } = data.settings;
+  const ratio = weekdayHours > 0 && weekendHours > 0 ? weekendHours / weekdayHours : 1;
+  const perWeekday = Math.ceil(left / (weekdayDays + ratio * weekendDays));
+  return { ...result, perWeekday, perWeekend: Math.ceil(perWeekday * ratio) };
+}
+
+// 권장량을 그대로 따랐을 때 요일별 예상 공부 시간(월~일)과 공부 가능 시간
+export function weeklyLoad(data, track, today) {
+  const goals = data.goals.filter((g) => !g.archived && g.track === track);
+  const paces = goals.map((goal) => ({ goal, pace: paceFor(data, goal, today) })).filter((p) => p.pace);
+  const rows = [1, 2, 3, 4, 5, 6, 0].map((dow) => {
+    const weekend = dow === 0 || dow === 6;
+    const minutes = paces.reduce((sum, { goal, pace }) => {
+      if (!goal.weekdays.includes(dow)) return sum;
+      return sum + (weekend ? pace.perWeekend : pace.perWeekday) * goal.minutesPerUnit;
+    }, 0);
+    const hours = weekend ? data.settings.weekendHours : data.settings.weekdayHours;
+    return { dow, minutes, limit: Math.round(hours * 60) };
+  });
+  return { rows, paced: paces.length, total: goals.length };
 }
 
 export function focusRows(data, track, today) {

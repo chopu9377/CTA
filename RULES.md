@@ -27,8 +27,12 @@
 /index.html
 /css/style.css
 /js/
-  app.js        # 진입점, 이벤트 위임(클릭/제출/변경), 화면 전환/초기화
-  storage.js    # 데이터 읽기/쓰기(localStorage) + 백업 내보내기/가져오기
+  app.js        # 진입점: 화면 전환/렌더, 클릭·스크롤 위임, 초기화
+  actions.js    # data-action별 클릭 처리
+  inputs.js     # 폼 제출·입력칸 변경 처리
+  storage.js    # 저장 관련 함수의 창구(app이 여기서만 import). 날짜·설정·시험·백업 변경 + 아래 두 파일 재export
+  store.js      # localStorage 읽기/쓰기, 기본값·정규화(normalize), 스냅샷
+  goals.js      # 목표·기록(entries)·회독 변경
   stats.js      # 하루 상태·이월 상환·주간 쿼터·월별 집계 등 순수 계산 로직
   dates.js      # 날짜 문자열 헬퍼
   presets.js    # 트랙별 기본 목표, 시험 과목, 과목 색 슬롯

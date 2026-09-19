@@ -17,6 +17,14 @@ export function subjectColor(data, name) {
   return typeof color === "number" ? `var(--series-${color})` : color || "#8a8a8a";
 }
 
+export function formatDuration(minutes) {
+  const total = Math.round(minutes);
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  if (!h) return `${m}분`;
+  return m ? `${h}시간 ${m}분` : `${h}시간`;
+}
+
 export function shortUnit(unit) {
   return unit.replace("연습서 ", "").replace("객관식 ", "").replace("(강)", "");
 }

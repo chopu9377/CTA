@@ -1,0 +1,178 @@
+import { addDays, todayStr } from "./dates.js";
+import { computeTargets } from "./stats.js";
+import {
+  DEFAULT_START_DATE,
+  DEFAULT_FIRST_TRACK_START,
+  GOAL_PRESETS,
+  SUBJECT_COLOR_SLOTS,
+  SERIES_SLOTS,
+  UNSET_CUSTOM_COLOR,
+  DEFAULT_WEEKDAY_HOURS,
+  DEFAULT_WEEKEND_HOURS,
+  DEFAULT_BUFFER_DAYS,
+  defaultTarget,
+  defaultMinutesPerUnit
+} from "./presets.js";
+
+// v2는 목표 단위를 시간(분)에서 수량으로 바꾼 개편판이라 저장 키를 새로 쓴다.
+// 이전 버전 키는 건드리지 않고 그대로 남겨둔다(설정에서 JSON으로 내보낼 수 있음).
+const STORAGE_KEY = "cta-data-v2";
+const LEGACY_KEY = "cta-study-tracker-data";
+const SCHEMA_VERSION = 2;
+const ALL_WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
+
+let cache = null;
+
+export function uid() {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
+  return "id-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+}
+
+export function persist() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(cache));
+}
+
+export function ensureColor(data, name) {
+  if (data.subjectColors[name] !== undefined) return;
+  const used = new Set(Object.values(data.subjectColors).filter((v) => typeof v === "number"));
+  for (let slot = 1; slot <= SERIES_SLOTS; slot++) {
+    if (!used.has(slot)) {
+      data.subjectColors[name] = slot;
+      return;
+    }
+  }
+  data.subjectColors[name] = UNSET_CUSTOM_COLOR;
+}
+
+export function newGoal(track, subject, unit) {
+  return {
+    id: uid(),
+    track,
+    subject,
+    unit,
+    weekdayTarget: defaultTarget(unit),
+    weekendTarget: defaultTarget(unit),
+    minutesPerUnit: defaultMinutesPerUnit(unit),
+    weekdays: [...ALL_WEEKDAYS],
+    total: 0,
+    round: 1,
+    progress: 0,
+    targetRounds: 0,
+    archived: false
+  };
+}
+
+function emptyData() {
+  const data = {
+    schemaVersion: SCHEMA_VERSION,
+    startDate: DEFAULT_START_DATE,
+    trackSwitches: [{ from: DEFAULT_START_DATE, track: 2 }],
+    tracks: {
+      1: { examDate: null, examEstimated: true, activeFrom: DEFAULT_FIRST_TRACK_START },
+      2: { examDate: null, examEstimated: true, activeFrom: null }
+    },
+    goals: [],
+    entries: [],
+    dayKinds: {},
+    dayTargets: {},
+    settlements: {},
+    carries: [],
+    exams: { 1: [], 2: [] },
+    subjectColors: {},
+    settings: {
+      focusMode: false,
+      holidayAutoRest: false,
+      weekdayHours: DEFAULT_WEEKDAY_HOURS,
+      weekendHours: DEFAULT_WEEKEND_HOURS,
+      bufferDays: DEFAULT_BUFFER_DAYS
+    },
+    meta: { lastBackupAt: null }
+  };
+  Object.assign(data.subjectColors, SUBJECT_COLOR_SLOTS);
+  [2, 1].forEach((track) => GOAL_PRESETS[track].forEach(([subject, unit]) => data.goals.push(newGoal(track, subject, unit))));
+  return data;
+}
+
+// 누락된 필드는 기본값으로 채우고 기존 기록은 살린다. 읽을 수 없는 데이터일 때만 새로 시작.
+function normalize(data) {
+  if (!data || typeof data !== "object" || !Array.isArray(data.goals) || !Array.isArray(data.entries)) {
+    return emptyData();
+  }
+  const base = emptyData();
+  data.schemaVersion = SCHEMA_VERSION;
+  data.startDate = data.startDate || base.startDate;
+  data.trackSwitches = Array.isArray(data.trackSwitches) && data.trackSwitches.length ? data.trackSwitches : base.trackSwitches;
+  data.tracks = data.tracks || {};
+  [1, 2].forEach((t) => {
+    data.tracks[t] = { ...base.tracks[t], ...(data.tracks[t] || {}) };
+  });
+  ["dayKinds", "dayTargets", "settlements", "subjectColors"].forEach((k) => {
+    data[k] = data[k] && typeof data[k] === "object" ? data[k] : {};
+  });
+  data.carries = Array.isArray(data.carries) ? data.carries : [];
+  data.exams = data.exams || {};
+  [1, 2].forEach((t) => {
+    data.exams[t] = Array.isArray(data.exams[t]) ? data.exams[t] : [];
+  });
+  data.settings = { ...base.settings, ...(data.settings || {}) };
+  data.meta = { lastBackupAt: null, ...(data.meta || {}) };
+  data.goals.forEach((g) => {
+    g.weekdays = Array.isArray(g.weekdays) ? g.weekdays : [...ALL_WEEKDAYS];
+    g.total = g.total || 0;
+    g.round = g.round || 1;
+    g.progress = g.progress || 0;
+    g.targetRounds = g.targetRounds || 0;
+    // 옛 필드 dailyTarget(하루 한 값)을 평일/주말 두 값으로 이어받는다
+    if (g.weekdayTarget === undefined) g.weekdayTarget = g.dailyTarget || 0;
+    if (g.weekendTarget === undefined) g.weekendTarget = g.dailyTarget || 0;
+    delete g.dailyTarget;
+    g.minutesPerUnit = g.minutesPerUnit || defaultMinutesPerUnit(g.unit);
+    g.archived = !!g.archived;
+    ensureColor(data, g.subject);
+  });
+  return data;
+}
+
+export function getData() {
+  if (cache) return cache;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    cache = normalize(raw ? JSON.parse(raw) : null);
+  } catch (e) {
+    console.error("CTA: failed to load saved data, starting fresh", e);
+    cache = emptyData();
+  }
+  return cache;
+}
+
+export function replaceData(parsed) {
+  cache = normalize(parsed);
+  persist();
+}
+
+// 시작일부터 오늘까지 그날 목표를 고정(스냅샷)해둔다. 이후 목표를 바꿔도 지난 날 판정이 흔들리지 않게 하기 위함.
+export function freezeDayTargets(today = todayStr()) {
+  const data = getData();
+  let changed = false;
+  for (let d = data.startDate; d <= today; d = addDays(d, 1)) {
+    if (!data.dayTargets[d]) {
+      data.dayTargets[d] = computeTargets(data, d);
+      changed = true;
+    }
+  }
+  if (changed) persist();
+}
+
+export function refreshToday() {
+  const data = getData();
+  const today = todayStr();
+  data.dayTargets[today] = computeTargets(data, today);
+}
+
+export function findGoal(goalId) {
+  return getData().goals.find((g) => g.id === goalId);
+}
+
+export function legacyDataJson() {
+  return localStorage.getItem(LEGACY_KEY);
+}

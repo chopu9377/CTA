@@ -29,11 +29,17 @@
 - **회독**: 현재 회독 진행량이 총 분량에 도달하면 회독 +1, 진행량은 0(넘친 만큼 이월).
   앱을 쓰기 전까지 푼 양은 설정의 "누적 푼 양"에 넣으면 총 분량 기준으로 회독/진행량으로 환산된다
   (주간 통계에는 잡히지 않음).
-- **목표 회독 → 권장 하루량(역산)**: 목표마다 목표 회독수를 두면 `(목표 회독 × 총 분량 − 지금까지 푼
-  양) ÷ 시험일까지 남은 공부일수`(휴식·복습일과 그 목표의 쉬는 요일 제외)를 권장 하루량으로 보여준다.
-  시험일·총 분량·목표 회독이 바뀌면 자동 재계산되지만, **하루 목표에는 사용자가 [적용]을 눌렀을 때만**
-  반영한다(하루 목표가 남은 양 기준으로 매일 자동 변하면 못 푼 분량이 이월과 이중으로 잡히기 때문).
-  집중 모드의 "남은 분량"도 목표 회독 기준으로 계산한다.
+- **평일/주말 목표**: 하루 목표는 평일 값과 주말 값 두 개(직장 병행). 토·일과 **공휴일은 주말**로 본다.
+- **목표 회독 → 권장량(역산)**: 목표마다 목표 회독수를 두면 `(목표 회독 × 총 분량 − 지금까지 푼 양)`을
+  **시험일 N일 전(기본 30일, 마지막 기간은 모의고사·복습)까지** 끝내는 페이스로 평일/주말 권장량을
+  계산한다. 평일:주말 비율은 공부 가능 시간 비율(기본 4h:7h ≈ 1:1.75). 공부일수는 휴식·복습일과
+  그 목표의 쉬는 요일을 뺀 날. 시험일·총 분량·목표 회독·공부 가능 시간이 바뀌면 자동 재계산되지만,
+  **목표에는 사용자가 [적용]을 눌렀을 때만** 반영한다(하루 목표가 남은 양 기준으로 매일 자동 변하면
+  못 푼 분량이 이월과 이중으로 잡히기 때문). 집중 모드의 "남은 분량"도 목표 회독 기준.
+- **과부하 점검**: 목표마다 "1개당 소요 시간(분)"(문제 20분, 인강 60분 기본)을 두고, 오늘 목표 합계가
+  그날 공부 가능 시간을 넘으면 오늘 탭에 경고, 설정에는 권장량을 따랐을 때의 요일별 예상 시간을 표시.
+- **요일 패턴 프리셋**(오늘 탭 편집): 매일 전 과목 / 격일 묶음 / 추천 조합. 목표마다 적용 요일이 따로
+  있어서 프리셋은 그 요일 칩을 한 번에 채우는 것이다. 오늘 탭 각 과목에는 오늘 권장량이 표시된다.
 - **공휴일**: `data/holidays.json`(정기 작업이 공공데이터포털 API에서 갱신)을 읽어 격자에 빨간 점으로
   표시. 설정의 "공휴일 자동 휴식"을 켜면 공휴일을 휴식일로 처리(기본 꺼짐).
 
@@ -57,7 +63,7 @@
 startDate                 // 첫 주의 시작일(기본 2026-09-20). 주 = startDate 기준 7일
 trackSwitches[]           // { from, track } 언제부터 어느 트랙이 활성이었는지
 tracks[1|2]               // { examDate, examEstimated, activeFrom }
-goals[]                   // { id, track, subject, unit, dailyTarget, weekdays[], total, targetRounds, round, progress, archived }
+goals[]                   // { id, track, subject, unit, weekdayTarget, weekendTarget, minutesPerUnit, weekdays[], total, targetRounds, round, progress, archived }
 entries[]                 // { id, goalId, date, amount }  푼 양(누적 입력 1건 = 1행)
 dayKinds{ date: rest|review }
 dayTargets{ date: { goalId: target } }   // 그날 목표 스냅샷(지난 날 판정이 목표 수정에 흔들리지 않게)
@@ -65,7 +71,7 @@ settlements{ date: carried|dropped }     // 미달분 이월/버림 결정
 carries[]                 // { id, goalId, fromDate, amount }  이월분(상환은 entries에서 계산)
 exams{ 1|2: [{ id, date, label, scores[4] }] }
 subjectColors{ 과목명: 슬롯번호(1~12) | "#rrggbb" }
-settings{ focusMode, holidayAutoRest }
+settings{ focusMode, holidayAutoRest, weekdayHours, weekendHours, bufferDays }
 meta{ lastBackupAt }
 ```
 

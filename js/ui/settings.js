@@ -1,6 +1,7 @@
-import { exportedLastBackupDays, trackAt, paceFor } from "../stats.js";
+import { formatMD, WEEKDAY_LABELS } from "../dates.js";
+import { exportedLastBackupDays, trackAt, paceFor, weeklyLoad } from "../stats.js";
 import { TRACK_LABEL, UNIT_SUGGESTIONS } from "../presets.js";
-import { escapeHtml, subjectColor, shortUnit } from "./shared.js";
+import { escapeHtml, subjectColor, shortUnit, formatDuration } from "./shared.js";
 
 function backupStatusText(lastBackupAt) {
   const days = exportedLastBackupDays(lastBackupAt);
@@ -28,15 +29,50 @@ function trackCardHTML(data) {
 }
 
 function paceHTML(g, pace) {
-  if (!pace) return `<p class="hint">시험일·총 분량·목표 회독을 입력하면 권장 하루량이 계산돼요.</p>`;
+  if (!pace) return `<p class="hint">시험일·총 분량·목표 회독을 입력하면 평일/주말 권장량이 계산돼요.</p>`;
   if (pace.left <= 0) return `<p class="hint">목표 회독을 이미 채웠어요.</p>`;
-  if (!pace.perDay) return `<p class="hint">시험일까지 이 목표의 공부일이 남아 있지 않아요.</p>`;
-  const unit = shortUnit(g.unit);
-  const same = pace.perDay === g.dailyTarget;
+  if (pace.perWeekday === null) return `<p class="hint">마감일(${formatMD(pace.endDate)})까지 이 목표의 공부일이 남아 있지 않아요.</p>`;
+  const unit = escapeHtml(shortUnit(g.unit));
+  const same = pace.perWeekday === g.weekdayTarget && pace.perWeekend === g.weekendTarget;
   return `<div class="pace-line">
-    <span>권장 <b>하루 ${pace.perDay}${escapeHtml(unit)}</b> <small>(주 약 ${pace.perWeek}${escapeHtml(unit)} · 남은 ${pace.left} ÷ 공부일 ${pace.days}일)</small></span>
-    ${same ? `<span class="chip">현재 목표와 같아요</span>` : `<button class="btn btn-secondary btn-sm" data-action="apply-pace" data-id="${g.id}" data-value="${pace.perDay}" type="button">하루 목표 ${g.dailyTarget} → ${pace.perDay} 적용</button>`}
+    <span>권장 <b>평일 ${pace.perWeekday}${unit} · 주말 ${pace.perWeekend}${unit}</b>
+      <small>(남은 ${pace.left} · ${formatMD(pace.endDate)} 마감 · 평일 ${pace.weekdayDays}일 / 주말 ${pace.weekendDays}일)</small></span>
+    ${same
+      ? `<span class="chip">현재 목표와 같아요</span>`
+      : `<button class="btn btn-secondary btn-sm" data-action="apply-pace" data-id="${g.id}" data-weekday="${pace.perWeekday}" data-weekend="${pace.perWeekend}" type="button">평일 ${g.weekdayTarget}→${pace.perWeekday} · 주말 ${g.weekendTarget}→${pace.perWeekend} 적용</button>`}
   </div>`;
+}
+
+function planCardHTML(data) {
+  const s = data.settings;
+  const field = (key, value, label) =>
+    `<label class="mini-field"><span>${label}</span><input type="number" min="0" step="0.5" inputmode="decimal" value="${value}" data-setting-num="${key}" /></label>`;
+  return `<div class="card">
+    <h2 class="section-title">권장량 계산 기준</h2>
+    <div class="total-inputs">
+      ${field("weekdayHours", s.weekdayHours, "평일 가능(시간)")}
+      ${field("weekendHours", s.weekendHours, "주말 가능(시간)")}
+      ${field("bufferDays", s.bufferDays, "시험 전 마감(일)")}
+    </div>
+    <p class="hint">목표 회독을 시험 며칠 전에 끝내는 페이스로 권장량을 계산해요(마지막 기간은 모의고사·복습용). 평일:주말 양의 비율은 공부 가능 시간 비율을 따르고, 공휴일은 주말로 봐요.</p>
+  </div>`;
+}
+
+// 권장량을 그대로 따랐을 때의 요일별 예상 시간. 입력이 바뀔 때 이 부분만 다시 그린다.
+export function weekLoadHTML(data, today) {
+  const { rows, paced, total } = weeklyLoad(data, trackAt(data, today), today);
+  if (!paced) return `<p class="hint">시험일·총 분량·목표 회독을 입력하면 요일별 예상 공부 시간을 점검해줘요.</p>`;
+  return `<div class="load-list">${rows
+    .map((r) => {
+      const over = r.minutes > r.limit;
+      const pct = r.limit ? Math.min(100, (r.minutes / r.limit) * 100) : 0;
+      return `<div class="load-row"><span class="load-dow">${WEEKDAY_LABELS[r.dow]}</span>
+        <div class="meter-track"><div class="meter-fill${over ? " bad" : ""}" style="width:${pct}%"></div></div>
+        <span class="load-min${over ? " over" : ""}">${formatDuration(r.minutes)} / ${formatDuration(r.limit)}</span></div>`;
+    })
+    .join("")}</div>
+    <p class="hint">단위당 소요 시간 × 권장량 합계예요. 빨간색은 공부 가능 시간을 넘는 날${paced < total ? ` · 권장량이 계산된 목표 ${paced}/${total}개 기준` : ""}. 요일 패턴은 '오늘' 탭 편집의 프리셋으로 바꿀 수 있어요.</p>
+    <button class="btn btn-secondary" data-action="apply-all-pace" type="button">모든 권장량 한 번에 적용</button>`;
 }
 
 // 입력칸은 그대로 두고 이 부분만 다시 그린다(칸을 옮길 때 포커스가 끊기지 않게)
@@ -60,6 +96,7 @@ function totalRowHTML(data, g, today) {
       <label class="mini-field"><span>총 분량</span><input type="number" min="0" inputmode="numeric" value="${g.total || ""}" placeholder="1200" data-goal-field="total" data-id="${g.id}" /></label>
       <label class="mini-field"><span>누적 푼 양</span><input type="number" min="0" inputmode="numeric" value="${cumulative || ""}" placeholder="340" data-goal-field="cumulative" data-id="${g.id}" /></label>
       <label class="mini-field"><span>목표 회독</span><input type="number" min="0" inputmode="numeric" value="${g.targetRounds || ""}" placeholder="3" data-goal-field="targetRounds" data-id="${g.id}" /></label>
+      <label class="mini-field"><span>1개당 소요(분)</span><input type="number" min="1" inputmode="numeric" value="${g.minutesPerUnit}" data-goal-field="minutesPerUnit" data-id="${g.id}" /></label>
     </div>
     <div class="pace-slot" data-slot-for="${g.id}">${paceSlotHTML(data, g, today)}</div>
   </div>`;
@@ -93,6 +130,11 @@ function customColorCardHTML(data) {
 export function renderSettings(data, today, legacyExists) {
   return `<section class="view">
     ${trackCardHTML(data)}
+    ${planCardHTML(data)}
+    <div class="card">
+      <h2 class="section-title">요일별 권장 학습 시간 점검</h2>
+      <div data-slot-load>${weekLoadHTML(data, today)}</div>
+    </div>
     ${totalsCardHTML(data, today)}
     <datalist id="subject-names">${[...new Set(data.goals.map((g) => g.subject))].map((n) => `<option value="${escapeHtml(n)}">`).join("")}</datalist>
     <datalist id="unit-names">${UNIT_SUGGESTIONS.map((n) => `<option value="${n}">`).join("")}</datalist>
@@ -100,7 +142,7 @@ export function renderSettings(data, today, legacyExists) {
     <div class="card">
       <h2 class="section-title">공휴일</h2>
       <label class="check"><input type="checkbox" ${data.settings.holidayAutoRest ? "checked" : ""} data-setting="holidayAutoRest" /> 공휴일을 자동으로 휴식일 처리</label>
-      <p class="hint">기본은 꺼짐 — 공휴일은 빨간 점으로만 표시하고 공부는 그대로 진행해요.</p>
+      <p class="hint">기본은 꺼짐 — 공휴일은 빨간 점으로만 표시하고 공부는 그대로 진행해요. 공휴일은 주말과 같은 목표량·권장량으로 계산해요.</p>
     </div>
     <div class="card">
       <h2 class="section-title">데이터 백업</h2>

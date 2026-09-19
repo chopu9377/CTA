@@ -698,21 +698,111 @@ body {
   border-bottom: 1px solid var(--gridline);
 }
 
-.goal-edit-main {
+.goal-edit-head {
   display: grid;
-  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.1fr) 64px 32px;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.1fr) 52px 52px 28px;
   gap: 6px;
-  align-items: center;
+  margin-bottom: 6px;
+  font-size: 11px;
+  color: var(--text-muted);
 }
 
-.goal-add .goal-edit-main {
+.goal-rec {
+  margin-top: 5px;
+  font-size: 12px;
+  color: var(--accent);
+}
+
+.notice.warn {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 10%, var(--page));
+}
+
+.preset-box {
+  margin-bottom: 16px;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  background: var(--page);
+}
+
+.preset-title {
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.preset-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.goal-add-fields {
+  display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.goal-add-fields input {
+  min-width: 0;
+  width: 100%;
+}
+
+.load-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.load-row {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) 118px;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.load-dow {
+  font-weight: 700;
+}
+
+.load-min {
+  text-align: right;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.load-min.over {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.meter-fill.bad {
+  background: var(--danger);
+}
+
+.load-list + .hint + .btn {
+  margin-top: 12px;
+  width: 100%;
+}
+
+.goal-edit-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.1fr) 52px 52px 28px;
+  gap: 6px;
+  align-items: center;
 }
 
 .goal-edit-main input {
   min-width: 0;
   padding: 10px;
   font-size: 14px;
+}
+
+.goal-edit-main input[type="number"] {
+  padding: 10px 2px;
+  text-align: center;
 }
 
 .weekday-chips,
