@@ -33,7 +33,7 @@ export function maintenanceTargets(data, dateStr, today) {
   return targets;
 }
 
-function limitMinutes(data, dateStr) {
+export function limitMinutes(data, dateStr) {
   const hours = isWeekendLike(dateStr) ? data.settings.weekendHours : data.settings.weekdayHours;
   return Math.round(hours * 60);
 }
@@ -67,12 +67,12 @@ export function presetImpact(data, track, presetKey) {
   };
 }
 
-function cumulativeOf(goal) {
+export function cumulativeOf(goal) {
   return (goal.round - 1) * goal.total + goal.progress;
 }
 
 // 목표 회독까지 남은 분량. 목표 회독이 없으면 현재 회독의 남은 분량.
-function workLeft(goal) {
+export function workLeft(goal) {
   if (goal.total <= 0) return null;
   if (goal.targetRounds > 0) return Math.max(0, goal.targetRounds * goal.total - cumulativeOf(goal));
   return goal.total - goal.progress;
@@ -88,7 +88,7 @@ export function paceMissing(data, goal) {
 }
 
 // 그 트랙을 실제로 공부하는 날인가(다른 트랙 집중 기간은 제외)
-function studiesTrackOn(data, track, dateStr, today) {
+export function studiesTrackOn(data, track, dateStr, today) {
   return !hasFocusPlan(data) || plannedTrackOn(data, dateStr, today) === track;
 }
 

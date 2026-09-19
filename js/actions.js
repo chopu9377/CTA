@@ -101,6 +101,14 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
       ui.planOpen = !ui.planOpen;
       render();
     },
+    "auto-all"() {
+      const data = storage.getData();
+      const today = todayStr();
+      const goals = data.goals.filter((g) => !g.archived && g.planMode !== "auto");
+      goals.forEach((g) => storage.updateGoal(g.id, { planMode: "auto", autoFrom: today }));
+      toast(goals.length ? `${goals.length}개 과목을 자동 계획으로 바꿨어요` : "이미 모든 과목이 자동이에요");
+      render();
+    },
     "goto-input"(btn) {
       const { id, track, field } = btn.dataset;
       const selector = id ? `input[data-goal-field="${field}"][data-id="${id}"]` : `input[data-track-field="${field}"][data-track="${track}"]`;

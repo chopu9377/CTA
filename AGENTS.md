@@ -39,6 +39,12 @@
   그 목표의 쉬는 요일을 뺀 날. 시험일·총 분량·목표 회독·공부 가능 시간이 바뀌면 자동 재계산되지만,
   **목표에는 사용자가 [적용]을 눌렀을 때만** 반영한다(하루 목표가 남은 양 기준으로 매일 자동 변하면
   못 푼 분량이 이월과 이중으로 잡히기 때문). 집중 모드의 "남은 분량"도 목표 회독 기준.
+- **하루 목표 모드(고정 / 자동)**: 목표마다 `planMode`를 고른다(설정의 과목 카드 "하루 목표"). **고정**은 평일/주말 숫자를 그대로 쓴다. 새 목표의 기본값은 자동이고 [권장량 도출]의 [모든 과목 자동으로]로 기존 목표를 한 번에 바꾼다.
+  **자동**은 매주 시작 시점(켠 주는 켠 날)의 진도로 이번 주 필요량을 소수까지 구한 뒤 정수로 요일에 나눠 그 주 동안 고정한다
+  (`남은 분량 = 총분량 × 목표회독 - 실제 누적진도`, 시험일·총 분량·목표 회독이 없으면 고정 목표를 쓴다). 실제로 하지 않은 문제를
+  회독 완료로 세지 않으며 자동 목표에는 "버림/건너뛰기"가 없다. **일간 이월은 같은 주 안에서만** 남은 공부일에 나눠 얹고(주간 목표
+  합계는 그대로), 그 주에 다시 나눌 날이 없거나 이월하지 않은 미달은 다음 주 재역산에 자동 흡수된다(주 초에 안내). 계획은 저장하지
+  않고 기존 데이터로 매번 다시 계산하므로 기기끼리 결과가 같다.
 - **1차 집중 기간 제외**: 1차 활성 시작일 ~ 1차 시험일 전날(둘 다 입력돼 있어야 계획으로 인정)은 1차만
   공부하는 기간이라 **2차 권장량의 공부일수에서 뺀다**(1차 시험이 끝나면 다시 2차 기간).
 - **유지 모드**: 다른 트랙을 집중하는 동안 이 트랙을 가볍게 이어 가는 기능(트랙별 설정, 2차 기본 켜짐).
@@ -77,12 +83,12 @@
 startDate                 // 첫 주의 시작일(기본 2026-09-20). 주 = startDate 기준 7일
 trackSwitches[]           // { from, track } 언제부터 어느 트랙이 활성이었는지
 tracks[1|2]               // { examDate, examEstimated, activeFrom, maintain }
-goals[]                   // { id, track, subject, unit, weekdayTarget, weekendTarget, maintWeekdayTarget, maintWeekendTarget, minutesPerUnit, weekdays[], total, targetRounds, round, progress, archived }
+goals[]                   // { id, track, subject, unit, weekdayTarget, weekendTarget, maintWeekdayTarget, maintWeekendTarget, minutesPerUnit, weekdays[], total, targetRounds, round, progress, archived, planMode("fixed"|"auto"), autoFrom }
 entries[]                 // { id, goalId, date, amount }  푼 양(누적 입력 1건 = 1행)
 dayKinds{ date: rest|review }
 dayTargets{ date: { goalId: target } }   // 그날 목표 스냅샷(지난 날 판정이 목표 수정에 흔들리지 않게)
 settlements{ date: carried|dropped }     // 미달분 이월/버림 결정
-carries[]                 // { id, goalId, fromDate, amount }  이월분(상환은 entries에서 계산)
+carries[]                 // { id, goalId, fromDate, amount, [atDate, redistribute] }  redistribute: 자동 목표의 같은 주 이월  이월분(상환은 entries에서 계산)
 exams{ 1|2: [{ id, date, label, scores[4] }] }
 subjectColors{ 과목명: 슬롯번호(1~12) | "#rrggbb" }
 settings{ focusMode, holidayAutoRest, weekdayHours, weekendHours, bufferDays }

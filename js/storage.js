@@ -1,5 +1,6 @@
 import { addDays, todayStr } from "./dates.js";
-import { getData, persist, uid, refreshToday, replaceData } from "./store.js";
+import { getData, persist, uid, refreshToday, replaceData, findGoal } from "./store.js";
+import { isAutoGoal, canRedistribute } from "./weekplan.js";
 
 // app.js는 저장 관련 함수를 모두 이 파일에서 가져온다(핵심은 store.js, 목표·기록 변경은 goals.js).
 export { getData, freezeDayTargets, legacyDataJson } from "./store.js";
@@ -26,12 +27,25 @@ function hasReviewInWeek(data, dateStr) {
   return Array.from({ length: 7 }, (_, i) => addDays(start, i)).some((d) => data.dayKinds[d] === "review");
 }
 
+// 고정 목표의 이월은 이후 초과분으로 갚는다. 자동 계획 목표의 이월은 같은 주 남은 공부일에 나눠 얹고(redistribute),
+// 다시 나눌 날이 없으면 아무것도 만들지 않는다(다음 주 계획에 자동 반영).
 export function settleDay(dateStr, decision, shortfalls) {
   const data = getData();
+  const today = todayStr();
   data.settlements[dateStr] = decision;
   if (decision === "carried") {
-    shortfalls.forEach((s) => data.carries.push({ id: uid(), goalId: s.goalId, fromDate: dateStr, amount: s.amount }));
+    shortfalls.forEach((s) => {
+      const goal = findGoal(s.goalId);
+      if (goal && isAutoGoal(data, goal)) {
+        if (canRedistribute(data, goal, dateStr, today)) {
+          data.carries.push({ id: uid(), goalId: s.goalId, fromDate: dateStr, atDate: today, amount: s.amount, redistribute: true });
+        }
+      } else {
+        data.carries.push({ id: uid(), goalId: s.goalId, fromDate: dateStr, amount: s.amount });
+      }
+    });
   }
+  refreshToday();
   persist();
 }
 

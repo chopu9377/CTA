@@ -1,6 +1,7 @@
 import { formatKoreanDate, weekdayOf, WEEKDAY_LABELS } from "../dates.js";
 import { trackAt, dayReport } from "../stats.js";
 import { paceFor, dayLoad, maintenanceGoals, maintenanceTargets } from "../plan.js";
+import { isAutoGoal, weekProgress, isLastStudyDay } from "../weekplan.js";
 import { UNIT_SUGGESTIONS, WEEKDAY_PRESETS, TRACK_LABEL, countUnit } from "../presets.js";
 import { escapeHtml, subjectColor, formatDuration } from "./shared.js";
 
@@ -17,26 +18,29 @@ function recommendation(data, goal, today, weekend) {
   return amount > 0 ? amount : null;
 }
 
-function goalRowHTML(data, ctx, row, selected, rec, tag = "") {
+function goalRowHTML(data, ctx, row, selected, rec, tag = "", auto = null) {
   const { goal, target, done } = row;
   const carry = carryOf(data, ctx, goal.id);
   const fin = target > 0 && done >= target;
   return `<div class="goal-row${selected ? " selected" : ""}${fin ? " fin" : ""}${tag ? " maint" : ""}" data-action="select-goal" data-id="${goal.id}">
     <div>
       <div class="goal-name"><i class="swatch" style="background:${subjectColor(data, goal.subject)}"></i>${escapeHtml(goal.subject)}<span class="round">${goal.round}${goal.targetRounds ? `/${goal.targetRounds}` : ""}회독</span></div>
-      <div class="goal-meta"><span class="unit">${escapeHtml(goal.unit)}</span>${tag ? `<span class="unit maint-tag">${tag}</span>` : ""}${carry ? `<span class="unit carry">이월 ${carry}${escapeHtml(countUnit(goal.unit))}</span>` : ""}</div>
+      <div class="goal-meta"><span class="unit">${escapeHtml(goal.unit)}</span>${tag ? `<span class="unit maint-tag">${tag}</span>` : ""}${carry ? `<span class="unit carry">이월 ${carry}${escapeHtml(countUnit(goal.unit))}</span>` : ""}${auto ? `<span class="unit auto-tag">자동 · 이번 주 ${auto.progress.done}/${auto.progress.quota}</span>` : ""}</div>
       ${rec ? `<div class="goal-rec">권장 <b>${rec}${escapeHtml(countUnit(goal.unit))}</b></div>` : ""}
+      ${auto && auto.last && !fin ? `<div class="goal-rec">이번 주 마지막 공부일 · 못 채우면 다음 주 계획에 자동 반영돼요</div>` : ""}
     </div>
     <div class="goal-count">${target > 0 ? `${done} / ${target}<small>${escapeHtml(countUnit(goal.unit))}</small>${fin ? " ✓" : ""}` : `${done}<small>${escapeHtml(countUnit(goal.unit))} · 오늘 목표 없음</small>`}</div>
   </div>`;
 }
 
-function goalEditHTML(goal) {
+function goalEditHTML(goal, auto = false) {
   const chips = WEEKDAY_LABELS.map(
     (label, day) => `<button type="button" class="chip-btn${goal.weekdays.includes(day) ? " on" : ""}" data-action="toggle-weekday" data-id="${goal.id}" data-day="${day}">${label}</button>`
   ).join("");
   const num = (field, value, label) =>
-    `<input type="number" min="0" inputmode="numeric" value="${value}" data-goal-field="${field}" data-id="${goal.id}" aria-label="${label}" />`;
+    auto
+      ? `<input type="number" value="" placeholder="자동" disabled aria-label="${label}(자동 계획)" />`
+      : `<input type="number" min="0" inputmode="numeric" value="${value}" data-goal-field="${field}" data-id="${goal.id}" aria-label="${label}" />`;
   return `<div class="goal-edit">
     <div class="goal-edit-main">
       <input type="text" value="${escapeHtml(goal.subject)}" data-goal-field="subject" data-id="${goal.id}" aria-label="과목" list="subject-names" />
@@ -138,7 +142,10 @@ export function renderToday(data, ctx, today, ui) {
   const activeGoals = goals.filter((g) => !isQuiet(g));
   const quietGoals = goals.filter(isQuiet);
   const quietOpen = ui.quietOpen || (sheetOpen && quietGoals.some((g) => g.id === selected.id));
-  const rowHTML = (g) => goalRowHTML(data, ctx, rowFor(g), sheetOpen && g.id === selected.id, scheduledToday(g) ? recommendation(data, g, today, weekend) : null);
+  const rowHTML = (g) => {
+    const auto = isAutoGoal(data, g) ? { progress: weekProgress(data, ctx, g, today), last: !report.kind && isLastStudyDay(data, g, today) } : null;
+    return goalRowHTML(data, ctx, rowFor(g), sheetOpen && g.id === selected.id, !auto && scheduledToday(g) ? recommendation(data, g, today, weekend) : null, "", auto);
+  };
   const quietHTML = quietGoals.length
     ? `<button class="quiet-toggle" data-action="toggle-quiet" type="button" aria-expanded="${quietOpen}">
         <span>오늘 목표 없는 과목 ${quietGoals.length}개</span><span class="chev${quietOpen ? " open" : ""}">›</span></button>
@@ -153,7 +160,7 @@ export function renderToday(data, ctx, today, ui) {
       ${ui.editing
         ? `${presetsHTML()}
            <div class="goal-edit-head"><span>과목</span><span>단위</span><span>평일</span><span>주말</span><span></span></div>
-           ${goals.map(goalEditHTML).join("")}
+           ${goals.map((g) => goalEditHTML(g, isAutoGoal(data, g))).join("")}
            <form data-form="add-goal" class="form goal-add">
              <div class="goal-add-fields"><input type="text" name="subject" placeholder="과목 이름" required list="subject-names" /><input type="text" name="unit" placeholder="단위(예: 문제)" required list="unit-names" /></div>
              <button class="btn btn-secondary" type="submit">+ 목표 추가</button>

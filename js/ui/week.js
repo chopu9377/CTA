@@ -1,6 +1,7 @@
 import { addDays, monthKey } from "../dates.js";
 import { trackAt, weekReport, weekQuotas, currentWeekIndex, daysUntil, pendingSettlements, historyEnd } from "../stats.js";
 import { focusRows } from "../plan.js";
+import { absorbedShortfalls } from "../weekplan.js";
 import { TRACK_LABEL, countUnit } from "../presets.js";
 import { escapeHtml, ringHTML, subjectColor } from "./shared.js";
 import { legendHTML, weekHTML } from "./weekgrid.js";
@@ -32,6 +33,10 @@ function noticesHTML(data, ctx, activeTrack, today) {
   }
   if (activeTrack === 1 && first.examDate && today > first.examDate) {
     notices.push(`<div class="notice">1차 시험일이 지났어요. 2차로 돌아갈까요? <button class="btn btn-sm btn-secondary" data-action="set-track" data-track="2" type="button">2차로 전환</button></div>`);
+  }
+  const absorbed = absorbedShortfalls(data, ctx, today).filter((a) => a.goal.track === activeTrack);
+  if (absorbed.length) {
+    notices.push(`<div class="notice">지난주에 못 한 양은 이번 주 계획에 자동으로 반영됐어요: ${absorbed.map((a) => `${escapeHtml(a.goal.subject)} ${a.amount}${escapeHtml(countUnit(a.goal.unit))}`).join(" · ")}</div>`);
   }
   const undecided = pendingSettlements(data, ctx, today).length;
   if (undecided) {

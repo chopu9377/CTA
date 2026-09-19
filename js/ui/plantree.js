@@ -1,6 +1,7 @@
 import { formatMD, addDays, WEEKDAY_LABELS } from "../dates.js";
 import { trackAt } from "../stats.js";
 import { paceFor, paceMissing, weeklyLoad, hasFocusPlan } from "../plan.js";
+import { planPreview, trackFeasibility, isAutoGoal } from "../weekplan.js";
 import { TRACK_LABEL, countUnit } from "../presets.js";
 import { escapeHtml, subjectColor, formatDuration } from "./shared.js";
 
@@ -45,6 +46,53 @@ function commonLeaves(data, track) {
   return leaves.join("");
 }
 
+const STATUS_TEXT = {
+  ok: ["정상", "ok"],
+  late: ["약간 밀림", "warn"],
+  danger: ["위험", "bad"],
+  ahead: ["여유 · 목표를 줄여도 돼요", "info"],
+  done: ["목표 회독 완료", "ok"]
+};
+
+const tag = (text, tone) => `<span class="tree-tag ${tone}" style="margin-left:0">${text}</span>`;
+
+// 주간 자동 역산 미리보기: 오늘 목표에는 적용되지 않는 참고용 계산
+function previewHTML(data, g, today) {
+  const p = planPreview(data, g, today);
+  if (!p) return "";
+  const unit = countUnit(g.unit);
+  const [label, tone] = STATUS_TEXT[p.status.level];
+  const days = p.weekDays.length ? p.weekDays.map((d) => `${WEEKDAY_LABELS[d.dow]} ${d.amount}`).join(" · ") : "이 주에는 공부일이 없어요";
+  const weekLabel = p.upcoming ? `집중 시작 주(${formatMD(p.weekStart)}~) 필요` : "이번 주 필요";
+  let actual;
+  if (p.actual.state === "ok") {
+    actual = p.actual.projected
+      ? `<b>${formatMD(p.actual.projected)}</b> <small>(최근 ${p.actual.observed}일 기록 · 공부일 하루 평균 ${p.actual.rate.toFixed(1)}${unit})</small>`
+      : "현재 페이스로는 완료일을 정할 수 없어요";
+  } else if (p.actual.state === "upcoming") actual = "집중 시작 전이라 표시하지 않아요";
+  else actual = "기록이 더 쌓이면 실제 페이스 예상일을 표시해요";
+  const rows = [
+    leaf("info", `남은 <b>${p.rawLeftNow}${unit}</b>${p.rawLeftNow > p.leftNow ? ` <small>(유지분 ${p.rawLeftNow - p.leftNow} 반영 시 ${p.leftNow}${unit})</small>` : ""}`),
+    leaf("info", `${weekLabel} 약 <b>${p.weekNeed.toFixed(1)}${unit}</b> → <b>${p.weekTotal}${unit}</b> 배분: ${days}${p.upcoming ? "" : ` <small>(지금 ${p.doneThisWeek}/${p.weekTotal})</small>`}`),
+    leaf("info", p.covered ? `목표 마감 <b>${formatMD(p.endDate)}</b> · 다른 트랙 집중 기간의 유지 분량만으로 목표 회독이 채워져요` : `목표 마감 <b>${formatMD(p.endDate)}</b> · 계획상 완료 <b>${p.plannedFinish ? formatMD(p.plannedFinish) : "-"}</b>`),
+    leaf("info", `실제 페이스 예상: ${actual}`),
+    p.oldWeekTotal === null ? "" : leaf("info", `<small>지금 권장(올림 방식)은 이번 주 ${p.oldWeekTotal}${unit}${p.oldWeekTotal !== p.weekTotal ? ` · 새 방식 ${p.weekTotal}${unit}` : ""}</small>`),
+    leaf(tone === "bad" ? "bad" : "info", `상태 ${tag(label, tone)}${p.status.basis === "plan" ? " <small>(계획 기준)</small>" : ""}${p.impossible ? ` <small>· 남은 공부 가능 시간(${formatDuration(p.capacityMin)})으로는 이 과목만으로도 끝내기 어려워요</small>` : ""}`)
+  ].join("");
+  const upcomingNote = p.upcoming ? `<li class="tree-leaf info"><span class="tree-mark">·</span><div><small>아직 집중 시작 전이에요. ${formatMD(g.track === 1 ? data.tracks[1].activeFrom : p.weekStart)}에 집중을 시작한다고 가정한 미리보기이고, 그때까지의 기록·시험일 변경에 따라 달라져요.</small></div></li>` : "";
+  return `<li class="tree-leaf info preview"><span class="tree-mark">▸</span><div><b>${isAutoGoal(data, g) ? "이번 주 계획" : "자동 역산 미리보기"}</b> <small>${isAutoGoal(data, g) ? "· 오늘 목표에 적용 중" : "· 참고용, 오늘 목표에는 적용 안 돼요"}</small><ul>${upcomingNote}${rows}</ul></div></li>`;
+}
+
+function feasibilityLeaf(data, track, today) {
+  const f = trackFeasibility(data, track, today);
+  if (!f || !f.counted) return "";
+  const pct = f.ratio === null ? null : Math.round(f.ratio * 100);
+  const state = f.ratio === null || f.ratio > 1 ? "bad" : f.ratio > 0.85 ? "info" : "ok";
+  const verdict = f.ratio === null ? "마감일까지 공부 가능한 날이 없어요" : f.ratio > 1 ? "물리적으로 끝내기 어려워요" : f.ratio > 0.85 ? "빠듯해요" : "가능해요";
+  return leaf(state, `트랙 전체 가능 여부: 필요 <b>${formatDuration(f.needMin)}</b> / 마감(${formatMD(f.end)})까지 가능 <b>${formatDuration(f.availMin)}</b>${pct === null ? "" : ` (${pct}%)`} → ${verdict}${f.counted < f.total ? ` <small>· 입력이 빠진 ${f.total - f.counted}개 과목 제외</small>` : ""}`);
+}
+
+
 function goalNode(data, g, today) {
   const missing = paceMissing(data, g);
   const own = missing.filter((m) => m.field !== "examDate");
@@ -62,7 +110,8 @@ function goalNode(data, g, today) {
       ${input("total", "총 분량", g.total, unit)}
       ${input("targetRounds", "목표 회독", g.targetRounds, "회독")}
       ${leaf("info", `누적 푼 양 ${cumulative}${unit}${g.total > 0 && cumulative === 0 ? " (앱 쓰기 전에 푼 양이 있으면 입력)" : ""}`)}
-      ${missing.length ? leaf("info", "빨간 항목(공통 조건 포함)을 채우면 권장량이 계산돼요") : leaf("ok", paceHTML(g, pace))}
+      ${missing.length ? leaf("info", "빨간 항목(공통 조건 포함)을 채우면 권장량이 계산돼요") : g.planMode === "auto" ? leaf("ok", "<b>자동 계획 적용 중</b> <small>· 아래 미리보기의 이번 주 배분이 오늘 목표가 돼요</small>") : leaf("ok", paceHTML(g, pace))}
+      ${missing.length ? "" : previewHTML(data, g, today)}
     </ul>
   </li>`;
 }
@@ -94,7 +143,7 @@ function trackNode(data, track, today, active) {
   return `<li class="tree-track">
     <div class="tree-head"><b>${label}</b><span class="tree-tag ${goals.length && ready === goals.length ? "ok" : "bad"}">과목 ${ready}/${goals.length} 계산됨</span></div>
     <ul>
-      <li class="tree-goal"><div class="tree-head"><b>공통 조건</b></div><ul>${commonLeaves(data, track)}</ul></li>
+      <li class="tree-goal"><div class="tree-head"><b>공통 조건</b></div><ul>${commonLeaves(data, track)}${feasibilityLeaf(data, track, today)}</ul></li>
       ${goals.map((g) => goalNode(data, g, today)).join("")}
       ${loadNode(data, track, today)}
     </ul>

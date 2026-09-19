@@ -2,6 +2,7 @@ import * as storage from "./storage.js";
 import { todayStr } from "./dates.js";
 import { buildContext, pendingSettlements, trackAt } from "./stats.js";
 import { EXAM_SUBJECTS } from "./presets.js";
+import { paceMissing } from "./plan.js";
 import { paceSlotHTML, planTreeHTML } from "./ui.js";
 import * as sync from "./sync.js";
 
@@ -31,6 +32,16 @@ export function bindInputHandlers({ ui, render, toast, closeSheet, announceRound
       const goal = storage.getData().goals.find((g) => g.id === input.dataset.id);
       if (result && goal) toast(`${goal.subject}: ${result.round}회독 ${result.progress}${result.total ? `/${result.total}` : ""}로 반영`);
       refreshPaceSlot(input.dataset.id);
+      return;
+    }
+    if (field === "planMode") {
+      const goalId = input.dataset.id;
+      const mode = input.value === "auto" ? "auto" : "fixed";
+      storage.updateGoal(goalId, { planMode: mode, autoFrom: mode === "auto" ? todayStr() : null });
+      const goal = storage.getData().goals.find((g) => g.id === goalId);
+      const missing = goal ? paceMissing(storage.getData(), goal) : [];
+      toast(mode === "fixed" ? "고정 목표로 돌아왔어요" : missing.length ? "자동 계획을 켰어요 · 시험일·총 분량·목표 회독을 채우면 적용돼요" : "자동 계획을 켰어요 · 오늘부터 이번 주 계획이 적용돼요");
+      render();
       return;
     }
     let value = input.value;

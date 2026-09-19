@@ -1,5 +1,6 @@
 import { addDays, diffDays, weekdayOf, monthKey } from "./dates.js";
 import { holidayName } from "./holidays.js";
+import { autoApplies, autoTargetOn, canRedistribute, redistributionState, isAutoGoal, movedOut } from "./weekplan.js";
 
 export function trackAt(data, dateStr) {
   let track = 2;
@@ -34,7 +35,7 @@ export function computeTargets(data, dateStr) {
   const targets = {};
   data.goals.forEach((g) => {
     if (g.archived || g.track !== track || !g.weekdays.includes(weekday)) return;
-    const amount = targetOn(g, dateStr);
+    const amount = autoApplies(data, g, dateStr) ? autoTargetOn(data, g, dateStr) : targetOn(g, dateStr);
     if (amount > 0) targets[g.id] = amount;
   });
   return targets;
@@ -61,7 +62,9 @@ export function buildContext(data) {
 function carryRemaining(data, sums) {
   const remaining = new Map();
   const carriesByGoal = new Map();
+  // 자동 계획 목표의 같은 주 이월(redistribute)은 그 주 목표에 얹히므로 초과분으로 갚는 계산에서는 뺀다
   data.carries.forEach((c) => {
+    if (c.redistribute) return;
     remaining.set(c.id, c.amount);
     if (!carriesByGoal.has(c.goalId)) carriesByGoal.set(c.goalId, []);
     carriesByGoal.get(c.goalId).push(c);
@@ -102,7 +105,10 @@ export function dayReport(data, ctx, dateStr, today) {
     target: targets[goalId],
     done: ctx.sums.get(`${goalId}|${dateStr}`) || 0
   })).filter((r) => r.goal);
-  const shortfalls = rows.filter((r) => r.done < r.target).map((r) => ({ goalId: r.goal.id, amount: r.target - r.done }));
+  const shortfalls = rows.filter((r) => r.done < r.target).map((r) => {
+    const auto = isAutoGoal(data, r.goal);
+    return { goalId: r.goal.id, amount: r.target - r.done, auto, canCarry: !auto || (dateStr < today && canRedistribute(data, r.goal, dateStr, today)) };
+  });
   const totalDone = ctx.byDate.get(dateStr) || 0;
   const decision = data.settlements[dateStr];
 
@@ -113,11 +119,16 @@ export function dayReport(data, ctx, dateStr, today) {
   else if (!shortfalls.length) status = "full";
   else if (dateStr === today) status = "today";
   else if (decision === "carried") {
-    const paid = data.carries.filter((c) => c.fromDate === dateStr).every((c) => ctx.remaining.get(c.id) <= 0);
-    status = paid ? "carried" : "pending";
+    const carries = data.carries.filter((c) => c.fromDate === dateStr);
+    const fixedPaid = carries.filter((c) => !c.redistribute).every((c) => ctx.remaining.get(c.id) <= 0);
+    const states = carries.filter((c) => c.redistribute).map((c) => redistributionState(data, ctx.sums, c, today));
+    if (fixedPaid && states.every((s) => s === "paid")) status = "carried";
+    else if (!fixedPaid || states.includes("pending")) status = "pending";
+    else status = totalDone > 0 ? "partial" : "miss";
   } else status = totalDone > 0 ? "partial" : "miss";
 
-  const undecided = dateStr < today && !kind && shortfalls.length > 0 && decision === undefined;
+  // 자동 계획 목표는 같은 주 안에 다시 나눌 공부일이 있을 때만 이월을 묻는다(없으면 다음 주 계획에 자동 반영)
+  const undecided = dateStr < today && !kind && shortfalls.some((s) => s.canCarry) && decision === undefined;
   return { date: dateStr, kind, status, rows, shortfalls, undecided, totalDone, holiday: holidayName(dateStr) };
 }
 
@@ -143,7 +154,7 @@ export function weekQuotas(data, ctx, weekIndex, track) {
   const rings = data.goals
     .filter((g) => !g.archived && g.track === track)
     .map((goal) => {
-      const quota = dates.reduce((sum, d) => sum + (targetsFor(data, d)[goal.id] || 0), 0);
+      const quota = dates.reduce((sum, d) => sum + (targetsFor(data, d)[goal.id] || 0), 0) - movedOut(data, goal.id, dates);
       const done = dates.reduce((sum, d) => sum + (ctx.sums.get(`${goal.id}|${d}`) || 0), 0);
       return { goal, quota, done, pct: quota > 0 ? Math.min(100, (done / quota) * 100) : 0 };
     });

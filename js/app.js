@@ -1,7 +1,7 @@
 import * as storage from "./storage.js";
 import { todayStr } from "./dates.js";
 import { buildContext, pendingSettlements } from "./stats.js";
-import { loadHolidays } from "./holidays.js";
+import { loadHolidays, holidaysLoaded } from "./holidays.js";
 import { renderWeek, renderToday, renderExam, renderHistory, renderSettings } from "./ui.js";
 import { renderSettleSheet } from "./ui/settle.js";
 import { conflictSheetHTML } from "./ui/syncui.js";
@@ -40,7 +40,7 @@ function toast(message) {
 
 function render() {
   const today = todayStr();
-  storage.freezeDayTargets(today);
+  if (holidaysLoaded()) storage.freezeDayTargets(today);
   const data = storage.getData();
   const ctx = buildContext(data);
 

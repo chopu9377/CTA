@@ -1,4 +1,5 @@
 import { addDays, todayStr } from "./dates.js";
+import { bumpVersion } from "./version.js";
 import { computeTargets } from "./stats.js";
 import {
   DEFAULT_START_DATE,
@@ -38,6 +39,7 @@ export function setChangeListener(fn) {
 }
 
 export function persist({ quiet = false } = {}) {
+  bumpVersion();
   if (!quiet) cache.meta.updatedAt = new Date().toISOString();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(cache));
   if (!quiet && changeListener) changeListener();
@@ -71,7 +73,10 @@ export function newGoal(track, subject, unit) {
     round: 1,
     progress: 0,
     targetRounds: 0,
-    archived: false
+    archived: false,
+    // 새 목표는 자동 계획이 기본. 시험일·총 분량·목표 회독이 비어 있는 동안에는 알아서 고정 목표를 쓴다.
+    planMode: "auto",
+    autoFrom: todayStr() > DEFAULT_START_DATE ? todayStr() : DEFAULT_START_DATE
   };
 }
 
@@ -149,6 +154,8 @@ function normalize(data) {
     if (g.maintWeekdayTarget === undefined) g.maintWeekdayTarget = defaultMaintenance(g.unit).weekday;
     if (g.maintWeekendTarget === undefined) g.maintWeekendTarget = defaultMaintenance(g.unit).weekend;
     g.archived = !!g.archived;
+    g.planMode = g.planMode === "auto" ? "auto" : "fixed";
+    g.autoFrom = g.planMode === "auto" && g.autoFrom ? g.autoFrom : null;
     ensureColor(data, g.subject);
   });
   return data;
@@ -186,6 +193,7 @@ export function freezeDayTargets(today = todayStr()) {
 }
 
 export function refreshToday() {
+  bumpVersion();
   const data = getData();
   const today = todayStr();
   data.dayTargets[today] = computeTargets(data, today);

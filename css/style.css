@@ -1407,6 +1407,11 @@ textarea:focus {
   background: color-mix(in srgb, var(--cal-good) 12%, transparent);
 }
 
+.tree-tag.warn {
+  color: #a06a00;
+  background: color-mix(in srgb, var(--cal-warn) 22%, transparent);
+}
+
 .tree-tag.bad {
   color: var(--danger);
   background: color-mix(in srgb, var(--danger) 10%, transparent);
@@ -1460,4 +1465,35 @@ textarea:focus {
   font-weight: 700;
   text-decoration: underline;
   color: var(--accent);
+}
+
+.tree-leaf.preview > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.tree-leaf.preview ul {
+  margin-top: 2px;
+}
+
+/* 자동 계획 목표 */
+.unit.auto-tag {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.mini-field select {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 8px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--page);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.goal-edit-main input:disabled {
+  opacity: 0.55;
+  background: var(--page);
 }
