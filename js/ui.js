@@ -10,7 +10,9 @@ import {
   examCalendarCells,
   monthlyGoalFor,
   allTags,
-  formatMinutes
+  formatMinutes,
+  dailyPlanProgress,
+  studyVolumeStats
 } from "./stats.js";
 
 export function escapeHtml(str) {
@@ -54,6 +56,36 @@ function barChartHTML(items) {
     .join("")}</div>`;
 }
 
+// 33% 미만 빨강, 66% 미만 노랑, 그 이상 초록 — 시험 준비 캘린더의 상태색과 같은 기준.
+function progressRingColor(rate) {
+  if (rate < 33) return "var(--cal-bad)";
+  if (rate < 66) return "var(--cal-warn)";
+  return "var(--cal-good)";
+}
+
+function progressRingHTML(rate, label) {
+  const size = 40;
+  const strokeWidth = 5;
+  const r = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * r;
+  const hasGoal = rate !== null;
+  const dashoffset = circumference * (1 - clampPct(rate) / 100);
+
+  return `
+    <div class="ring-item">
+      <svg class="ring" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">
+        <circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="var(--gridline)" stroke-width="${strokeWidth}" />
+        ${
+          hasGoal
+            ? `<circle class="ring-fill" cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="${progressRingColor(rate)}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-dasharray="${circumference.toFixed(2)}" stroke-dashoffset="${dashoffset.toFixed(2)}" transform="rotate(-90 ${size / 2} ${size / 2})" />`
+            : ""
+        }
+      </svg>
+      <span class="ring-label">${label}</span>
+    </div>
+  `;
+}
+
 function subjectStatsListHTML(stats) {
   if (!stats.length) return `<p class="empty-state">등록된 과목이 없어요. '과목' 탭에서 추가해보세요.</p>`;
   return `<ul class="subject-stat-list">${stats
@@ -64,17 +96,10 @@ function subjectStatsListHTML(stats) {
           <span class="subject-stat-name">${escapeHtml(s.name)}</span>
           <span class="subject-stat-total">누적 ${formatMinutes(s.totalActual)}</span>
         </div>
-        <div class="mini-meter">
-          <div class="mini-meter-label">이번 주 평일 ${rateText(s.weekdayRate)} · ${formatMinutes(s.weekdayActual)}${s.weekdayGoal > 0 ? " / " + formatMinutes(s.weekdayGoal) : ""}</div>
-          <div class="meter-track"><div class="meter-fill" style="width:${clampPct(s.weekdayRate)}%"></div></div>
-        </div>
-        <div class="mini-meter">
-          <div class="mini-meter-label">이번 달 ${rateText(s.monthRate)} · ${formatMinutes(s.monthActual)}${s.monthGoal > 0 ? " / " + formatMinutes(s.monthGoal) : ""} (자동 계산)</div>
-          <div class="meter-track"><div class="meter-fill" style="width:${clampPct(s.monthRate)}%"></div></div>
-        </div>
-        <div class="mini-meter">
-          <div class="mini-meter-label">이번 주말 ${rateText(s.weekendRate)} · ${formatMinutes(s.weekendActual)}${s.weekendGoal > 0 ? " / " + formatMinutes(s.weekendGoal) : ""}</div>
-          <div class="meter-track"><div class="meter-fill" style="width:${clampPct(s.weekendRate)}%"></div></div>
+        <div class="ring-row">
+          ${progressRingHTML(s.weekdayRate, "평일")}
+          ${progressRingHTML(s.weekendRate, "주말")}
+          ${progressRingHTML(s.monthRate, "월간")}
         </div>
       </li>`
     )
@@ -115,9 +140,6 @@ function examCalendarHTML(data, refDate) {
     `;
   }
 
-  const hasDailyGoal = (data.meta.dailyGoalMinutes || 0) > 0;
-  const goalText = hasDailyGoal ? ` / ${formatMinutes(data.meta.dailyGoalMinutes)}` : "";
-
   return `
     <div class="card">
       <h2 class="section-title">시험 준비 캘린더${result.truncated ? ` (앞으로 ${result.cells.length}일 표시)` : ""}</h2>
@@ -125,7 +147,7 @@ function examCalendarHTML(data, refDate) {
         ${result.cells
           .map(
             (c) =>
-              `<div class="exam-calendar-cell cal-${c.status}" title="${c.date} · ${formatMinutes(c.minutes)}${c.status === "future" ? "" : goalText}"></div>`
+              `<div class="exam-calendar-cell cal-${c.status}" title="${c.date} · ${formatMinutes(c.minutes)}${c.status === "future" || !c.dailyGoal ? "" : " / " + formatMinutes(c.dailyGoal)}"></div>`
           )
           .join("")}
       </div>
@@ -135,7 +157,7 @@ function examCalendarHTML(data, refDate) {
         <span><i class="legend-dot cal-empty"></i>미학습</span>
         <span><i class="legend-dot cal-future"></i>예정</span>
       </div>
-      ${!hasDailyGoal ? `<p class="stat-sub">설정 탭에서 하루 목표 시간을 등록하면 '일부 학습' 단계까지 나눠서 표시돼요.</p>` : ""}
+      <p class="stat-sub">'목표' 탭에서 그날의 과목별 시간을 배분해두면 '일부 학습' 단계까지 나눠서 표시돼요.</p>
     </div>
   `;
 }
@@ -351,6 +373,112 @@ export function renderLog(data, tagFilter) {
   `;
 }
 
+function dailyPlanFormHTML(data, planDate) {
+  const plan = data.dailyPlans[planDate] || {};
+  return `
+    <form data-form="set-daily-plan" class="form">
+      <label class="field"><span>날짜</span><input type="date" id="plan-date" name="planDate" value="${planDate}" /></label>
+      ${data.subjects
+        .map(
+          (s) => `
+        <label class="field">
+          <span>${escapeHtml(s.name)} (시간)</span>
+          <input type="number" name="alloc:${s.id}" min="0" step="0.5" value="${plan[s.id] ? plan[s.id] / 60 : ""}" placeholder="0" />
+        </label>`
+        )
+        .join("")}
+      <button class="btn btn-primary" type="submit">목표 저장</button>
+    </form>
+  `;
+}
+
+function dailyPlanProgressHTML(progress) {
+  if (!progress.hasPlan) return `<p class="empty-state">이 날짜에는 아직 목표를 설정하지 않았어요.</p>`;
+  return `
+    <div class="mini-meter">
+      <div class="mini-meter-label">전체 ${rateText(progress.totalRate)} · ${formatMinutes(progress.totalActual)} / ${formatMinutes(progress.totalGoal)}</div>
+      <div class="meter-track"><div class="meter-fill" style="width:${clampPct(progress.totalRate)}%"></div></div>
+    </div>
+    <ul class="subject-stat-list">
+      ${progress.perSubject
+        .map(
+          (p) => `
+        <li class="subject-stat-row">
+          <div class="subject-stat-header">
+            <span class="subject-stat-name">${escapeHtml(p.name)}</span>
+            <span>${formatMinutes(p.actual)} / ${formatMinutes(p.goal)}</span>
+          </div>
+          <div class="meter-track"><div class="meter-fill" style="width:${clampPct(p.rate)}%"></div></div>
+        </li>`
+        )
+        .join("")}
+    </ul>
+  `;
+}
+
+export function renderGoal(data, planDate) {
+  if (!data.subjects.length) {
+    return `
+      <section class="view">
+        <div class="card">
+          <h2 class="section-title">날짜별 목표 시간 배분</h2>
+          <p class="empty-state">먼저 '과목' 탭에서 과목을 등록해주세요.</p>
+        </div>
+      </section>
+    `;
+  }
+
+  const progress = dailyPlanProgress(data, planDate);
+
+  return `
+    <section class="view">
+      <div class="card">
+        <h2 class="section-title">날짜별 목표 시간 배분</h2>
+        <p class="field-hint">그날 과목별로 공부할 시간을 미리 배분해두면, 하루 목표가 자동으로 계산돼요.</p>
+        ${dailyPlanFormHTML(data, planDate)}
+      </div>
+      <div class="card">
+        <h2 class="section-title">${planDate} 달성 현황</h2>
+        ${dailyPlanProgressHTML(progress)}
+      </div>
+    </section>
+  `;
+}
+
+function volumeTileHTML(label, stat, subText) {
+  return `
+    <div class="card stat-tile">
+      <div class="stat-label">${label} 일 평균</div>
+      <div class="stat-value">${formatMinutes(stat.dailyAvg)}</div>
+      <div class="stat-sub">주 평균 ${formatMinutes(stat.weeklyAvg)}${subText ? " · " + subText : ""}</div>
+    </div>
+  `;
+}
+
+export function renderVolume(data) {
+  const stats = studyVolumeStats(data);
+  if (!stats.hasData) {
+    return `
+      <section class="view">
+        <div class="card">
+          <h2 class="section-title">공부량체크</h2>
+          <p class="empty-state">아직 기록이 없어요. '기록' 탭에서 기록을 추가해보세요.</p>
+        </div>
+      </section>
+    `;
+  }
+
+  return `
+    <section class="view">
+      <div class="stat-grid">
+        ${volumeTileHTML("전체 기간", stats.allTime, `총 ${formatMinutes(stats.allTime.totalMinutes)} · ${stats.allTime.totalDays}일간`)}
+        ${volumeTileHTML("최근 7일", stats.last7)}
+        ${volumeTileHTML("최근 30일", stats.last30)}
+      </div>
+    </section>
+  `;
+}
+
 function subjectCardHTML(s) {
   const materialsHTML = s.materials.length
     ? `<ul class="list">${s.materials
@@ -432,16 +560,15 @@ function backupStatusText(lastBackupAt) {
 export function renderSettings(data) {
   const examName = data.meta.examName || "";
   const examDate = data.meta.examDate || "";
-  const dailyGoalHours = data.meta.dailyGoalMinutes ? data.meta.dailyGoalMinutes / 60 : 0;
 
   return `
     <section class="view">
       <div class="card">
-        <h2 class="section-title">시험 D-day · 하루 목표</h2>
+        <h2 class="section-title">시험 D-day</h2>
         <form data-form="set-exam" class="form">
           <label class="field"><span>시험 이름</span><input type="text" name="examName" value="${escapeHtml(examName)}" placeholder="예: 세무사 2차" /></label>
           <label class="field"><span>시험일</span><input type="date" name="examDate" value="${examDate}" /></label>
-          <label class="field"><span>하루 목표 시간(시간)</span><input type="number" name="dailyGoalHours" min="0" step="0.5" value="${dailyGoalHours}" /></label>
+          <p class="field-hint">하루 목표 시간은 '목표' 탭에서 날짜별로 과목 시간을 배분하면 자동으로 계산돼요.</p>
           <button class="btn btn-primary" type="submit">저장</button>
         </form>
       </div>

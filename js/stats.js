@@ -133,6 +133,80 @@ export function subjectBreakdown(data, start, end) {
     .sort((a, b) => b.minutes - a.minutes);
 }
 
+export function dailyPlanTotal(plan) {
+  if (!plan) return 0;
+  return Object.values(plan).reduce((sum, m) => sum + (m || 0), 0);
+}
+
+export function dailyPlanProgress(data, dateStr) {
+  const plan = data.dailyPlans[dateStr] || null;
+  const dayLogs = data.logs.filter((l) => l.date === dateStr);
+  const actualBySubject = new Map();
+  dayLogs.forEach((l) => {
+    actualBySubject.set(l.subjectId, (actualBySubject.get(l.subjectId) || 0) + (l.durationMinutes || 0));
+  });
+
+  const perSubject = plan
+    ? Object.keys(plan).map((subjectId) => {
+        const subject = data.subjects.find((s) => s.id === subjectId);
+        const goal = plan[subjectId] || 0;
+        const actual = actualBySubject.get(subjectId) || 0;
+        return { subjectId, name: subject ? subject.name : "삭제된 과목", goal, actual, rate: achievementRate(actual, goal) };
+      })
+    : [];
+
+  const totalGoal = dailyPlanTotal(plan);
+  const totalActual = sumMinutes(dayLogs);
+  return {
+    hasPlan: !!plan,
+    perSubject,
+    totalGoal,
+    totalActual,
+    totalRate: achievementRate(totalActual, totalGoal)
+  };
+}
+
+function startOfDay(refDate) {
+  const d = new Date(refDate);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function endOfDay(refDate) {
+  const d = new Date(refDate);
+  d.setHours(23, 59, 59, 999);
+  return d;
+}
+
+function windowAverage(logs, today, days) {
+  const start = new Date(today);
+  start.setDate(today.getDate() - (days - 1));
+  const windowLogs = logsInRange(logs, start, endOfDay(today));
+  const totalMinutes = sumMinutes(windowLogs);
+  const dailyAvg = totalMinutes / days;
+  return { dailyAvg, weeklyAvg: dailyAvg * 7, totalMinutes, days };
+}
+
+// "전체 기간" 평균은 첫 기록일부터 오늘까지의 달력일수로 나눈다. 기록을 시작하기 전
+// 날짜는 계산에서 제외한다 — 시작 전 날짜를 "0분 공부"로 잘못 취급하지 않기 위함.
+export function studyVolumeStats(data, refDate = new Date()) {
+  if (!data.logs.length) return { hasData: false };
+
+  const today = startOfDay(refDate);
+  const firstDateStr = data.logs.map((l) => l.date).sort()[0];
+  const firstDate = startOfDay(new Date(firstDateStr + "T00:00:00"));
+  const totalDays = Math.max(1, Math.round((today - firstDate) / 86400000) + 1);
+  const totalMinutes = sumMinutes(data.logs);
+  const allTimeDailyAvg = totalMinutes / totalDays;
+
+  return {
+    hasData: true,
+    allTime: { dailyAvg: allTimeDailyAvg, weeklyAvg: allTimeDailyAvg * 7, totalMinutes, totalDays },
+    last7: windowAverage(data.logs, today, 7),
+    last30: windowAverage(data.logs, today, 30)
+  };
+}
+
 export function daysUntil(dateStr, refDate = new Date()) {
   if (!dateStr) return null;
   const target = new Date(dateStr + "T00:00:00");
@@ -169,7 +243,6 @@ export function examCalendarCells(data, refDate = new Date(), maxDays = 120) {
   const totalDays = Math.round((end.getTime() - today.getTime()) / 86400000);
   if (totalDays < 0) return { cells: [], totalDays, truncated: false };
 
-  const dailyGoal = data.meta.dailyGoalMinutes || 0;
   const minutesByDate = new Map();
   data.logs.forEach((l) => {
     minutesByDate.set(l.date, (minutesByDate.get(l.date) || 0) + (l.durationMinutes || 0));
@@ -182,6 +255,7 @@ export function examCalendarCells(data, refDate = new Date(), maxDays = 120) {
     d.setDate(today.getDate() + i);
     const dateStr = toISODate(d);
     const minutes = minutesByDate.get(dateStr) || 0;
+    const dailyGoal = dailyPlanTotal(data.dailyPlans[dateStr]);
 
     let status;
     if (d.getTime() > today.getTime()) {
@@ -192,7 +266,7 @@ export function examCalendarCells(data, refDate = new Date(), maxDays = 120) {
       status = minutes > 0 ? "done" : "empty";
     }
 
-    cells.push({ date: dateStr, minutes, status });
+    cells.push({ date: dateStr, minutes, status, dailyGoal });
   }
 
   return { cells, totalDays, truncated: totalDays > maxDays };

@@ -133,8 +133,8 @@ body {
   flex: 1;
   border: none;
   background: none;
-  padding: 8px 4px;
-  font-size: 12.5px;
+  padding: 8px 2px;
+  font-size: 11px;
   font-weight: 500;
   color: var(--text-muted);
   border-radius: 12px;
@@ -369,6 +369,27 @@ body {
 
 .subject-stat-total {
   font-size: 12px;
+  color: var(--text-muted);
+}
+
+.ring-row {
+  display: flex;
+  gap: 20px;
+}
+
+.ring-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.ring-fill {
+  transition: stroke-dashoffset 0.3s ease;
+}
+
+.ring-label {
+  font-size: 11px;
   color: var(--text-muted);
 }
 

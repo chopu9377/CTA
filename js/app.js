@@ -1,16 +1,19 @@
 import * as storage from "./storage.js";
 import { toISODate } from "./stats.js";
-import { renderDashboard, renderLog, renderSubjects, renderSettings } from "./ui.js";
+import { renderDashboard, renderLog, renderGoal, renderVolume, renderSubjects, renderSettings } from "./ui.js";
 
 const root = document.getElementById("view-root");
 const tabButtons = document.querySelectorAll(".tab-btn");
 let currentView = "dashboard";
 let logTagFilter = "";
+let planDate = toISODate(new Date());
 
 function render() {
   const data = storage.getData();
   if (currentView === "dashboard") root.innerHTML = renderDashboard(data);
   else if (currentView === "log") root.innerHTML = renderLog(data, logTagFilter);
+  else if (currentView === "goal") root.innerHTML = renderGoal(data, planDate);
+  else if (currentView === "volume") root.innerHTML = renderVolume(data);
   else if (currentView === "subjects") root.innerHTML = renderSubjects(data);
   else root.innerHTML = renderSettings(data);
 
@@ -64,9 +67,20 @@ root.addEventListener("submit", (event) => {
     const fd = new FormData(form);
     storage.setExamInfo({
       name: fd.get("examName"),
-      date: fd.get("examDate") || null,
-      dailyGoalMinutes: Math.round(parseFloat(fd.get("dailyGoalHours") || "0") * 60)
+      date: fd.get("examDate") || null
     });
+    render();
+  } else if (form.matches('[data-form="set-daily-plan"]')) {
+    event.preventDefault();
+    const fd = new FormData(form);
+    const date = fd.get("planDate");
+    const allocations = {};
+    for (const [key, value] of fd.entries()) {
+      if (!key.startsWith("alloc:")) continue;
+      allocations[key.slice("alloc:".length)] = Math.round(parseFloat(value || "0") * 60);
+    }
+    storage.setDailyPlan(date, allocations);
+    planDate = date;
     render();
   } else if (form.matches('[data-form="add-subject"]')) {
     event.preventDefault();
@@ -137,6 +151,11 @@ root.addEventListener("click", (event) => {
 root.addEventListener("change", (event) => {
   if (event.target.id === "tag-filter") {
     logTagFilter = event.target.value;
+    render();
+    return;
+  }
+  if (event.target.id === "plan-date") {
+    planDate = event.target.value;
     render();
     return;
   }

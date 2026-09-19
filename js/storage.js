@@ -13,7 +13,8 @@ function emptyData() {
     schemaVersion: SCHEMA_VERSION,
     subjects: [],
     logs: [],
-    meta: { lastBackupAt: null, examName: "", examDate: null, dailyGoalMinutes: 0 }
+    dailyPlans: {},
+    meta: { lastBackupAt: null, examName: "", examDate: null }
   };
 }
 
@@ -33,7 +34,17 @@ function normalize(data) {
   data.meta.lastBackupAt = data.meta.lastBackupAt || null;
   data.meta.examName = data.meta.examName || "";
   data.meta.examDate = data.meta.examDate || null;
-  data.meta.dailyGoalMinutes = data.meta.dailyGoalMinutes || 0;
+  data.dailyPlans = data.dailyPlans && typeof data.dailyPlans === "object" ? data.dailyPlans : {};
+  Object.keys(data.dailyPlans).forEach((date) => {
+    const plan = data.dailyPlans[date];
+    if (!plan || typeof plan !== "object") {
+      delete data.dailyPlans[date];
+      return;
+    }
+    Object.keys(plan).forEach((subjectId) => {
+      plan[subjectId] = Number(plan[subjectId]) || 0;
+    });
+  });
   data.subjects.forEach((s) => {
     s.weeklyGoalMinutes = s.weeklyGoalMinutes || 0;
     s.weekendGoalMinutes = s.weekendGoalMinutes || 0;
@@ -88,6 +99,9 @@ export function deleteSubject(subjectId) {
   const data = getData();
   data.subjects = data.subjects.filter((s) => s.id !== subjectId);
   data.logs = data.logs.filter((l) => l.subjectId !== subjectId);
+  Object.values(data.dailyPlans).forEach((plan) => {
+    delete plan[subjectId];
+  });
   persist();
 }
 
@@ -176,10 +190,19 @@ export function getLastBackupAt() {
   return getData().meta.lastBackupAt;
 }
 
-export function setExamInfo({ name, date, dailyGoalMinutes }) {
+export function setExamInfo({ name, date }) {
   const data = getData();
   data.meta.examName = name || "";
   data.meta.examDate = date || null;
-  data.meta.dailyGoalMinutes = dailyGoalMinutes || 0;
   persist();
+}
+
+export function setDailyPlan(date, allocations) {
+  const data = getData();
+  data.dailyPlans[date] = allocations;
+  persist();
+}
+
+export function getDailyPlan(date) {
+  return getData().dailyPlans[date] || null;
 }
