@@ -1,6 +1,9 @@
 import * as storage from "./storage.js";
-import { todayStr } from "./dates.js";
-import { trackAt, buildContext, dayReport } from "./stats.js";
+import { todayStr, monthKey, shiftMonth, formatKoreanDate } from "./dates.js";
+import { trackAt, buildContext, dayReport, historyEnd } from "./stats.js";
+import { bonusSavings, bonusBlockReason, bonusMaxFor, BONUS_STEP_MIN } from "./bonus.js";
+import { bonusSheetHTML, bonusCancelSheetHTML } from "./ui/bonus.js";
+import { formatDuration } from "./ui/shared.js";
 import { maintenanceGoals, presetImpact } from "./plan.js";
 import { WEEKDAY_PRESETS, countUnit } from "./presets.js";
 import * as sync from "./sync.js";
@@ -53,6 +56,11 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
     return left > 0 ? Math.min(10, left) : ui.pick;
   }
 
+  function showBonusSheet() {
+    const data = storage.getData();
+    overlay.innerHTML = bonusSheetHTML(data, buildContext(data), todayStr(), ui);
+  }
+
   const actions = {
     "set-track"(btn) {
       storage.setActiveTrack(Number(btn.dataset.track));
@@ -64,6 +72,63 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
       const { next, blockedReview } = storage.cycleDayKind(btn.dataset.date);
       toast(blockedReview ? "복습일은 주 1일만 — 원상복귀했어요" : next === "rest" ? "휴식일로 지정 · 쿼터 자동 조정" : next === "review" ? "복습일로 지정 · 진도 없이 다시 떠올리는 날" : "원상복귀");
       render();
+    },
+    "bonus-toggle"() {
+      ui.bonusPick = !ui.bonusPick;
+      ui.weekMonth = null;
+      render();
+    },
+    "bonus-month"(btn) {
+      const data = storage.getData();
+      const today = todayStr();
+      const next = shiftMonth(ui.weekMonth || monthKey(today), Number(btn.dataset.step));
+      if (next < monthKey(today) || next > monthKey(historyEnd(data, today))) return;
+      ui.weekMonth = next;
+      render();
+    },
+    "pick-bonus-day"(btn) {
+      const data = storage.getData();
+      const today = todayStr();
+      const date = btn.dataset.date;
+      const reason = bonusBlockReason(data, date, today);
+      const max = bonusMaxFor(data, date, bonusSavings(data, buildContext(data), today).savedMin);
+      if (reason || max < BONUS_STEP_MIN) {
+        toast(reason || "저축이 모자라요");
+        return;
+      }
+      ui.bonusDate = date;
+      ui.bonusMinutes = max;
+      showBonusSheet();
+    },
+    "bonus-step"(btn) {
+      const data = storage.getData();
+      const max = bonusMaxFor(data, ui.bonusDate, bonusSavings(data, buildContext(data), todayStr()).savedMin);
+      ui.bonusMinutes = Math.min(max, Math.max(BONUS_STEP_MIN, ui.bonusMinutes + Number(btn.dataset.step) * BONUS_STEP_MIN));
+      showBonusSheet();
+    },
+    "confirm-bonus"() {
+      const data = storage.getData();
+      const today = todayStr();
+      const savedMin = bonusSavings(data, buildContext(data), today).savedMin;
+      const minutes = Math.min(ui.bonusMinutes, bonusMaxFor(data, ui.bonusDate, savedMin));
+      if (bonusBlockReason(data, ui.bonusDate, today) || minutes < BONUS_STEP_MIN) {
+        closeSheet();
+        return;
+      }
+      storage.setBonusRest(ui.bonusDate, minutes);
+      ui.bonusPick = false;
+      ui.weekMonth = null;
+      closeSheet();
+      toast(`${formatKoreanDate(ui.bonusDate)} ${formatDuration(minutes)} 보상 휴식으로 정했어요`);
+    },
+    "bonus-day"(btn) {
+      ui.bonusDate = btn.dataset.date;
+      overlay.innerHTML = bonusCancelSheetHTML(storage.getData(), ui);
+    },
+    "cancel-bonus"() {
+      storage.setBonusRest(ui.bonusDate, 0);
+      closeSheet();
+      toast("보상 휴식을 취소했어요 · 시간이 저축으로 돌아왔어요");
     },
     "open-settle"() {
       showSettleSheet();

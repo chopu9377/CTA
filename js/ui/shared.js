@@ -43,3 +43,14 @@ export function ringHTML(color, pct) {
   return `<svg viewBox="0 0 64 64" width="66" height="66">${track}${arc}
     <text x="32" y="36" text-anchor="middle" font-size="13" font-weight="700" fill="${color}" fill-opacity="${opacity}">${Math.round(pct)}%</text></svg>`;
 }
+
+// 진행 상태 표시(주간 배너·진도율 뱃지 공용). 주간은 이번 주 계획 대비, 진도율은 총 진도(예상 완료일 대비)로 판단한다.
+export const SHIP = {
+  behind: { emoji: "🐢", label: "미흡" },
+  cruise: { emoji: "🚗", label: "순항" },
+  ahead: { emoji: "🚀", label: "초고속" }
+};
+
+export function shipOfPlan(level) {
+  return level === "danger" || level === "late" ? "behind" : level === "ahead" ? "ahead" : level === "ok" ? "cruise" : null;
+}

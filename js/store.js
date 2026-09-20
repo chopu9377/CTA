@@ -94,6 +94,7 @@ function emptyData() {
     entries: [],
     dayKinds: {},
     dayTargets: {},
+    bonusRest: {},
     settlements: {},
     carries: [],
     chapters: [],
@@ -134,6 +135,7 @@ function normalize(data) {
   ["dayKinds", "dayTargets", "settlements", "subjectColors"].forEach((k) => {
     data[k] = data[k] && typeof data[k] === "object" ? data[k] : {};
   });
+  data.bonusRest = Object.fromEntries(Object.entries(data.bonusRest || {}).filter(([, m]) => Number.isFinite(m) && m > 0));
   data.carries = Array.isArray(data.carries) ? data.carries : [];
   data.chapters = (Array.isArray(data.chapters) ? data.chapters : [])
     .filter((c) => c && c.id && c.subject)

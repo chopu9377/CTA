@@ -4,6 +4,8 @@ import { absorbedShortfalls } from "../weekplan.js";
 import { TRACK_LABEL, countUnit } from "../presets.js";
 import { escapeHtml, ringHTML, subjectColor } from "./shared.js";
 import { legendHTML, weekHTML } from "./weekgrid.js";
+import { bonusSavings, bonusBlockReason, bonusMaxFor, BONUS_STEP_MIN } from "../bonus.js";
+import { shipCardHTML } from "./bonus.js";
 
 function ddayText(info, today) {
   if (!info.examDate) return "시험일 미설정";
@@ -57,31 +59,55 @@ function quotaHTML(data, ctx, track, weekIndex) {
   </div>`;
 }
 
-function monthWeeksHTML(data, ctx, today) {
-  const month = monthKey(today);
+function monthWeeksHTML(data, ctx, today, month, pick) {
   const currentIndex = currentWeekIndex(data, today);
   const weekCount = Math.ceil((new Date(historyEnd(data, today)) - new Date(data.startDate)) / 86400000 / 7) + 1;
   let html = "";
   for (let w = 0; w < weekCount; w++) {
     const start = addDays(data.startDate, w * 7);
     const touches = Array.from({ length: 7 }, (_, i) => addDays(start, i)).some((d) => monthKey(d) === month);
-    if (touches) html += weekHTML(weekReport(data, ctx, w, today), { mini: false, today, currentIndex });
+    if (touches) html += weekHTML(weekReport(data, ctx, w, today), { mini: false, today, currentIndex, pick });
   }
   return html;
 }
 
-export function renderWeek(data, ctx, today) {
+// 보상 휴식 날짜 고르기 모드에서 고를 수 있는 날짜(그 달에 걸친 주의 모든 날)
+function pickableDates(data, ctx, today, month) {
+  const { savedMin } = bonusSavings(data, ctx, today);
+  const set = new Set();
+  const weekCount = Math.ceil((new Date(historyEnd(data, today)) - new Date(data.startDate)) / 86400000 / 7) + 1;
+  for (let w = 0; w < weekCount; w++) {
+    const start = addDays(data.startDate, w * 7);
+    for (let i = 0; i < 7; i++) {
+      const d = addDays(start, i);
+      if (monthKey(d) === month && !bonusBlockReason(data, d, today) && bonusMaxFor(data, d, savedMin) >= BONUS_STEP_MIN) set.add(d);
+    }
+  }
+  return set;
+}
+
+function monthNavHTML(month, today, data) {
+  const first = monthKey(today);
+  const last = monthKey(historyEnd(data, today));
+  const btn = (step, label, off) => `<button class="btn btn-secondary btn-sm" data-action="bonus-month" data-step="${step}" type="button"${off ? " disabled" : ""}>${label}</button>`;
+  return `<div class="month-nav">${btn(-1, "‹", month <= first)}<b>${Number(month.slice(5, 7))}월</b>${btn(1, "›", month >= last)}</div>`;
+}
+
+export function renderWeek(data, ctx, today, ui) {
   const track = trackAt(data, today);
-  const monthNumber = Number(today.slice(5, 7));
+  const month = ui.bonusPick && ui.weekMonth ? ui.weekMonth : monthKey(today);
+  const pick = ui.bonusPick ? pickableDates(data, ctx, today, month) : null;
   return `<section class="view">
     ${trackBarHTML(data, track, today)}
     ${noticesHTML(data, ctx, track, today)}
+    ${shipCardHTML(data, ctx, today, ui)}
     <div class="card">
       <div class="section-header-row">
-        <h2 class="section-title">${monthNumber}월 주간 현황</h2>
+        <h2 class="section-title">${Number(month.slice(5, 7))}월 주간 현황</h2>
       </div>
-      ${legendHTML()}${monthWeeksHTML(data, ctx, today)}
-      <p class="hint">이번 달 주간만 보여요(지난 기록은 '공부기록' 탭). 미래 칸을 탭: 1번 휴식 → 2번 복습(주 1일) → 3번 원상복귀.</p>
+      ${ui.bonusPick ? monthNavHTML(month, today, data) : ""}
+      ${legendHTML()}${monthWeeksHTML(data, ctx, today, month, pick)}
+      <p class="hint">이번 달 주간만 보여요(지난 기록은 '공부기록' 탭). 미래 칸을 탭: 1번 휴식 → 2번 복습(주 1일) → 3번 원상복귀. 🎁 칸을 탭하면 보상 휴식을 취소할 수 있어요.</p>
     </div>
     ${quotaHTML(data, ctx, track, currentWeekIndex(data, today))}
   </section>`;

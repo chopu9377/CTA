@@ -32,6 +32,10 @@ const ui = {
   quietOpen: false,
   comicGoalId: null,
   comicEdit: false,
+  bonusPick: false,
+  bonusDate: null,
+  bonusMinutes: 0,
+  weekMonth: null,
   sec: {}
 };
 
@@ -49,9 +53,9 @@ function render() {
   const data = storage.getData();
   const ctx = buildContext(data);
 
-  if (ui.view === "week") root.innerHTML = renderWeek(data, ctx, today);
+  if (ui.view === "week") root.innerHTML = renderWeek(data, ctx, today, ui);
   else if (ui.view === "today") root.innerHTML = renderToday(data, ctx, today, ui);
-  else if (ui.view === "progress") root.innerHTML = renderProgress(data, ui);
+  else if (ui.view === "progress") root.innerHTML = renderProgress(data, ui, today);
   else if (ui.view === "exam") root.innerHTML = renderExam(data, ui, today);
   else if (ui.view === "history") root.innerHTML = renderHistory(data, ctx, today);
   else root.innerHTML = renderSettings(data, today, storage.legacyDataJson() !== null, getSyncInfo(), ui);
@@ -90,6 +94,8 @@ function switchView(view) {
   ui.editing = false;
   ui.comicEdit = false;
   ui.pickerOpen = false;
+  ui.bonusPick = false;
+  ui.weekMonth = null;
   render();
   window.scrollTo(0, 0);
 }

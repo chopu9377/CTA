@@ -43,3 +43,10 @@ export function formatKoreanDate(dateStr) {
 export function monthKey(dateStr) {
   return dateStr.slice(0, 7);
 }
+
+// "YYYY-MM" 달 키를 n달 앞뒤로 옮긴다
+export function shiftMonth(key, n) {
+  const [y, m] = key.split("-").map(Number);
+  const d = new Date(y, m - 1 + n, 1);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+}

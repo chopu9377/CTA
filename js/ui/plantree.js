@@ -30,22 +30,11 @@ function commonLeaves(data, track) {
   return leaves.join("");
 }
 
-const STATUS_TEXT = {
-  ok: ["정상", "ok"],
-  late: ["약간 밀림", "warn"],
-  danger: ["위험", "bad"],
-  ahead: ["여유 · 목표를 줄여도 돼요", "info"],
-  done: ["목표 회독 완료", "ok"]
-};
-
-const tag = (text, tone) => `<span class="tree-tag ${tone}" style="margin-left:0">${text}</span>`;
-
 // 주간 자동 역산 미리보기: 오늘 목표에는 적용되지 않는 참고용 계산
 function previewHTML(data, g, today) {
   const p = planPreview(data, g, today);
   if (!p) return "";
   const unit = countUnit(g.unit);
-  const [label, tone] = STATUS_TEXT[p.status.level];
   const days = p.weekDays.length ? p.weekDays.map((d) => `${WEEKDAY_LABELS[d.dow]} ${d.amount}`).join(" · ") : "이 주에는 공부일이 없어요";
   const weekLabel = p.upcoming ? `집중 시작 주(${formatMD(p.weekStart)}~) 필요` : "이번 주 필요";
   let actual;
@@ -60,7 +49,7 @@ function previewHTML(data, g, today) {
     leaf("info", `${weekLabel} 약 <b>${p.weekNeed.toFixed(1)}${unit}</b> → <b>${p.weekTotal}${unit}</b> 배분: ${days}${p.upcoming ? "" : ` <small>(지금 ${p.doneThisWeek}/${p.weekTotal})</small>`}`),
     leaf("info", p.covered ? `목표 마감 <b>${formatMD(p.endDate)}</b> · 다른 트랙 집중 기간의 유지 분량만으로 목표 회독이 채워져요` : `목표 마감 <b>${formatMD(p.endDate)}</b> · 계획상 완료 <b>${p.plannedFinish ? formatMD(p.plannedFinish) : "-"}</b>`),
     leaf("info", `실제 페이스 예상: ${actual}`),
-    leaf(tone === "bad" ? "bad" : "info", `상태 ${tag(label, tone)}${p.status.basis === "plan" ? " <small>(계획 기준)</small>" : ""}${p.impossible ? ` <small>· 남은 공부 가능 시간(${formatDuration(p.capacityMin)})으로는 이 과목만으로도 끝내기 어려워요</small>` : ""}`)
+    p.impossible ? leaf("bad", `남은 공부 가능 시간(${formatDuration(p.capacityMin)})으로는 이 과목만으로도 끝내기 어려워요`) : ""
   ].join("");
   const upcomingNote = p.upcoming ? `<li class="tree-leaf info"><span class="tree-mark">·</span><div><small>아직 집중 시작 전이에요. ${formatMD(g.track === 1 ? data.tracks[1].activeFrom : p.weekStart)}에 집중을 시작한다고 가정한 미리보기이고, 그때까지의 기록·시험일 변경에 따라 달라져요.</small></div></li>` : "";
   return `<li class="tree-leaf info preview"><span class="tree-mark">▸</span><div><b>${isAutoGoal(data, g) ? "이번 주 계획" : "자동 역산 미리보기"}</b> <small>${isAutoGoal(data, g) ? "· 오늘 목표에 적용 중" : "· 참고용, 오늘 목표에는 적용 안 돼요"}</small><ul>${upcomingNote}${rows}</ul></div></li>`;

@@ -43,6 +43,8 @@
   --cell-rest: #cfd9ee;
   --cell-review: #8b6fd6;
   --cell-pending: #eb6834;
+  --cell-bonus: #ffd166;
+  --cell-bonus-ink: #4a3300;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -81,6 +83,8 @@
     --cell-miss: #4a4a47;
     --cell-rest: #34405c;
     --cell-review: #8f77e0;
+    --cell-bonus: #8a6a1f;
+    --cell-bonus-ink: #fff3d1;
   }
 }
 
@@ -1779,4 +1783,117 @@ textarea:focus {
   font-size: 13px;
   text-align: center;
   color: rgba(255, 255, 255, 0.8);
+}
+
+/* 보상 휴식 · 진행 상태(배) */
+.cell-bonus {
+  background: var(--cell-bonus);
+  color: var(--cell-bonus-ink);
+}
+
+.cell.has-bonus::before {
+  content: "🎁";
+  position: absolute;
+  left: 1px;
+  top: -2px;
+  font-size: 8px;
+}
+
+.cell.pickable {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.cell.dim {
+  opacity: 0.32;
+}
+
+.dot.cell-bonus {
+  background: var(--cell-bonus);
+}
+
+.ship-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.ship-emoji {
+  font-size: 34px;
+  line-height: 1;
+}
+
+.ship-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.ship-behind .ship-main b {
+  color: var(--cal-bad);
+}
+
+.ship-ahead .ship-main b {
+  color: var(--accent);
+}
+
+.ship-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.ship-foot .hint {
+  margin: 0;
+  flex: 1;
+}
+
+.ship-foot .btn {
+  flex: none;
+}
+
+.month-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+
+.bonus-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  margin: 8px 0 12px;
+  font-size: 18px;
+}
+
+.ship-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--accent-track);
+  color: var(--accent);
+}
+
+.ship-badge.ship-behind {
+  background: color-mix(in srgb, var(--cal-bad) 16%, transparent);
+  color: var(--cal-bad);
+}
+
+.ship-badge.ship-cruise {
+  background: color-mix(in srgb, var(--cal-good) 16%, transparent);
+  color: var(--cal-good);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  pointer-events: none;
 }

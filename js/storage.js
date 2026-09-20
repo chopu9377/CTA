@@ -34,6 +34,15 @@ function hasReviewInWeek(data, dateStr) {
   return Array.from({ length: 7 }, (_, i) => addDays(start, i)).some((d) => data.dayKinds[d] === "review");
 }
 
+// 보상 휴식: 그날 목표에서 minutes(분)만큼을 쉰다. 0이면 취소. 오늘이면 오늘 목표 스냅샷도 다시 만든다.
+export function setBonusRest(dateStr, minutes) {
+  const data = getData();
+  if (minutes > 0) data.bonusRest[dateStr] = minutes;
+  else delete data.bonusRest[dateStr];
+  if (dateStr <= todayStr()) refreshToday();
+  persist();
+}
+
 // 고정 목표의 이월은 이후 초과분으로 갚는다. 자동 계획 목표의 이월은 같은 주 남은 공부일에 나눠 얹고(redistribute),
 // 다시 나눌 날이 없으면 아무것도 만들지 않는다(다음 주 계획에 자동 반영).
 export function settleDay(dateStr, decision, shortfalls) {

@@ -1,5 +1,6 @@
 import { addDays, diffDays, weekdayOf, monthKey } from "./dates.js";
 import { holidayName } from "./holidays.js";
+import { applyBonus, bonusMinutes } from "./bonus.js";
 import { autoApplies, autoTargetOn, canRedistribute, redistributionState, isAutoGoal, weekQuota } from "./weekplan.js";
 
 export function trackAt(data, dateStr) {
@@ -38,7 +39,7 @@ export function computeTargets(data, dateStr) {
     const amount = autoApplies(data, g, dateStr) ? autoTargetOn(data, g, dateStr) : targetOn(g, dateStr);
     if (amount > 0) targets[g.id] = amount;
   });
-  return targets;
+  return applyBonus(data, dateStr, targets);
 }
 
 export function targetsFor(data, dateStr) {
@@ -111,11 +112,13 @@ export function dayReport(data, ctx, dateStr, today) {
   });
   const totalDone = ctx.byDate.get(dateStr) || 0;
   const decision = data.settlements[dateStr];
+  const bonus = bonusMinutes(data, dateStr);
+  const fullBonus = bonus > 0 && !rows.length;
 
   let status;
-  if (dateStr > today) status = kind || "future";
+  if (dateStr > today) status = kind || (fullBonus ? "bonus" : "future");
   else if (kind) status = kind;
-  else if (!rows.length) status = totalDone > 0 ? "full" : dateStr === today ? "today" : "none";
+  else if (!rows.length) status = totalDone > 0 ? "full" : fullBonus ? "bonus" : dateStr === today ? "today" : "none";
   else if (!shortfalls.length) status = "full";
   else if (dateStr === today) status = "today";
   else if (decision === "carried") {
@@ -129,10 +132,10 @@ export function dayReport(data, ctx, dateStr, today) {
 
   // 자동 계획 목표는 같은 주 안에 다시 나눌 공부일이 있을 때만 이월을 묻는다(없으면 다음 주 계획에 자동 반영)
   const undecided = dateStr < today && !kind && shortfalls.some((s) => s.canCarry) && decision === undefined;
-  return { date: dateStr, kind, status, rows, shortfalls, undecided, totalDone, holiday: holidayName(dateStr) };
+  return { date: dateStr, kind, status, rows, shortfalls, undecided, totalDone, bonus, holiday: holidayName(dateStr) };
 }
 
-const NEUTRAL = ["rest", "review", "none"];
+const NEUTRAL = ["rest", "review", "none", "bonus"];
 
 export function weekReport(data, ctx, weekIndex, today) {
   const start = addDays(data.startDate, weekIndex * 7);
