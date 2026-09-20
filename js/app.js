@@ -28,7 +28,7 @@ const ui = {
   pickerAnim: false,
   revealSelected: false,
   quietOpen: false,
-  planOpen: false
+  sec: {}
 };
 
 let toastTimer = null;

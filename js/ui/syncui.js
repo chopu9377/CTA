@@ -4,21 +4,24 @@ function whenText(iso) {
   return iso ? new Date(iso).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit" }) : "기록 없음";
 }
 
-export function syncCardHTML(info) {
+export function syncCardHTML(info, open) {
   const text = (label, value, field, extra = "") =>
     `<label class="field"><span>${label}</span><input type="text" value="${escapeHtml(value)}" data-sync-field="${field}" autocapitalize="off" autocorrect="off" spellcheck="false" ${extra} /></label>`;
   return `<div class="card">
-    <div class="section-header-row"><h2 class="section-title">GitHub 동기화</h2><span class="chip" data-sync-status>${escapeHtml(info.status)}</span></div>
+    <div class="sec-head">
+      <button class="sec-toggle" data-action="toggle-sec" data-sec="sync" type="button" aria-expanded="${!!open}"><span class="chev${open ? " open" : ""}">›</span>GitHub 동기화</button>
+      <span class="chip" data-sync-status>${escapeHtml(info.status)}</span>
+      <button class="btn btn-primary btn-sm" data-action="sync-now" type="button">지금 동기화</button>
+    </div>
+    ${open ? `<div class="sec-body">
     <p class="hint" style="margin-top:0">앱을 열 때 GitHub의 데이터를 불러오고, 기록을 바꾸면 몇 초 뒤 자동으로 올려요. 기기 저장소가 지워져도 여기서 다시 불러올 수 있어요.</p>
     ${text("저장소 (소유자/이름)", info.repo, "repo")}
     ${text("파일 경로", info.path, "path")}
     <label class="field"><span>토큰 (fine-grained · 이 저장소 Contents 읽기/쓰기)</span>
       <input type="password" value="" placeholder="${info.hasToken ? "저장됨 · 바꾸려면 새로 입력" : "github_pat_..."}" data-sync-field="token" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" /></label>
-    <div class="form-inline">
-      <button class="btn btn-primary" data-action="sync-now" type="button">지금 동기화</button>
-      ${info.hasToken ? `<button class="btn btn-secondary" data-action="sync-disconnect" type="button">연결 해제</button>` : ""}
-    </div>
+    ${info.hasToken ? `<div class="form-inline"><button class="btn btn-secondary" data-action="sync-disconnect" type="button">연결 해제</button></div>` : ""}
     <p class="hint">토큰은 이 기기에만 저장되고 백업 파일에는 들어가지 않아요. 비공개 저장소 하나에만 권한을 준 토큰을 쓰세요.</p>
+    </div>` : ""}
   </div>`;
 }
 

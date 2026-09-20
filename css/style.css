@@ -1493,3 +1493,59 @@ textarea:focus {
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
+
+/* settings: 접이식 섹션 */
+.sec-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sec-head .sec-toggle {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sec-head .chev {
+  font-size: 18px;
+  transition: transform 0.15s ease;
+}
+
+.sec-head .chev.open {
+  transform: rotate(90deg);
+}
+
+.sec-body {
+  margin-top: 10px;
+}
+
+.sec-sub {
+  margin-top: 6px;
+  border-top: 1px solid rgba(128, 128, 128, 0.25);
+  padding-top: 4px;
+}
+
+.chip.chip-warn {
+  background: color-mix(in srgb, #f59e0b 16%, transparent);
+  color: #b45309;
+  box-shadow: none;
+  font-weight: 700;
+}
+
+@media (prefers-color-scheme: dark) {
+  .chip.chip-warn {
+    color: #fbbf24;
+  }
+}

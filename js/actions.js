@@ -93,8 +93,8 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
       ui.quietOpen = !ui.quietOpen;
       render();
     },
-    "toggle-plan"() {
-      ui.planOpen = !ui.planOpen;
+    "toggle-sec"(btn) {
+      ui.sec[btn.dataset.sec] = !ui.sec[btn.dataset.sec];
       render();
     },
     "auto-all"() {
@@ -108,8 +108,16 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
     "goto-input"(btn) {
       const { id, track, field } = btn.dataset;
       const selector = id ? `input[data-goal-field="${field}"][data-id="${id}"]` : `input[data-track-field="${field}"][data-track="${track}"]`;
-      const input = document.querySelector(selector);
-      if (!input) return;
+      let input = document.querySelector(selector);
+      if (!input) {
+        const goal = id ? storage.getData().goals.find((g) => g.id === id) : null;
+        if (id && !goal) return;
+        if (id) Object.assign(ui.sec, { goals: true, [`goals${goal.track}`]: true });
+        else ui.sec.track = true;
+        render();
+        input = document.querySelector(selector);
+        if (!input) return;
+      }
       input.scrollIntoView({ behavior: "smooth", block: "center" });
       input.focus({ preventScroll: true });
     },

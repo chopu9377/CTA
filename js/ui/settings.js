@@ -1,5 +1,6 @@
 import { exportedLastBackupDays, trackAt } from "../stats.js";
 import { isAutoGoal } from "../weekplan.js";
+import { paceMissing } from "../plan.js";
 import { formatMD } from "../dates.js";
 import { TRACK_LABEL, UNIT_SUGGESTIONS } from "../presets.js";
 import { planTreeHTML } from "./plantree.js";
@@ -14,10 +15,29 @@ function backupStatusText(lastBackupAt, syncOn) {
   return days <= 0 ? "오늘 백업했어요." : `마지막 백업: ${days}일 전`;
 }
 
-function trackCardHTML(data) {
+function secHeadHTML(key, title, open, right = "") {
+  return `<div class="sec-head"><button class="sec-toggle" data-action="toggle-sec" data-sec="${key}" type="button" aria-expanded="${!!open}"><span class="chev${open ? " open" : ""}">›</span>${title}</button>${right}</div>`;
+}
+
+// 자동 계획에 필요한데 비어 있는 입력 수(권장량 도출 트리의 ✗와 같은 기준). 다 채우면 칩이 사라진다
+function emptyChip(count) {
+  return count > 0 ? `<span class="chip chip-warn" title="자동 계획에 필요한데 비어 있어요">비어 있음 ${count}곳</span>` : "";
+}
+
+function goalGaps(data, track) {
+  return data.goals
+    .filter((g) => !g.archived && g.track === track)
+    .reduce((n, g) => n + paceMissing(data, g).filter((m) => m.field !== "examDate").length, 0);
+}
+
+function trackGaps(data) {
+  return [1, 2].filter((t) => !data.tracks[t].examDate && data.goals.some((g) => !g.archived && g.track === t)).length;
+}
+
+function trackCardHTML(data, open) {
   return `<div class="card">
-    <div class="section-header-row"><h2 class="section-title">트랙 · 시험일</h2><span class="chip">임의 입력 → 확정되면 수정</span></div>
-    <div class="form-grid">${[2, 1]
+    ${secHeadHTML("track", "트랙 · 시험일", open, emptyChip(trackGaps(data)))}
+    ${open ? `<div class="sec-body"><div class="form-grid">${[2, 1]
       .map((t) => {
         const info = data.tracks[t];
         return `<label class="field"><span>${TRACK_LABEL[t]} 시험일</span>
@@ -33,22 +53,7 @@ function trackCardHTML(data) {
     <div class="form-grid">${[2, 1]
       .map((t) => `<label class="check"><input type="checkbox" ${data.tracks[t].maintain ? "checked" : ""} data-track-field="maintain" data-track="${t}" /> ${TRACK_LABEL[t]} 유지 모드</label>`)
       .join("")}</div>
-    <p class="hint" style="margin-top:0">유지 모드: 다른 트랙을 집중하는 동안 이 트랙을 가볍게 이어 가요. 과목 카드의 "유지 평일/주말" 양만 하고, 못 해도 미달·이월로 세지 않아요.</p>
-  </div>`;
-}
-
-function planCardHTML(data) {
-  const s = data.settings;
-  const field = (key, value, label) =>
-    `<label class="mini-field"><span>${label}</span><input type="number" min="0" step="0.5" inputmode="decimal" value="${value}" data-setting-num="${key}" /></label>`;
-  return `<div class="card">
-    <h2 class="section-title">권장량 계산 기준</h2>
-    <div class="total-inputs">
-      ${field("weekdayHours", s.weekdayHours, "평일 가능(시간)")}
-      ${field("weekendHours", s.weekendHours, "주말 가능(시간)")}
-      ${field("bufferDays", s.bufferDays, "시험 전 마감(일)")}
-    </div>
-    <p class="hint">목표 회독을 시험 며칠 전에 끝내는 페이스로 권장량을 계산해요(마지막 기간은 모의고사·복습용). 평일:주말 양의 비율은 공부 가능 시간 비율을 따르고, 공휴일은 주말로 봐요.</p>
+    <p class="hint" style="margin-top:0">유지 모드: 다른 트랙을 집중하는 동안 이 트랙을 가볍게 이어 가요. 과목 카드의 "유지 평일/주말" 양만 하고, 못 해도 미달·이월로 세지 않아요.</p></div>` : ""}
   </div>`;
 }
 
@@ -90,21 +95,32 @@ function totalRowHTML(data, g, today) {
   </div>`;
 }
 
-function totalsCardHTML(data, today) {
+function totalsCardHTML(data, today, ui) {
   const active = trackAt(data, today);
-  return [active, active === 2 ? 1 : 2]
+  const body = [2, 1]
     .map((track) => {
       const goals = data.goals.filter((g) => !g.archived && g.track === track);
-      return `<div class="card">
-        <div class="section-header-row"><h2 class="section-title">총 분량 · 누적 · 회독</h2><span class="chip">${TRACK_LABEL[track]}${track === active ? " (진행중)" : ""}</span></div>
-        ${goals.map((g) => totalRowHTML(data, g, today)).join("")}
-        ${track === active
-          ? `<p class="hint">과목 이름과 단위(연습서·인강 등)는 여기서 바로 고치고, ✕로 삭제해요(지난 기록은 남아요). 하루 목표·요일은 '오늘' 탭의 편집에서 해요.</p>
-        <p class="hint">'누적 푼 양'에 앱을 쓰기 전까지 푼 양을 넣으면 총 분량 기준으로 회독과 현재 진행량으로 환산돼요(주간 통계에는 잡히지 않아요). 진행량이 총 분량에 도달하면 회독이 자동으로 +1이 돼요. 총 분량을 먼저 넣고 누적을 넣어 주세요.</p>`
+      const key = `goals${track}`;
+      const on = ui.sec[key];
+      return `<div class="sec-sub">
+        ${secHeadHTML(key, `${TRACK_LABEL[track]}${track === active ? " (진행중)" : ""}`, on, `${emptyChip(goalGaps(data, track))}<span class="chip">${goals.length}과목</span>`)}
+        ${on
+          ? `<div class="sec-body">${goals.map((g) => totalRowHTML(data, g, today)).join("")}
+        <form data-form="add-goal" class="form goal-add">
+          <input type="hidden" name="track" value="${track}" />
+          <div class="goal-add-fields"><input type="text" name="subject" placeholder="과목 이름" required list="subject-names" /><input type="text" name="unit" placeholder="단위(예: 문제)" required list="unit-names" /></div>
+          <button class="btn btn-secondary" type="submit">+ 과목 추가</button>
+        </form>
+        <p class="hint">과목 이름·단위는 여기서 바로 고치고, ✕로 삭제해요(지난 기록은 남아요). 고정 목표의 평일/주말 양·요일은 '오늘' 탭 편집에서 해요.</p>
+        <p class="hint">'누적 푼 양'에 앱을 쓰기 전까지 푼 양을 넣으면 총 분량 기준으로 회독과 현재 진행량으로 환산돼요(주간 통계에는 잡히지 않아요). 총 분량을 먼저 넣고 누적을 넣어 주세요.</p></div>`
           : ""}
       </div>`;
     })
     .join("");
+  return `<div class="card">
+    ${secHeadHTML("goals", "과목 설정", ui.sec.goals, emptyChip(goalGaps(data, 1) + goalGaps(data, 2)))}
+    ${ui.sec.goals ? `<div class="sec-body">${body}</div>` : ""}
+  </div>`;
 }
 
 function customColorCardHTML(data) {
@@ -116,22 +132,31 @@ function customColorCardHTML(data) {
 }
 
 function planDeriveCardHTML(data, today, open) {
+  const st = data.settings;
+  const field = (key, value, label) =>
+    `<label class="mini-field"><span>${label}</span><input type="number" min="0" step="0.5" inputmode="decimal" value="${value}" data-setting-num="${key}" /></label>`;
   return `<div class="card">
-    <div class="section-header-row"><h2 class="section-title">권장량 도출</h2>
-      <button class="btn btn-primary btn-sm" data-action="toggle-plan" type="button">${open ? "접기" : "권장량 도출"}</button></div>
+    ${secHeadHTML("plan", "권장량 계산 · 도출", open)}
+    ${!open ? "" : `<div class="sec-body">
+    <div class="total-inputs">
+      ${field("weekdayHours", st.weekdayHours, "평일 가능(시간)")}
+      ${field("weekendHours", st.weekendHours, "주말 가능(시간)")}
+      ${field("bufferDays", st.bufferDays, "시험 전 마감(일)")}
+    </div>
+    <p class="hint">목표 회독을 시험 며칠 전에 끝내는 페이스로 권장량을 계산해요(마지막 기간은 모의고사·복습용). 평일:주말 양의 비율은 공부 가능 시간 비율을 따르고, 공휴일은 주말로 봐요.</p>
     ${data.goals.some((g) => !g.archived && g.planMode !== "auto") ? `<div class="form-inline" style="margin-bottom:10px"><button class="btn btn-secondary btn-sm" data-action="auto-all" type="button">모든 과목 자동으로</button><span class="hint" style="margin:0">하루 목표를 매주 자동 계산으로 바꿔요</span></div>` : ""}
-    <p class="hint" style="margin-top:0">시험일·총 분량·목표 회독으로 하루 권장량을 계산해요. 버튼을 누르면 트랙 > 과목별로 무엇이 채워졌고 무엇이 비었는지(✗)와 결과를 한눈에 보여줘요.</p>
-    <div data-slot-plan>${open ? planTreeHTML(data, today) : ""}</div>
+    <p class="hint" style="margin-top:0">트랙 > 과목별로 무엇이 채워졌고 무엇이 비었는지(✗)와 결과를 보여줘요.</p>
+    <div data-slot-plan>${planTreeHTML(data, today)}</div>
+    </div>`}
   </div>`;
 }
 
 export function renderSettings(data, today, legacyExists, syncInfo, ui) {
   return `<section class="view">
-    ${syncCardHTML(syncInfo)}
-    ${trackCardHTML(data)}
-    ${planCardHTML(data)}
-    ${planDeriveCardHTML(data, today, ui.planOpen)}
-    ${totalsCardHTML(data, today)}
+    ${syncCardHTML(syncInfo, ui.sec.sync)}
+    ${totalsCardHTML(data, today, ui)}
+    ${planDeriveCardHTML(data, today, ui.sec.plan)}
+    ${trackCardHTML(data, ui.sec.track)}
     <datalist id="subject-names">${[...new Set(data.goals.map((g) => g.subject))].map((n) => `<option value="${escapeHtml(n)}">`).join("")}</datalist>
     <datalist id="unit-names">${UNIT_SUGGESTIONS.map((n) => `<option value="${n}">`).join("")}</datalist>
     ${customColorCardHTML(data)}

@@ -86,7 +86,7 @@ export function bindInputHandlers({ ui, render, toast, closeSheet, announceRound
       const subject = String(fd.get("subject")).trim();
       const unit = String(fd.get("unit")).trim();
       if (!subject || !unit) return;
-      storage.addGoal(trackAt(storage.getData(), todayStr()), subject, unit);
+      storage.addGoal(Number(fd.get("track")) || trackAt(storage.getData(), todayStr()), subject, unit);
       render();
     } else if (form.matches('[data-form="add-exam"]')) {
       event.preventDefault();
