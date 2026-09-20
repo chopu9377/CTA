@@ -29,14 +29,14 @@ export function targetOn(goal, dateStr) {
   return isWeekendLike(dateStr) ? goal.weekendTarget : goal.weekdayTarget;
 }
 
-export function computeTargets(data, dateStr) {
+export function computeTargets(data, dateStr, preview = false) {
   if (effectiveKind(data, dateStr)) return {};
   const track = trackAt(data, dateStr);
   const weekday = weekdayOf(dateStr);
   const targets = {};
   data.goals.forEach((g) => {
     if (g.archived || g.track !== track || !g.weekdays.includes(weekday)) return;
-    const amount = autoApplies(data, g, dateStr) ? autoTargetOn(data, g, dateStr) : targetOn(g, dateStr);
+    const amount = autoApplies(data, g, dateStr) ? autoTargetOn(data, g, dateStr, preview) : targetOn(g, dateStr);
     if (amount > 0) targets[g.id] = amount;
   });
   return applyBonus(data, dateStr, targets);

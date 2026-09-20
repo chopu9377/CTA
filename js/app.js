@@ -30,6 +30,7 @@ const ui = {
   pickerAnim: false,
   revealSelected: false,
   quietOpen: false,
+  tomorrowOpen: false,
   comicGoalId: null,
   comicEdit: false,
   bonusPick: false,

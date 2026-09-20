@@ -4,6 +4,7 @@ import { dayLoad, maintenanceGoals, maintenanceTargets } from "../plan.js";
 import { isAutoGoal, weekProgress, isLastStudyDay } from "../weekplan.js";
 import { UNIT_SUGGESTIONS, WEEKDAY_PRESETS, TRACK_LABEL, countUnit } from "../presets.js";
 import { escapeHtml, subjectColor, formatDuration } from "./shared.js";
+import { tomorrowCardHTML } from "./tomorrow.js";
 
 function carryOf(data, ctx, goalId) {
   return data.carries
@@ -164,6 +165,7 @@ export function renderToday(data, ctx, today, ui) {
       ${ui.editing ? "" : maintSectionHTML(data, ctx, today, maintGoals, maintTargets, sheetOpen ? selected : null)}
       ${ui.editing || sheetOpen ? "" : undoLineHTML(data, today)}
     </div>
+    ${ui.editing || sheetOpen ? "" : tomorrowCardHTML(data, ctx, today, ui)}
     ${sheetOpen ? pickerSheetHTML(ui.pick, selected, data, today, animate) : ""}
   </section>`;
 }

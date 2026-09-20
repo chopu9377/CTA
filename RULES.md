@@ -58,6 +58,7 @@
     settings.js   # 설정 화면
     plantree.js   # 설정의 "권장량 도출" 트리(입력 상태·결과·요일별 예상 시간)
     bonus.js      # 주간 진행 카드·휴식 저축 사용/취소 시트
+    tomorrow.js   # 오늘 탭 맨 아래 "내일 미리보기" 접이식 카드
     settle.js     # 이월 확인 하단 시트
     syncui.js     # 설정의 GitHub 동기화 카드, 동기화 충돌 선택 시트
 /data/holidays.json          # 공휴일 목록(정기 작업이 갱신, 서비스워커가 미리 캐시)

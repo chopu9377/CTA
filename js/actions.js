@@ -158,6 +158,10 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
       ui.quietOpen = !ui.quietOpen;
       render();
     },
+    "toggle-tomorrow"() {
+      ui.tomorrowOpen = !ui.tomorrowOpen;
+      render();
+    },
     "toggle-sec"(btn) {
       ui.sec[btn.dataset.sec] = !ui.sec[btn.dataset.sec];
       render();

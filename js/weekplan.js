@@ -162,12 +162,21 @@ function carryShare(data, goal, week, dateStr) {
 }
 
 // 자동 목표의 그날 목표 = 그 주 계획 + 같은 주 이월 몫. 아직 시작 안 한 주는 계획이 없다(그 주가 시작될 때 정해진다).
-export function autoTargetOn(data, goal, dateStr) {
+// preview: 아직 시작 안 한 주도 "지금 진도 기준 예상"으로 계산한다(내일 미리보기용, 그 주가 시작되면 달라질 수 있다).
+export function autoTargetOn(data, goal, dateStr, preview = false) {
   const today = todayStr();
   const weekStart = weekStartOf(data, dateStr);
-  if (weekStart > weekStartOf(data, today)) return 0;
+  if (!preview && weekStart > weekStartOf(data, today)) return 0;
   const week = getWeek(data, goal, weekStart, today);
   return (week.amountByDate.get(dateStr) || 0) + carryShare(data, goal, week, dateStr);
+}
+
+// fromDate의 미달분 amount를 이월한다면 dateStr에 얹힐 양(같은 주 남은 공부일에 나눠 얹는 자동 계획 이월 기준)
+export function carryPreview(data, goal, amount, fromDate, dateStr, today) {
+  const week = getWeek(data, goal, weekStartOf(data, fromDate), today);
+  const days = week.thisWeek.days.filter((d) => d.date > fromDate);
+  const index = days.findIndex((d) => d.date === dateStr);
+  return index >= 0 ? distribute(amount, days)[index] : 0;
 }
 
 export function autoApplies(data, goal, dateStr) {
