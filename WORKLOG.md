@@ -223,6 +223,17 @@
     과목/기간 이름만 텍스트로 남김). `css/style.css`에 `.ring-row`/`.ring-item`/`.ring-label`
     추가.
   - `service-worker.js` 캐시 버전 `v12` → `v13`.
+  - 챕터별 만화(v29): 사용자 요청("과목별 챕터 8컷 만화를 폰에서 바로 올리고 쉽게 보기, GitHub 동기화 포함"). 진도율 탭 과목 행을
+    누르면 챕터 목록(추가/이름/순서/삭제)과 챕터별 [올리기]·[보기]. 챕터는 `data.chapters[]`(`{id, track, subject, title, images[]}`,
+    배열 순서=챕터 순서, 트랙+과목명 기준이라 같은 과목의 여러 목표가 목록을 공유, 과목명 변경 시 `goals.js updateGoal`이 따라 옮김).
+    이미지 본체는 localStorage 5MB 한도 때문에 IndexedDB(`cta-comics`, `imagestore.js`)에 두고 긴 변 1800px·JPEG 0.8로 줄여 저장
+    (챕터당 수 MB). GitHub에는 같은 비공개 저장소 `comics/<imageId>.jpg`로 올린다(`sync.js repoFetch`로 다른 경로 접근, `afterSync` 훅으로
+    데이터 JSON 동기화 직후 `syncImages` 실행: 미업로드분 PUT, 지운 이미지 DELETE). 다운로드는 새 기기에서 뷰어를 열 때 그 챕터만
+    받는다(전체를 한꺼번에 받지 않음). 지운 이미지는 IDB `trash`에 넣고 다음 동기화 때 GitHub에서 지우되, 그 사이 데이터가 다시 참조하면
+    (충돌에서 "GitHub 것" 선택 등) 지우지 않는다. 백업 JSON에는 이미지가 없음(챕터 정보만). 뷰어는 scroll-snap 가로 페이저 + 두 번 탭 확대
+    (`viewport`가 핀치 확대를 막고 있어 자체 구현). **확인: PowerShell 임시 서버 + Chrome으로 챕터 추가·이미지 올리기(2400px→1800px 압축)·뷰어 넘기기/두 번 탭 확대·GitHub 호출(가짜 fetch로 PUT/DELETE 순서) 검증.**
+    **미확인: 실제 아이폰 사진 앱 다중 선택·실제 GitHub 업로드·핀치/스와이프 감촉. (이전 메모: node/python이 없어 로컬 서버는 PowerShell HttpListener로 띄움)**
+    아이폰에서 올리기(사진 앱 다중 선택)·뷰어 넘기기/확대·GitHub 올라감을 확인할 것.
 - 확인: 임시 정적 서버 + Claude in Chrome에서 `localStorage`에 빨강(17%)·초록(83%)·
   노랑(50%)·목표없음(빈 링) 4가지 케이스를 만드는 시드 데이터를 넣고 대시보드를
   스크린샷/확대해 색상·채움 비율·빈 링 처리가 모두 의도대로 나오는지 확인.

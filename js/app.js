@@ -8,6 +8,8 @@ import { conflictSheetHTML } from "./ui/syncui.js";
 import { createActions } from "./actions.js";
 import { bindInputHandlers } from "./inputs.js";
 import { initSync, getSyncInfo } from "./sync.js";
+import { syncImages } from "./imagestore.js";
+import { createComicActions } from "./comicactions.js";
 
 const root = document.getElementById("view-root");
 const overlay = document.getElementById("overlay-root");
@@ -28,6 +30,8 @@ const ui = {
   pickerAnim: false,
   revealSelected: false,
   quietOpen: false,
+  comicGoalId: null,
+  comicEdit: false,
   sec: {}
 };
 
@@ -84,6 +88,7 @@ function showAppVersion() {
 function switchView(view) {
   ui.view = view;
   ui.editing = false;
+  ui.comicEdit = false;
   ui.pickerOpen = false;
   render();
   window.scrollTo(0, 0);
@@ -120,7 +125,9 @@ function resolveConflict(choice) {
 }
 
 const { actions, announceRounds } = createActions({ ui, render, toast, overlay, showSettleSheet, closeSheet, resolveConflict });
-bindInputHandlers({ ui, render, toast, closeSheet, announceRounds });
+const comic = createComicActions({ ui, render, toast, overlay });
+Object.assign(actions, comic.actions);
+bindInputHandlers({ ui, render, toast, closeSheet, announceRounds, comic });
 
 document.addEventListener("click", (event) => {
   const btn = event.target.closest("[data-action]");
@@ -152,6 +159,7 @@ initSync({
     toast("GitHub에서 최신 데이터를 불러왔어요");
     render();
   },
+  afterSync: () => syncImages(storage.getData()),
   onStatus(text) {
     const el = document.querySelector("[data-sync-status]");
     if (el) el.textContent = text;

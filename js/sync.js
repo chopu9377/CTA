@@ -18,7 +18,7 @@ const DEFAULT_STATE = {
 };
 
 let state = loadState();
-let hooks = { toast() {}, askConflict: async () => null, onApplied() {}, onStatus() {} };
+let hooks = { toast() {}, askConflict: async () => null, onApplied() {}, onStatus() {}, afterSync: async () => {} };
 let timer = null;
 let running = null;
 let changeVersion = 0;
@@ -94,16 +94,16 @@ function decodeBase64(b64) {
   return new TextDecoder().decode(Uint8Array.from(binary, (c) => c.charCodeAt(0)));
 }
 
-function contentsUrl() {
-  const path = state.path.split("/").map(encodeURIComponent).join("/");
+function contentsUrl(filePath) {
+  const path = filePath.split("/").map(encodeURIComponent).join("/");
   return `https://api.github.com/repos/${state.repo}/contents/${path}`;
 }
 
-async function ghFetch(options = {}) {
+async function ghFetch(options = {}, filePath = state.path) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    return await fetch(contentsUrl(), {
+    return await fetch(contentsUrl(filePath), {
       ...options,
       cache: "no-store",
       signal: controller.signal,
@@ -119,7 +119,12 @@ async function ghFetch(options = {}) {
   }
 }
 
-function httpError(res) {
+// 데이터 JSON이 아니라 같은 저장소의 다른 파일(만화 이미지)을 다룰 때 쓴다
+export function repoFetch(filePath, options = {}) {
+  return ghFetch(options, filePath);
+}
+
+export function httpError(res) {
   if (res.status === 401) return new Error("토큰이 올바르지 않거나 만료됐어요");
   if (res.status === 403) return new Error("권한이 없어요(토큰 권한 확인)");
   if (res.status === 404) return new Error("저장소를 찾을 수 없어요(이름·권한 확인)");
@@ -248,7 +253,9 @@ export function syncNow() {
   lastRunAt = Date.now();
   running = (async () => {
     try {
-      return await reconcile();
+      const result = await reconcile();
+      if (result === "pushed" || result === "adopted" || result === "same") await hooks.afterSync();
+      return result;
     } catch (e) {
       state.lastError = friendlyError(e);
       return "error";

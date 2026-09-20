@@ -35,6 +35,12 @@ export function updateGoal(goalId, patch) {
   if (patch.subject) {
     ensureColor(data, goal.subject);
     if (!data.goals.some((g) => g.subject === oldName)) delete data.subjectColors[oldName];
+    // 과목 이름이 바뀌면 그 과목의 챕터도 따라간다(같은 트랙에 옛 이름 목표가 남아 있으면 그대로 둔다)
+    if (!data.goals.some((g) => g.track === goal.track && g.subject === oldName)) {
+      data.chapters.forEach((c) => {
+        if (c.track === goal.track && c.subject === oldName) c.subject = goal.subject;
+      });
+    }
   }
   const rolled = rollRounds(goal);
   refreshToday();
