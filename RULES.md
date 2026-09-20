@@ -47,6 +47,7 @@
     weekgrid.js   # 주 카드/범례 (주간·공부기록 화면 공용)
     week.js       # 주간 화면
     today.js      # 오늘 화면
+    progress.js   # 진도율 화면(트랙별 과목 회독차·진행률 링)
     exam.js       # 시험 기록 화면
     history.js    # 공부기록 화면
     settings.js   # 설정 화면

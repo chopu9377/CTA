@@ -164,6 +164,10 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
       storage.archiveGoal(btn.dataset.id);
       render();
     },
+    "set-progress-track"(btn) {
+      ui.progressTrack = Number(btn.dataset.track);
+      render();
+    },
     "set-exam-track"(btn) {
       ui.examTrack = Number(btn.dataset.track);
       render();

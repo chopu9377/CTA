@@ -1453,3 +1453,43 @@ textarea:focus {
 .tree-body {
   margin-top: 8px;
 }
+
+/* progress tab */
+.prog-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0;
+  border-top: 1px solid var(--accent-track);
+}
+
+.prog-row:first-of-type {
+  border-top: none;
+}
+
+.prog-name {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.prog-round {
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.prog-round b {
+  font-size: 18px;
+  color: var(--accent);
+}
+
+.prog-round small {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.prog-detail {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}

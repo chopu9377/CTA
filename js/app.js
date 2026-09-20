@@ -2,7 +2,7 @@ import * as storage from "./storage.js";
 import { todayStr } from "./dates.js";
 import { buildContext, pendingSettlements } from "./stats.js";
 import { loadHolidays, holidaysLoaded } from "./holidays.js";
-import { renderWeek, renderToday, renderExam, renderHistory, renderSettings } from "./ui.js";
+import { renderWeek, renderToday, renderProgress, renderExam, renderHistory, renderSettings } from "./ui.js";
 import { renderSettleSheet } from "./ui/settle.js";
 import { conflictSheetHTML } from "./ui/syncui.js";
 import { createActions } from "./actions.js";
@@ -18,6 +18,7 @@ const PICKER_ITEM_HEIGHT = 44;
 const ui = {
   view: "week",
   examTrack: 2,
+  progressTrack: 2,
   showRef: true,
   hiddenSeries: { 1: new Set(), 2: new Set() },
   selectedGoalId: null,
@@ -46,6 +47,7 @@ function render() {
 
   if (ui.view === "week") root.innerHTML = renderWeek(data, ctx, today);
   else if (ui.view === "today") root.innerHTML = renderToday(data, ctx, today, ui);
+  else if (ui.view === "progress") root.innerHTML = renderProgress(data, ui);
   else if (ui.view === "exam") root.innerHTML = renderExam(data, ui, today);
   else if (ui.view === "history") root.innerHTML = renderHistory(data, ctx, today);
   else root.innerHTML = renderSettings(data, today, storage.legacyDataJson() !== null, getSyncInfo(), ui);
