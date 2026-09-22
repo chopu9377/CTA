@@ -24,8 +24,15 @@ const LEGACY_KEY = "cta-study-tracker-data";
 const SCHEMA_VERSION = 2;
 const ALL_WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
 const DAWN_KEY = "cta-dawn";
-const DAWN_CUTOFF_HOUR = 7; // 자정~이 시각 전까지는 새벽 공부로 보고, 어제 목표가 안 끝났으면 여전히 "어제"로 친다
+const DAWN_CUTOFF_HOUR = 8; // 자정~이 시각(시:분) 전까지는 새벽 공부로 보고, 어제 목표가 안 끝났으면 여전히 "어제"로 친다
+const DAWN_CUTOFF_MINUTE = 20;
 const DAWN_DONE_STATUSES = ["full", "carried", "bonus", "rest", "review", "none"];
+
+function isBeforeDawnCutoff() {
+  const now = new Date();
+  return now.getHours() < DAWN_CUTOFF_HOUR ||
+    (now.getHours() === DAWN_CUTOFF_HOUR && now.getMinutes() < DAWN_CUTOFF_MINUTE);
+}
 
 let cache = null;
 
@@ -239,7 +246,7 @@ function writeDawnChoice(real, choice) {
 // 한 번 정해지면 그 새벽 동안은 고정된다(고른 뒤 기록을 더해도 안 바뀜) — toggle-dawn으로만 바꿀 수 있다.
 export function appToday() {
   const real = todayStr();
-  if (new Date().getHours() >= DAWN_CUTOFF_HOUR) return real;
+  if (!isBeforeDawnCutoff()) return real;
   const saved = readDawnChoice();
   if (saved && saved.real === real) return saved.choice;
   const prev = addDays(real, -1);
@@ -252,7 +259,7 @@ export function appToday() {
 
 // 새벽 배너에 보여줄 정보: 지금 어느 날짜로 기록 중이고, 바꾸면 어느 날짜가 되는지. 새벽이 아니면 null.
 export function dawnInfo() {
-  if (new Date().getHours() >= DAWN_CUTOFF_HOUR) return null;
+  if (!isBeforeDawnCutoff()) return null;
   const real = todayStr();
   const prev = addDays(real, -1);
   const resolved = appToday();
