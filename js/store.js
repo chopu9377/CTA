@@ -145,7 +145,18 @@ function normalize(data) {
   ["dayKinds", "dayTargets", "settlements", "subjectColors"].forEach((k) => {
     data[k] = data[k] && typeof data[k] === "object" ? data[k] : {};
   });
-  data.bonusRest = Object.fromEntries(Object.entries(data.bonusRest || {}).filter(([, m]) => Number.isFinite(m) && m > 0));
+  data.bonusRest = Object.fromEntries(
+    Object.entries(data.bonusRest || {})
+      .map(([date, v]) => {
+        if (Number.isFinite(v) && v > 0) return [date, v];
+        if (v && typeof v === "object") {
+          const cleaned = Object.fromEntries(Object.entries(v).filter(([, n]) => Number.isFinite(n) && n > 0));
+          return Object.keys(cleaned).length ? [date, cleaned] : null;
+        }
+        return null;
+      })
+      .filter(Boolean)
+  );
   data.carries = Array.isArray(data.carries) ? data.carries : [];
   data.exams = data.exams || {};
   [1, 2].forEach((t) => {

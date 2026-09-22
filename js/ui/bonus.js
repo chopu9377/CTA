@@ -1,6 +1,5 @@
 import { formatKoreanDate } from "../dates.js";
-import { weekShip, bonusSavings, bonusLockedOn, bonusPreview, bonusMinutes, bonusMaxFor, BONUS_CAP_MIN, BONUS_STEP_MIN } from "../bonus.js";
-import { limitMinutes } from "../plan.js";
+import { weekShip, bonusSavings, bonusLockedOn, bonusGoalRows, bonusMinutes, BONUS_CAP_MIN } from "../bonus.js";
 import { countUnit } from "../presets.js";
 import { escapeHtml, formatDuration, SHIP } from "./shared.js";
 
@@ -15,11 +14,11 @@ export function shipCardHTML(data, ctx, today, ui) {
   const ship = weekShip(data, ctx, today);
   const { savedMin } = bonusSavings(data, ctx, today);
   const locked = bonusLockedOn(data, today, today);
-  const canUse = !locked && savedMin >= BONUS_STEP_MIN;
+  const canUse = !locked && savedMin > 0;
   const pct = Math.min(100, (savedMin / BONUS_CAP_MIN) * 100);
   const hint = locked
     ? "시험 3주 전부터는 휴식 저축을 쓸 수 없어요"
-    : savedMin >= BONUS_STEP_MIN
+    : savedMin > 0
       ? "목표를 넘겨 푼 시간이 쌓였어요. 미래의 하루를 쉬는 데 쓸 수 있어요"
       : "목표보다 넘게 풀면 휴식 저축이 쌓여요(이월분을 먼저 갚고 남은 것만)";
   const action = ui.bonusPick
@@ -35,38 +34,49 @@ export function shipCardHTML(data, ctx, today, ui) {
   </div>`;
 }
 
-function stepperHTML(minutes, max) {
-  return `<div class="bonus-stepper">
-    <button class="btn btn-secondary btn-sm" data-action="bonus-step" data-step="-1" type="button"${minutes <= BONUS_STEP_MIN ? " disabled" : ""}>−</button>
-    <b>${formatDuration(minutes)}</b>
-    <button class="btn btn-secondary btn-sm" data-action="bonus-step" data-step="1" type="button"${minutes >= max ? " disabled" : ""}>＋</button>
+function goalStepperHTML(goal, target, amount, canAdd) {
+  const unit = escapeHtml(countUnit(goal.unit));
+  return `<div class="bonus-goal-row">
+    <div class="bonus-goal-name">${escapeHtml(goal.subject)} <span class="hint">목표 ${target}${unit} 중 ${amount}${unit} 줄임</span></div>
+    <div class="bonus-stepper">
+      <button class="btn btn-secondary btn-sm" data-action="bonus-goal-step" data-goal="${goal.id}" data-step="-1" type="button"${amount <= 0 ? " disabled" : ""}>−</button>
+      <b>${amount}${unit}</b>
+      <button class="btn btn-secondary btn-sm" data-action="bonus-goal-step" data-goal="${goal.id}" data-step="1" type="button"${canAdd ? "" : " disabled"}>＋</button>
+    </div>
   </div>`;
 }
 
-// 날짜를 고른 뒤 확인 시트: 쉴 시간을 정하고 그날 목표가 어떻게 바뀌는지 미리 본다
+// 날짜를 고른 뒤 확인 시트: 과목마다 얼마나 줄일지 스테퍼로 고른다(저축 시간 한도 안에서)
 export function bonusSheetHTML(data, ctx, today, ui) {
   const { savedMin } = bonusSavings(data, ctx, today);
   const date = ui.bonusDate;
-  const max = bonusMaxFor(data, date, savedMin);
-  const minutes = Math.min(Math.max(ui.bonusMinutes, BONUS_STEP_MIN), max);
-  const preview = bonusPreview(data, date, minutes, today);
-  const limit = limitMinutes(data, date);
-  const rows = preview.rows
-    .map((r) => `<div class="settle-what">${escapeHtml(r.goal.subject)} ${r.before}${escapeHtml(countUnit(r.goal.unit))} → <b>${r.after}${escapeHtml(countUnit(r.goal.unit))}</b></div>`)
+  const { rows, planned } = bonusGoalRows(data, date, today);
+  const amounts = ui.bonusAmounts || {};
+  const usedMin = rows.reduce((sum, r) => sum + (amounts[r.goal.id] || 0) * r.goal.minutesPerUnit, 0);
+  const remainMin = savedMin - usedMin;
+  const list = rows
+    .map((r) => {
+      const amount = Math.min(amounts[r.goal.id] || 0, r.target);
+      const canAdd = amount < r.target && r.goal.minutesPerUnit <= remainMin;
+      return goalStepperHTML(r.goal, r.target, amount, canAdd);
+    })
     .join("");
-  const note = preview.planned
-    ? rows
-    : `<div class="settle-what">그날 목표량은 그 주가 시작될 때 정해지고, 그때 같은 비율로 줄어요.</div>`;
+  const note = rows.length
+    ? list
+    : `<div class="settle-what">그날은 줄일 목표가 없어요.</div>`;
+  const planNote = planned
+    ? ""
+    : `<div class="settle-what">그날 목표량은 그 주가 시작될 때 정해져요. 지금은 지금 진도 기준 예상치예요.</div>`;
   return `<div class="sheet-backdrop"><div class="sheet">
     <h3 class="sheet-title">${formatKoreanDate(date)} 보상 휴식</h3>
-    <p class="hint">그날 공부 가능 시간 ${formatDuration(limit)} 중 쉴 시간을 골라요. 저축 ${formatDuration(savedMin)}에서 빠져요.</p>
-    ${stepperHTML(minutes, max)}
+    <p class="hint">줄일 과목을 골라요. 과목마다 1개당 소요 시간만큼 저축 ${formatDuration(savedMin)}에서 빠져요.</p>
+    <div class="overall"><span>사용</span><div class="meter-track"><div class="meter-fill" style="width:${savedMin > 0 ? Math.min(100, (usedMin / savedMin) * 100) : 0}%"></div></div><b>${formatDuration(usedMin)} / ${formatDuration(savedMin)}</b></div>
     <div class="settle-item">
-      <div class="settle-date">${preview.full ? "그날은 통째로 쉬어요" : `그날 목표가 약 ${Math.round(preview.ratio * 100)}% 줄어요`}</div>
       ${note}
+      ${planNote}
     </div>
     <div class="form-inline">
-      <button class="btn btn-primary" data-action="confirm-bonus" type="button">쉬기로 확정</button>
+      <button class="btn btn-primary" data-action="confirm-bonus" type="button"${usedMin > 0 ? "" : " disabled"}>쉬기로 확정</button>
       <button class="btn btn-secondary" data-action="close-sheet" type="button">닫기</button>
     </div>
   </div></div>`;

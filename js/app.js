@@ -30,7 +30,7 @@ const ui = {
   tomorrowOpen: false,
   bonusPick: false,
   bonusDate: null,
-  bonusMinutes: 0,
+  bonusAmounts: null,
   weekMonth: null,
   sec: {}
 };

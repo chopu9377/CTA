@@ -1,7 +1,7 @@
 import * as storage from "./storage.js";
 import { monthKey, shiftMonth, formatKoreanDate } from "./dates.js";
-import { trackAt, buildContext, dayReport, historyEnd } from "./stats.js";
-import { bonusSavings, bonusBlockReason, bonusMaxFor, BONUS_STEP_MIN } from "./bonus.js";
+import { trackAt, buildContext, dayReport, historyEnd, computeTargets } from "./stats.js";
+import { bonusSavings, bonusBlockReason, bonusMaxFor, bonusMinutes } from "./bonus.js";
 import { bonusSheetHTML, bonusCancelSheetHTML } from "./ui/bonus.js";
 import { formatDuration } from "./ui/shared.js";
 import { maintenanceGoals, presetImpact } from "./plan.js";
@@ -92,41 +92,69 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
       const date = btn.dataset.date;
       const reason = bonusBlockReason(data, date, today);
       const max = bonusMaxFor(data, date, bonusSavings(data, buildContext(data), today).savedMin);
-      if (reason || max < BONUS_STEP_MIN) {
+      if (reason || max <= 0) {
         toast(reason || "저축이 모자라요");
         return;
       }
       ui.bonusDate = date;
-      ui.bonusMinutes = max;
+      ui.bonusAmounts = {};
       showBonusSheet();
     },
-    "bonus-step"(btn) {
+    "bonus-goal-step"(btn) {
       const data = storage.getData();
-      const max = bonusMaxFor(data, ui.bonusDate, bonusSavings(data, buildContext(data), storage.appToday()).savedMin);
-      ui.bonusMinutes = Math.min(max, Math.max(BONUS_STEP_MIN, ui.bonusMinutes + Number(btn.dataset.step) * BONUS_STEP_MIN));
+      const today = storage.appToday();
+      const goal = data.goals.find((g) => g.id === btn.dataset.goal);
+      if (!goal) return;
+      const targets = computeTargets(data, ui.bonusDate, true);
+      const target = targets[goal.id] || 0;
+      const savedMin = bonusSavings(data, buildContext(data), today).savedMin;
+      const amounts = ui.bonusAmounts || (ui.bonusAmounts = {});
+      const current = amounts[goal.id] || 0;
+      const step = Number(btn.dataset.step);
+      if (step > 0) {
+        const usedMin = Object.entries(amounts).reduce((sum, [id, amt]) => {
+          const g = data.goals.find((x) => x.id === id);
+          return sum + (g ? amt * g.minutesPerUnit : 0);
+        }, 0);
+        if (current >= target || usedMin + goal.minutesPerUnit > savedMin) return;
+        amounts[goal.id] = current + 1;
+      } else {
+        const next = Math.max(0, current - 1);
+        if (next) amounts[goal.id] = next;
+        else delete amounts[goal.id];
+      }
       showBonusSheet();
     },
     "confirm-bonus"() {
       const data = storage.getData();
       const today = storage.appToday();
-      const savedMin = bonusSavings(data, buildContext(data), today).savedMin;
-      const minutes = Math.min(ui.bonusMinutes, bonusMaxFor(data, ui.bonusDate, savedMin));
-      if (bonusBlockReason(data, ui.bonusDate, today) || minutes < BONUS_STEP_MIN) {
+      const amounts = ui.bonusAmounts || {};
+      const entries = Object.entries(amounts).filter(([, amt]) => amt > 0);
+      if (bonusBlockReason(data, ui.bonusDate, today) || !entries.length) {
         closeSheet();
         return;
       }
-      storage.setBonusRest(ui.bonusDate, minutes);
+      storage.setBonusRest(ui.bonusDate, Object.fromEntries(entries));
+      const names = entries
+        .map(([id, amt]) => {
+          const g = data.goals.find((x) => x.id === id);
+          return g ? `${g.subject} ${amt}${countUnit(g.unit)}` : "";
+        })
+        .filter(Boolean)
+        .join(", ");
+      const minutes = bonusMinutes(storage.getData(), ui.bonusDate);
       ui.bonusPick = false;
       ui.weekMonth = null;
+      ui.bonusAmounts = null;
       closeSheet();
-      toast(`${formatKoreanDate(ui.bonusDate)} ${formatDuration(minutes)} 보상 휴식으로 정했어요`);
+      toast(`${formatKoreanDate(ui.bonusDate)} ${names} 줄였어요 · ${formatDuration(minutes)} 저축에서 뺐어요`);
     },
     "bonus-day"(btn) {
       ui.bonusDate = btn.dataset.date;
       overlay.innerHTML = bonusCancelSheetHTML(storage.getData(), ui);
     },
     "cancel-bonus"() {
-      storage.setBonusRest(ui.bonusDate, 0);
+      storage.setBonusRest(ui.bonusDate, {});
       closeSheet();
       toast("보상 휴식을 취소했어요 · 시간이 저축으로 돌아왔어요");
     },

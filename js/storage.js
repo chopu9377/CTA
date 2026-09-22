@@ -33,10 +33,11 @@ function hasReviewInWeek(data, dateStr) {
   return Array.from({ length: 7 }, (_, i) => addDays(start, i)).some((d) => data.dayKinds[d] === "review");
 }
 
-// 보상 휴식: 그날 목표에서 minutes(분)만큼을 쉰다. 0이면 취소. 오늘이면 오늘 목표 스냅샷도 다시 만든다.
-export function setBonusRest(dateStr, minutes) {
+// 보상 휴식: 그날 목표 중 고른 과목({ 목표id: 줄인 양 })만큼을 쉰다. 빈 값이면 취소. 오늘이면 오늘 목표 스냅샷도 다시 만든다.
+export function setBonusRest(dateStr, amounts) {
   const data = getData();
-  if (minutes > 0) data.bonusRest[dateStr] = minutes;
+  const cleaned = Object.fromEntries(Object.entries(amounts || {}).filter(([, n]) => Number.isFinite(n) && n > 0));
+  if (Object.keys(cleaned).length) data.bonusRest[dateStr] = cleaned;
   else delete data.bonusRest[dateStr];
   if (dateStr <= appToday()) refreshToday();
   persist();

@@ -4,7 +4,7 @@ import { absorbedShortfalls } from "../weekplan.js";
 import { TRACK_LABEL, countUnit } from "../presets.js";
 import { escapeHtml, ringHTML, subjectColor } from "./shared.js";
 import { legendHTML, weekHTML } from "./weekgrid.js";
-import { bonusSavings, bonusBlockReason, bonusMaxFor, BONUS_STEP_MIN } from "../bonus.js";
+import { bonusSavings, bonusBlockReason, bonusMaxFor } from "../bonus.js";
 import { shipCardHTML } from "./bonus.js";
 
 function ddayText(info, today) {
@@ -80,7 +80,7 @@ function pickableDates(data, ctx, today, month) {
     const start = addDays(data.startDate, w * 7);
     for (let i = 0; i < 7; i++) {
       const d = addDays(start, i);
-      if (monthKey(d) === month && !bonusBlockReason(data, d, today) && bonusMaxFor(data, d, savedMin) >= BONUS_STEP_MIN) set.add(d);
+      if (monthKey(d) === month && !bonusBlockReason(data, d, today) && bonusMaxFor(data, d, savedMin) > 0) set.add(d);
     }
   }
   return set;
