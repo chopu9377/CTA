@@ -1,5 +1,4 @@
 import * as storage from "./storage.js";
-import { todayStr } from "./dates.js";
 import { buildContext, pendingSettlements } from "./stats.js";
 import { loadHolidays, holidaysLoaded } from "./holidays.js";
 import { renderWeek, renderToday, renderProgress, renderExam, renderHistory, renderSettings } from "./ui.js";
@@ -49,13 +48,14 @@ function toast(message) {
 }
 
 function render() {
-  const today = todayStr();
+  const today = storage.appToday();
+  const dawn = storage.dawnInfo();
   if (holidaysLoaded()) storage.freezeDayTargets(today);
   const data = storage.getData();
   const ctx = buildContext(data);
 
   if (ui.view === "week") root.innerHTML = renderWeek(data, ctx, today, ui);
-  else if (ui.view === "today") root.innerHTML = renderToday(data, ctx, today, ui);
+  else if (ui.view === "today") root.innerHTML = renderToday(data, ctx, today, ui, dawn);
   else if (ui.view === "progress") root.innerHTML = renderProgress(data, ui, today);
   else if (ui.view === "exam") root.innerHTML = renderExam(data, ui, today);
   else if (ui.view === "history") root.innerHTML = renderHistory(data, ctx, today);
@@ -103,7 +103,7 @@ function switchView(view) {
 
 function showSettleSheet({ silent } = {}) {
   const data = storage.getData();
-  const days = pendingSettlements(data, buildContext(data), todayStr());
+  const days = pendingSettlements(data, buildContext(data), storage.appToday());
   if (!days.length) {
     if (!silent) toast("정할 미달분이 없어요");
     return;

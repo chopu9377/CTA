@@ -87,6 +87,12 @@ function undoLineHTML(data, today) {
   return `<div class="undo-line"><span>오늘 입력 ${count}건</span><button class="btn btn-secondary btn-sm" data-action="undo-entry" type="button">되돌리기 (${count})</button></div>`;
 }
 
+function dawnNoticeHTML(dawn) {
+  if (!dawn) return "";
+  return `<div class="notice">🌙 새벽이라 아직 ${formatKoreanDate(dawn.resolved)} 걸로 기록 중이에요.
+    <button class="btn btn-sm btn-secondary" data-action="toggle-dawn" data-date="${dawn.other}" type="button">${formatKoreanDate(dawn.other)} 걸로 바꾸기</button></div>`;
+}
+
 function dayNoticeHTML(data, today, report) {
   const load = dayLoad(data, today, today);
   const type = load.weekend ? "주말" : "평일";
@@ -111,7 +117,7 @@ function maintSectionHTML(data, ctx, today, maintGoals, maintTargets, selected) 
       .join("")}`;
 }
 
-export function renderToday(data, ctx, today, ui) {
+export function renderToday(data, ctx, today, ui, dawn = null) {
   const track = trackAt(data, today);
   const report = dayReport(data, ctx, today, today);
   const goals = data.goals.filter((g) => !g.archived && g.track === track);
@@ -147,6 +153,7 @@ export function renderToday(data, ctx, today, ui) {
     <div class="card">
       <div class="section-header-row"><h2 class="section-title">오늘 ${formatKoreanDate(today)}</h2>
         <button class="btn btn-secondary btn-sm" data-action="toggle-edit" type="button">${ui.editing ? "완료" : "편집"}</button></div>
+      ${ui.editing ? "" : dawnNoticeHTML(dawn)}
       ${ui.editing ? "" : dayNoticeHTML(data, today, report)}
       ${ui.editing
         ? `${presetsHTML()}

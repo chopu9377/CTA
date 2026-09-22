@@ -1,6 +1,5 @@
-import { todayStr } from "./dates.js";
 import { weekdaysForPreset } from "./presets.js";
-import { getData, persist, uid, ensureColor, newGoal, refreshToday, findGoal, markReplan } from "./store.js";
+import { getData, persist, uid, ensureColor, newGoal, refreshToday, findGoal, markReplan, appToday } from "./store.js";
 
 // 이 필드가 바뀌면 자동 목표의 이번 주 계획을 오늘부터 새로 나눈다
 const PLAN_FIELDS = ["total", "targetRounds", "weekdays", "maintWeekdayTarget", "maintWeekendTarget"];
@@ -87,7 +86,7 @@ export function archiveGoal(goalId) {
   persist();
 }
 
-export function addEntry(goalId, amount, date = todayStr()) {
+export function addEntry(goalId, amount, date = appToday()) {
   const data = getData();
   const goal = findGoal(goalId);
   if (!goal || !(amount > 0)) return null;

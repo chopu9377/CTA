@@ -1,5 +1,5 @@
 import * as storage from "./storage.js";
-import { todayStr, monthKey, shiftMonth, formatKoreanDate } from "./dates.js";
+import { monthKey, shiftMonth, formatKoreanDate } from "./dates.js";
 import { trackAt, buildContext, dayReport, historyEnd } from "./stats.js";
 import { bonusSavings, bonusBlockReason, bonusMaxFor, BONUS_STEP_MIN } from "./bonus.js";
 import { bonusSheetHTML, bonusCancelSheetHTML } from "./ui/bonus.js";
@@ -32,7 +32,7 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
   // 입력 대상: 오늘 활성 트랙의 목표 + 유지 모드로 켜진 다른 트랙 목표
   function currentGoalId() {
     const data = storage.getData();
-    const today = todayStr();
+    const today = storage.appToday();
     const goals = [
       ...data.goals.filter((g) => !g.archived && g.track === trackAt(data, today)),
       ...maintenanceGoals(data, today, today)
@@ -50,7 +50,7 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
   // 휠 기본값: 오늘 그 과목의 남은 목표량(없으면 지금 값 유지)
   function suggestedPick(goalId) {
     const data = storage.getData();
-    const today = todayStr();
+    const today = storage.appToday();
     const row = dayReport(data, buildContext(data), today, today).rows.find((r) => r.goal.id === goalId);
     const left = row ? row.target - row.done : 0;
     return left > 0 ? Math.min(10, left) : ui.pick;
@@ -58,7 +58,7 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
 
   function showBonusSheet() {
     const data = storage.getData();
-    overlay.innerHTML = bonusSheetHTML(data, buildContext(data), todayStr(), ui);
+    overlay.innerHTML = bonusSheetHTML(data, buildContext(data), storage.appToday(), ui);
   }
 
   const actions = {
@@ -80,7 +80,7 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
     },
     "bonus-month"(btn) {
       const data = storage.getData();
-      const today = todayStr();
+      const today = storage.appToday();
       const next = shiftMonth(ui.weekMonth || monthKey(today), Number(btn.dataset.step));
       if (next < monthKey(today) || next > monthKey(historyEnd(data, today))) return;
       ui.weekMonth = next;
@@ -88,7 +88,7 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
     },
     "pick-bonus-day"(btn) {
       const data = storage.getData();
-      const today = todayStr();
+      const today = storage.appToday();
       const date = btn.dataset.date;
       const reason = bonusBlockReason(data, date, today);
       const max = bonusMaxFor(data, date, bonusSavings(data, buildContext(data), today).savedMin);
@@ -102,13 +102,13 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
     },
     "bonus-step"(btn) {
       const data = storage.getData();
-      const max = bonusMaxFor(data, ui.bonusDate, bonusSavings(data, buildContext(data), todayStr()).savedMin);
+      const max = bonusMaxFor(data, ui.bonusDate, bonusSavings(data, buildContext(data), storage.appToday()).savedMin);
       ui.bonusMinutes = Math.min(max, Math.max(BONUS_STEP_MIN, ui.bonusMinutes + Number(btn.dataset.step) * BONUS_STEP_MIN));
       showBonusSheet();
     },
     "confirm-bonus"() {
       const data = storage.getData();
-      const today = todayStr();
+      const today = storage.appToday();
       const savedMin = bonusSavings(data, buildContext(data), today).savedMin;
       const minutes = Math.min(ui.bonusMinutes, bonusMaxFor(data, ui.bonusDate, savedMin));
       if (bonusBlockReason(data, ui.bonusDate, today) || minutes < BONUS_STEP_MIN) {
@@ -132,6 +132,11 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
     },
     "open-settle"() {
       showSettleSheet();
+    },
+    "toggle-dawn"(btn) {
+      storage.setDawnChoice(btn.dataset.date);
+      toast(`${formatKoreanDate(btn.dataset.date)} 걸로 기록해요`);
+      render();
     },
     "close-sheet"() {
       closeSheet();
@@ -168,7 +173,7 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
     },
     "auto-all"() {
       const data = storage.getData();
-      const today = todayStr();
+      const today = storage.appToday();
       const goals = data.goals.filter((g) => !g.archived && g.planMode !== "auto");
       goals.forEach((g) => storage.updateGoal(g.id, { planMode: "auto", autoFrom: today }));
       toast(goals.length ? `${goals.length}개 과목을 자동 계획으로 바꿨어요` : "이미 모든 과목이 자동이에요");
@@ -205,7 +210,7 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
       render();
     },
     "undo-entry"() {
-      const removed = storage.removeLastEntryOn(todayStr());
+      const removed = storage.removeLastEntryOn(storage.appToday());
       if (!removed) {
         toast("오늘 되돌릴 입력이 없어요");
         return;
@@ -219,7 +224,7 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
       render();
     },
     "apply-preset"(btn) {
-      const track = trackAt(storage.getData(), todayStr());
+      const track = trackAt(storage.getData(), storage.appToday());
       const { before, after } = presetImpact(storage.getData(), track, btn.dataset.preset);
       const change = `과목별 공부 요일 합계 ${before}칸 → ${after}칸`;
       const label = WEEKDAY_PRESETS.find((p) => p.key === btn.dataset.preset).label;
@@ -266,7 +271,7 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
       render();
     },
     "export-data"() {
-      downloadJson(storage.exportData(), `cta-backup-${todayStr()}.json`);
+      downloadJson(storage.exportData(), `cta-backup-${storage.appToday()}.json`);
       storage.markBackup();
       render();
     },
@@ -292,7 +297,7 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
       resolveConflict(btn.dataset.choice);
     },
     "export-legacy"() {
-      downloadJson(storage.legacyDataJson(), `cta-legacy-backup-${todayStr()}.json`);
+      downloadJson(storage.legacyDataJson(), `cta-legacy-backup-${storage.appToday()}.json`);
     }
   };
 

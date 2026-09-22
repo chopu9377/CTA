@@ -1,5 +1,4 @@
 import * as storage from "./storage.js";
-import { todayStr } from "./dates.js";
 import { buildContext, pendingSettlements, trackAt } from "./stats.js";
 import { EXAM_SUBJECTS } from "./presets.js";
 import { paceMissing } from "./plan.js";
@@ -8,13 +7,13 @@ import * as sync from "./sync.js";
 
 function refreshLoadSlot() {
   const slot = document.querySelector("[data-slot-plan]");
-  if (slot && slot.innerHTML.trim()) slot.innerHTML = planTreeHTML(storage.getData(), todayStr());
+  if (slot && slot.innerHTML.trim()) slot.innerHTML = planTreeHTML(storage.getData(), storage.appToday());
 }
 
 function refreshPaceSlot(goalId) {
   const slot = document.querySelector(`[data-slot-for="${goalId}"]`);
   const goal = storage.getData().goals.find((g) => g.id === goalId);
-  if (slot && goal) slot.innerHTML = paceSlotHTML(storage.getData(), goal, todayStr());
+  if (slot && goal) slot.innerHTML = paceSlotHTML(storage.getData(), goal, storage.appToday());
   refreshLoadSlot();
 }
 
@@ -37,7 +36,7 @@ export function bindInputHandlers({ ui, render, toast, closeSheet, announceRound
     if (field === "planMode") {
       const goalId = input.dataset.id;
       const mode = input.value === "auto" ? "auto" : "fixed";
-      storage.updateGoal(goalId, { planMode: mode, autoFrom: mode === "auto" ? todayStr() : null });
+      storage.updateGoal(goalId, { planMode: mode, autoFrom: mode === "auto" ? storage.appToday() : null });
       const goal = storage.getData().goals.find((g) => g.id === goalId);
       const missing = goal ? paceMissing(storage.getData(), goal) : [];
       toast(mode === "fixed" ? "고정 목표로 돌아왔어요" : missing.length ? "자동 계획을 켰어요 · 시험일·총 분량·목표 회독을 채우면 적용돼요" : "자동 계획을 켰어요 · 오늘부터 이번 주 계획이 적용돼요");
@@ -86,7 +85,7 @@ export function bindInputHandlers({ ui, render, toast, closeSheet, announceRound
       const subject = String(fd.get("subject")).trim();
       const unit = String(fd.get("unit")).trim();
       if (!subject || !unit) return;
-      storage.addGoal(Number(fd.get("track")) || trackAt(storage.getData(), todayStr()), subject, unit);
+      storage.addGoal(Number(fd.get("track")) || trackAt(storage.getData(), storage.appToday()), subject, unit);
       render();
     } else if (form.matches('[data-form="add-chapters"]')) {
       event.preventDefault();
@@ -100,7 +99,7 @@ export function bindInputHandlers({ ui, render, toast, closeSheet, announceRound
     } else if (form.matches('[data-form="settle"]')) {
       event.preventDefault();
       const data = storage.getData();
-      const days = pendingSettlements(data, buildContext(data), todayStr());
+      const days = pendingSettlements(data, buildContext(data), storage.appToday());
       days.forEach((day) => storage.settleDay(day.date, fd.get(`d:${day.date}`) || "carried", day.shortfalls));
       toast("반영했어요");
       closeSheet();

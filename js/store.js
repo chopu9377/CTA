@@ -1,6 +1,6 @@
 import { addDays, todayStr } from "./dates.js";
 import { bumpVersion } from "./version.js";
-import { computeTargets } from "./stats.js";
+import { computeTargets, dayReport, buildContext } from "./stats.js";
 import {
   DEFAULT_START_DATE,
   DEFAULT_FIRST_TRACK_START,
@@ -23,6 +23,9 @@ const STORAGE_KEY = "cta-data-v2";
 const LEGACY_KEY = "cta-study-tracker-data";
 const SCHEMA_VERSION = 2;
 const ALL_WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
+const DAWN_KEY = "cta-dawn";
+const DAWN_CUTOFF_HOUR = 7; // 자정~이 시각 전까지는 새벽 공부로 보고, 어제 목표가 안 끝났으면 여전히 "어제"로 친다
+const DAWN_DONE_STATUSES = ["full", "carried", "bonus", "rest", "review", "none"];
 
 let cache = null;
 
@@ -76,6 +79,7 @@ export function newGoal(track, subject, unit) {
     archived: false,
     // 새 목표는 자동 계획이 기본. 시험일·총 분량·목표 회독이 비어 있는 동안에는 알아서 고정 목표를 쓴다.
     planMode: "auto",
+    // newGoal은 최초 데이터 생성(getData 안) 경로에서도 호출되므로 appToday()(=getData 재진입) 대신 순수 달력 날짜를 쓴다
     autoFrom: todayStr() > DEFAULT_START_DATE ? todayStr() : DEFAULT_START_DATE,
     replanFrom: null
   };
@@ -202,7 +206,7 @@ export function freezeDayTargets(today = todayStr()) {
 // 계획에 영향을 주는 변경(총 분량·요일·시험일·휴식일 등)을 한 날부터 자동 목표를 "그날 진도 기준으로 남은 요일에 다시 나눈다".
 // 그 주 앞날들은 이미 굳었고, 못 한 양은 새 계획의 남은 분량에 들어간다.
 export function markReplan(goals = getData().goals) {
-  const today = todayStr();
+  const today = appToday();
   goals.forEach((g) => {
     if (!g.archived && g.planMode === "auto") g.replanFrom = today;
   });
@@ -211,7 +215,7 @@ export function markReplan(goals = getData().goals) {
 export function refreshToday() {
   bumpVersion();
   const data = getData();
-  const today = todayStr();
+  const today = appToday();
   data.dayTargets[today] = computeTargets(data, today);
 }
 
@@ -221,4 +225,44 @@ export function findGoal(goalId) {
 
 export function legacyDataJson() {
   return localStorage.getItem(LEGACY_KEY);
+}
+
+function readDawnChoice() {
+  try {
+    return JSON.parse(localStorage.getItem(DAWN_KEY));
+  } catch (e) {
+    return null;
+  }
+}
+
+function writeDawnChoice(real, choice) {
+  localStorage.setItem(DAWN_KEY, JSON.stringify({ real, choice }));
+}
+
+// 새벽 시간대(자정~DAWN_CUTOFF_HOUR)의 "오늘": 어제 목표가 아직 안 끝났으면 어제로 본다(새벽까지 이어간 공부 대응).
+// 한 번 정해지면 그 새벽 동안은 고정된다(고른 뒤 기록을 더해도 안 바뀜) — toggle-dawn으로만 바꿀 수 있다.
+export function appToday() {
+  const real = todayStr();
+  if (new Date().getHours() >= DAWN_CUTOFF_HOUR) return real;
+  const saved = readDawnChoice();
+  if (saved && saved.real === real) return saved.choice;
+  const prev = addDays(real, -1);
+  const data = getData();
+  const status = dayReport(data, buildContext(data), prev, real).status;
+  const resolved = DAWN_DONE_STATUSES.includes(status) ? real : prev;
+  writeDawnChoice(real, resolved);
+  return resolved;
+}
+
+// 새벽 배너에 보여줄 정보: 지금 어느 날짜로 기록 중이고, 바꾸면 어느 날짜가 되는지. 새벽이 아니면 null.
+export function dawnInfo() {
+  if (new Date().getHours() >= DAWN_CUTOFF_HOUR) return null;
+  const real = todayStr();
+  const prev = addDays(real, -1);
+  const resolved = appToday();
+  return { resolved, other: resolved === prev ? real : prev };
+}
+
+export function setDawnChoice(date) {
+  writeDawnChoice(todayStr(), date);
 }

@@ -1,9 +1,9 @@
-import { addDays, todayStr } from "./dates.js";
-import { getData, persist, uid, refreshToday, replaceData, findGoal, markReplan } from "./store.js";
+import { addDays } from "./dates.js";
+import { getData, persist, uid, refreshToday, replaceData, findGoal, markReplan, appToday } from "./store.js";
 import { isAutoGoal, canRedistribute } from "./weekplan.js";
 
 // app.js는 저장 관련 함수를 모두 이 파일에서 가져온다(핵심은 store.js, 목표·기록 변경은 goals.js).
-export { getData, freezeDayTargets, legacyDataJson } from "./store.js";
+export { getData, freezeDayTargets, legacyDataJson, appToday, dawnInfo, setDawnChoice } from "./store.js";
 export * from "./goals.js";
 export * from "./chapters.js";
 
@@ -18,8 +18,8 @@ export function cycleDayKind(dateStr) {
   if (next) data.dayKinds[dateStr] = next;
   else delete data.dayKinds[dateStr];
   // 이번 주 안의 휴식/복습 변경만 이번 주 계획을 다시 나눈다(다른 주는 그 주가 시작될 때 반영된다)
-  if (weekOf(data, dateStr) === weekOf(data, todayStr())) markReplan();
-  if (dateStr <= todayStr() || weekOf(data, dateStr) === weekOf(data, todayStr())) refreshToday();
+  if (weekOf(data, dateStr) === weekOf(data, appToday())) markReplan();
+  if (dateStr <= appToday() || weekOf(data, dateStr) === weekOf(data, appToday())) refreshToday();
   persist();
   return { next, blockedReview: current === "rest" && next === null };
 }
@@ -39,7 +39,7 @@ export function setBonusRest(dateStr, minutes) {
   const data = getData();
   if (minutes > 0) data.bonusRest[dateStr] = minutes;
   else delete data.bonusRest[dateStr];
-  if (dateStr <= todayStr()) refreshToday();
+  if (dateStr <= appToday()) refreshToday();
   persist();
 }
 
@@ -47,7 +47,7 @@ export function setBonusRest(dateStr, minutes) {
 // 다시 나눌 날이 없으면 아무것도 만들지 않는다(다음 주 계획에 자동 반영).
 export function settleDay(dateStr, decision, shortfalls) {
   const data = getData();
-  const today = todayStr();
+  const today = appToday();
   data.settlements[dateStr] = decision;
   if (decision === "carried") {
     shortfalls.forEach((s) => {
@@ -77,7 +77,7 @@ export function setTrackInfo(track, patch) {
 
 export function setActiveTrack(track) {
   const data = getData();
-  const today = todayStr();
+  const today = appToday();
   data.trackSwitches = data.trackSwitches.filter((s) => s.from !== today);
   data.trackSwitches.push({ from: today, track });
   markReplan();
