@@ -101,7 +101,6 @@ function emptyData() {
     bonusRest: {},
     settlements: {},
     carries: [],
-    chapters: [],
     exams: { 1: [], 2: [] },
     subjectColors: {},
     settings: {
@@ -141,9 +140,6 @@ function normalize(data) {
   });
   data.bonusRest = Object.fromEntries(Object.entries(data.bonusRest || {}).filter(([, m]) => Number.isFinite(m) && m > 0));
   data.carries = Array.isArray(data.carries) ? data.carries : [];
-  data.chapters = (Array.isArray(data.chapters) ? data.chapters : [])
-    .filter((c) => c && c.id && c.subject)
-    .map((c) => ({ id: c.id, track: c.track === 1 ? 1 : 2, subject: c.subject, title: c.title || "", images: Array.isArray(c.images) ? c.images : [] }));
   data.exams = data.exams || {};
   [1, 2].forEach((t) => {
     data.exams[t] = Array.isArray(data.exams[t]) ? data.exams[t] : [];

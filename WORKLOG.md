@@ -415,6 +415,36 @@
     `preview` 인자로 그 가드를 풀고 "지금 진도 기준 예상"으로 계산(`buildWeek`가 어느 주든 계산 가능해서 가능했다). 오늘 미달의 이월 효과는
     `weekplan.carryPreview`(같은 주 남은 공부일 분배)로 참고 문구만 붙이고 이월 로직·저장은 건드리지 않았다.
 
+## 2026-09-22
+
+### 20. 새벽 모드(v32) + 만화 기능 제거(v33)
+- 새벽 모드(v32): 사용자가 새벽 공부/저녁 공부를 오가는데 자정 넘겨 공부하면 다음 날짜로 기록돼 버리는 문제를
+  물어옴. 고정 컷오프 시각 하나로는 "새벽까지 이어서 한 것"과 "새벽에 일찍 일어나 새로 시작한 것"을 구분 못
+  해서, 어제 목표가 끝났는지로 판정하는 방식으로 결정.
+  - `store.js`에 `appToday()` 추가: 자정~`DAWN_CUTOFF_HOUR`(처음 6시 → 사용자 요청으로 7시 조정) 사이엔
+    어제 `dayReport().status`가 `full/carried/bonus/rest/review/none`(=끝난 걸로 침) 중 하나가 아니면
+    여전히 어제로 본다. 첫 계산 결과를 `localStorage`(`cta-dawn`, 기기별·비동기화)에 고정해 그 새벽 동안
+    기록을 더 채워도 안 바뀌게 함(안 그러면 세션 중간에 오늘로 훌쩍 넘어가 버림).
+  - 앱 전체가 쓰던 `todayStr()`(달력 날짜)를 `appToday()`로 교체(app.js/actions.js/inputs.js/storage.js/
+    goals.js의 `addEntry` 기본값 등). `weekplan.js`의 두 곳(`autoTargetOn`/`weekQuota`)만 순환 참조
+    (store.js → stats.js → weekplan.js → store.js) 때문에 달력 날짜 그대로 둠 — 주 경계가 새벽 시각에
+    걸리는 극히 드문 경우만 근사치, 실사용엔 영향 없음.
+  - `newGoal()`의 `autoFrom` 기본값은 `getData()` 부트스트랩 경로(빈 데이터 생성 중 `appToday()`→
+    `getData()` 재진입)에서 스택 오버플로 날 수 있어 순수 달력 날짜로 되돌림(주석으로 이유 남김).
+  - 오늘 탭 상단에 🌙 배너 + `toggle-dawn` 액션으로 수동 전환 가능.
+- 만화 기능 제거(v33): 사용자가 "생각해보니 투머치"라며 진도율 탭 챕터/만화 업로드·뷰어 기능을 빼 달라고 함.
+  - 전용 파일 삭제: `js/chapters.js`, `js/comicactions.js`, `js/ui/comics.js`, `js/imagestore.js`.
+  - `store.js`(emptyData/normalize의 `chapters` 필드), `goals.js`(과목명 변경 시 챕터 subject 따라가던
+    코드), `app.js`(comic 액션 합치기·`comicGoalId`/`comicEdit` 상태·`syncImages` 훅), `inputs.js`
+    (`add-chapters` 폼·`chapterFile`/`chapterTitle` 처리), `ui/progress.js`(챕터 토글·뱃지·패널)에서
+    관련 코드 제거. `css/style.css`의 `.comic-*`/`.viewer-*`/`.prog-row-tap`/`.icon-btn`/
+    `.visually-hidden` 블록 삭제.
+  - 기존에 이미 올려둔 챕터·이미지가 있으면 데이터 JSON의 `chapters` 필드와 GitHub `comics/` 폴더에
+    그대로 남는다(의도적으로 안 지움 — 되돌릴 수 있게). `normalize()`가 더 이상 그 필드를 손대지 않으니
+    새 데이터에는 안 생기고, 옛 백업을 불러와도 그냥 안 쓰이는 채로 딸려 온다.
+  - AGENTS.md(3번 진도율 탭 설명, 4번 데이터 모델 `chapters[]`, 5-1번 만화 이미지 문단), RULES.md(3번 파일
+    구조의 관련 네 줄) 갱신.
+
 ## 인수인계 메모 (다른 AI/도구가 이어서 작업할 때)
 
 - 먼저 읽을 것: `AGENTS.md`(목적/기능), `RULES.md`(코딩 규칙), 이 파일(작업 이력), `CHANGELOG.md`(버전별

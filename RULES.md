@@ -30,9 +30,6 @@
   app.js        # 진입점: 화면 전환/렌더, 클릭·스크롤 위임, 초기화
   actions.js    # data-action별 클릭 처리
   inputs.js     # 폼 제출·입력칸 변경 처리
-  chapters.js   # 과목별 챕터(만화) 추가·이름·순서·삭제, 컷 추가/삭제(데이터 변경)
-  imagestore.js # 만화 이미지: IndexedDB 저장, 압축, GitHub comics/ 업로드·다운로드·삭제
-  comicactions.js # 진도율 탭 챕터/만화 클릭·입력 처리(app.js가 actions에 합침)
   storage.js    # 저장 관련 함수의 창구(app이 여기서만 import). 날짜·설정·시험·백업 변경 + 아래 두 파일 재export
   store.js      # localStorage 읽기/쓰기, 기본값·정규화(normalize), 스냅샷
   goals.js      # 목표·기록(entries)·회독 변경
@@ -52,7 +49,6 @@
     week.js       # 주간 화면
     today.js      # 오늘 화면
     progress.js   # 진도율 화면(트랙별 과목 회독차·진행률 링)
-    comics.js     # 진도율의 과목별 챕터 목록·만화 전체 화면 뷰어
     exam.js       # 시험 기록 화면
     history.js    # 공부기록 화면
     settings.js   # 설정 화면

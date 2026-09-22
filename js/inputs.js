@@ -23,7 +23,7 @@ function refreshAllPaceSlots() {
 
 // 폼 제출과 입력칸 변경 처리. 입력칸 값은 바로 저장만 하고 화면 전체는 다시 그리지 않는다
 // (다음 칸 탭이 끊기지 않게). 권장량 영역만 그 자리에서 갱신하고, 다른 탭에 가면 나머지가 반영된다.
-export function bindInputHandlers({ ui, render, toast, closeSheet, announceRounds, comic }) {
+export function bindInputHandlers({ ui, render, toast, closeSheet, announceRounds }) {
   function applyGoalField(input) {
     const field = input.dataset.goalField;
     if (field === "cumulative") {
@@ -87,9 +87,6 @@ export function bindInputHandlers({ ui, render, toast, closeSheet, announceRound
       if (!subject || !unit) return;
       storage.addGoal(Number(fd.get("track")) || trackAt(storage.getData(), storage.appToday()), subject, unit);
       render();
-    } else if (form.matches('[data-form="add-chapters"]')) {
-      event.preventDefault();
-      comic.addChapters(form);
     } else if (form.matches('[data-form="add-exam"]')) {
       event.preventDefault();
       const scores = EXAM_SUBJECTS[ui.examTrack].map((_, i) => Number(fd.get(`score${i}`)));
@@ -110,8 +107,6 @@ export function bindInputHandlers({ ui, render, toast, closeSheet, announceRound
     const el = event.target;
 
     if (el.dataset.goalField) applyGoalField(el);
-    else if (el.dataset.chapterFile) comic.uploadFiles(el);
-    else if (el.dataset.chapterTitle) comic.renameChapter(el);
     else if (el.dataset.syncField) {
       const value = el.value.trim();
       if (value) sync.saveConfig({ [el.dataset.syncField]: value });
