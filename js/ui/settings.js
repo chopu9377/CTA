@@ -2,7 +2,7 @@ import { exportedLastBackupDays, trackAt } from "../stats.js";
 import { isAutoGoal } from "../weekplan.js";
 import { paceMissing } from "../plan.js";
 import { formatMD } from "../dates.js";
-import { TRACK_LABEL, UNIT_SUGGESTIONS } from "../presets.js";
+import { TRACK_LABEL, UNIT_SUGGESTIONS, LAYOUT_MODES } from "../presets.js";
 import { planTreeHTML } from "./plantree.js";
 import { escapeHtml, subjectColor } from "./shared.js";
 import { syncCardHTML } from "./syncui.js";
@@ -145,6 +145,11 @@ function planDeriveCardHTML(data, today, open) {
       ${field("bufferDays", st.bufferDays, "시험 전 마감(일)")}
     </div>
     <p class="hint">목표 회독을 시험 며칠 전에 끝내는 페이스로 권장량을 계산해요(마지막 기간은 모의고사·복습용). 평일:주말 양의 비율은 공부 가능 시간 비율을 따르고, 공휴일은 주말로 봐요.</p>
+    <div class="total-inputs">
+      <label class="mini-field"><span>하루 구성</span><select data-setting-select="layoutMode">${LAYOUT_MODES.map((m) => `<option value="${m.key}"${st.layoutMode === m.key ? " selected" : ""}>${m.label}</option>`).join("")}</select></label>
+      ${field("autoSpreadDays", st.autoSpreadDays, "시험 며칠 전 물붓기")}
+    </div>
+    <p class="hint">${LAYOUT_MODES.map((m) => `<b>${m.label}</b>: ${m.desc}`).join("<br />")}<br />시험 며칠 전 물붓기: 그 트랙 시험일이 이만큼 남으면 자동으로 물붓기로 바뀌어요(0이면 끔). 모드를 바꾸면 오늘부터 남은 날이 다시 섞여요.</p>
     ${data.goals.some((g) => !g.archived && g.planMode === "fixed") ? `<div class="form-inline" style="margin-bottom:10px"><button class="btn btn-secondary btn-sm" data-action="auto-all" type="button">모든 과목 자동으로</button><span class="hint" style="margin:0">하루 목표를 매주 자동 계산으로 바꿔요</span></div>` : ""}
     <p class="hint" style="margin-top:0">트랙 > 과목별로 무엇이 채워졌고 무엇이 비었는지(✗)와 결과를 보여줘요.</p>
     <div data-slot-plan>${planTreeHTML(data, today)}</div>

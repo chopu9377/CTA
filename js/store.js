@@ -15,7 +15,8 @@ import {
   defaultMinutesPerUnit,
   defaultMaintenance,
   recommendedWeekdays,
-  DEFAULT_DAYS_PER_WEEK
+  DEFAULT_DAYS_PER_WEEK,
+  DEFAULT_AUTO_SPREAD_DAYS
 } from "./presets.js";
 
 // v2는 목표 단위를 시간(분)에서 수량으로 바꾼 개편판이라 저장 키를 새로 쓴다.
@@ -117,7 +118,9 @@ function emptyData() {
       holidayAutoRest: false,
       weekdayHours: DEFAULT_WEEKDAY_HOURS,
       weekendHours: DEFAULT_WEEKEND_HOURS,
-      bufferDays: DEFAULT_BUFFER_DAYS
+      bufferDays: DEFAULT_BUFFER_DAYS,
+      layoutMode: "basic",
+      autoSpreadDays: DEFAULT_AUTO_SPREAD_DAYS
     },
     meta: { lastBackupAt: null, updatedAt: null },
     layoutFrom: null
@@ -168,6 +171,7 @@ function normalize(data) {
     data.exams[t] = Array.isArray(data.exams[t]) ? data.exams[t] : [];
   });
   data.settings = { ...base.settings, ...(data.settings || {}) };
+  if (!["basic", "deep", "spread"].includes(data.settings.layoutMode)) data.settings.layoutMode = "basic";
   data.meta = { lastBackupAt: null, updatedAt: null, ...(data.meta || {}) };
   // 랜덤 배치 이전 버전 데이터: 이번 주의 지난 날(옛 요일로 굳은 날)은 그대로 두고 오늘부터 랜덤 배치를 시작한다
   if (data.layoutFrom === undefined) {

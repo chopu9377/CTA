@@ -169,5 +169,56 @@ data.bonusRest[pinDay] = { [pinGoal]: 1 };
 bumpVersion();
 check((weekLayout(data, 2, next, today).byDate.get(pinDay)[pinGoal] || 0) > 0, "보상 휴식 과목 고정", `${pinGoal} @ ${pinDay}`);
 
+// 7) 진득 모드: 매일 회계 하나 + 세무회계 하나(가끔 예외 허용), 주간 합계·3일 공백 유지
+delete data.bonusRest[pinDay];
+const ACC = ["a", "b"];
+const TAX = ["c", "d", "e"];
+function modeStats(mode) {
+  data.settings.layoutMode = mode;
+  bumpVersion();
+  let days = 0, exact = 0, mism = 0, everyDay = 0, autoWeeks = 0;
+  const gapsMode = [];
+  const last = {};
+  for (let w = 0; w < 16; w++) {
+    const ws = addDays(data.startDate, w * 7);
+    const layout = weekLayout(data, 2, ws, today);
+    // 앞선 검증이 이번 주를 중간부터 다시 섞어 두었으므로 다시 섞인 날(anchor 이후)만 본다
+    const seg = [...layout.byDate.entries()].filter(([d]) => d >= layout.anchor).sort();
+    data.goals.filter((g) => isAutoGoal(data, g)).forEach((g) => {
+      const placed = seg.filter(([, t]) => t[g.id] > 0).length;
+      const total = autoWeekTotal(data, g, ws, today).total;
+      const sum = seg.reduce((s, [, t]) => s + (t[g.id] || 0), 0);
+      if (sum !== total) mism++;
+      if (total > 0) {
+        autoWeeks++;
+        if (placed >= Math.min(total, seg.length)) everyDay++;
+      }
+    });
+    if (process.env.SHOW && w < 3) console.log(mode, seg.map(([d, t]) => `${d.slice(5)}[${Object.entries(t).map(([id, n]) => id + n).join(",")}]`).join(" "));
+    for (const [d, t] of seg) {
+      const acc = ACC.filter((id) => t[id] > 0).length;
+      const tax = TAX.filter((id) => t[id] > 0).length;
+      days++;
+      if (acc === 1 && tax === 1) exact++;
+      [...ACC, ...TAX].forEach((id) => {
+        if (!(t[id] > 0)) return;
+        if (last[id] && diffDays(last[id], d) - 1 > LAYOUT_RULES.maxGap) gapsMode.push(`${id} ${last[id]}→${d}`);
+        last[id] = d;
+      });
+    }
+  }
+  data.settings.layoutMode = "basic";
+  bumpVersion();
+  return { days, exact, mism, gapsMode, everyDay, autoWeeks };
+}
+const deep = modeStats("deep");
+check(deep.mism === 0, "진득: 자동 과목 주간 합계 유지", `불일치 ${deep.mism}`);
+// 이 테스트 데이터는 공부 가능 시간을 넘길 만큼 무거워 시간 균형 때문에 예외가 많다(실제 사용량에선 90%대)
+check(deep.exact / deep.days >= 0.55, "진득: 하루 회계 1 + 세무 1인 날 55% 이상(과부하 데이터)", `${deep.exact}/${deep.days}일`);
+check(deep.gapsMode.length === 0, "진득: 과목 3일 넘게 비지 않기", deep.gapsMode.slice(0, 3).join(", "));
+const spread = modeStats("spread");
+check(spread.mism === 0, "물붓기: 자동 과목 주간 합계 유지", `불일치 ${spread.mism}`);
+check(spread.everyDay === spread.autoWeeks, "물붓기: 자동 과목이 모든 공부일에(양이 공부일보다 적으면 그 양만큼의 날)", `${spread.everyDay}/${spread.autoWeeks}`);
+
 console.log(failures.length ? `\n실패 ${failures.length}개` : "\n모두 통과");
 process.exit(failures.length ? 1 : 0);

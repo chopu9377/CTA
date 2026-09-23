@@ -387,5 +387,5 @@ export function weekLoadRows(data, track, today) {
     const minutes = items.reduce((sum, it) => sum + it.amount * it.goal.minutesPerUnit, 0);
     return { date, dow: weekdayOf(date), kind: effectiveKind(data, date), items, minutes, limit: limitMinutes(data, date) };
   });
-  return { rows, start, upcoming };
+  return { rows, start, upcoming, mode: layout.mode };
 }

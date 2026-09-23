@@ -78,7 +78,7 @@ export function setActiveTrack(track) {
 export function setSetting(key, value) {
   const data = getData();
   data.settings[key] = value;
-  if (["weekdayHours", "weekendHours", "bufferDays", "holidayAutoRest"].includes(key)) {
+  if (["weekdayHours", "weekendHours", "bufferDays", "holidayAutoRest", "layoutMode", "autoSpreadDays"].includes(key)) {
     markReplan();
     refreshToday();
   }

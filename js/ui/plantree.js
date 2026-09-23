@@ -2,7 +2,7 @@ import { formatMD, addDays, WEEKDAY_LABELS } from "../dates.js";
 import { trackAt } from "../stats.js";
 import { paceMissing, hasFocusPlan } from "../plan.js";
 import { planPreview, trackFeasibility, isAutoGoal, weekLoadRows } from "../weekplan.js";
-import { TRACK_LABEL, countUnit } from "../presets.js";
+import { TRACK_LABEL, countUnit, LAYOUT_MODES } from "../presets.js";
 import { escapeHtml, subjectColor, formatDuration } from "./shared.js";
 
 const MARKS = { ok: "✓", bad: "✗", info: "·" };
@@ -93,7 +93,8 @@ const KIND_LABEL = { rest: "휴식", review: "복습" };
 
 function loadNode(data, track, today) {
   if (!data.goals.some((g) => !g.archived && g.track === track)) return "";
-  const { rows, start, upcoming } = weekLoadRows(data, track, today);
+  const { rows, start, upcoming, mode } = weekLoadRows(data, track, today);
+  const modeLabel = LAYOUT_MODES.find((m) => m.key === mode)?.label || "기본";
   const list = rows
     .map((r) => {
       const over = r.minutes > r.limit;
@@ -108,7 +109,7 @@ function loadNode(data, track, today) {
     })
     .join("");
   return `<li class="tree-goal">
-    <div class="tree-head"><b>${upcoming ? `집중 시작 주(${formatMD(start)}~)` : "이번 주"} 랜덤 배치</b><span class="tree-tag">요일별 과목 · 예상 시간</span></div>
+    <div class="tree-head"><b>${upcoming ? `집중 시작 주(${formatMD(start)}~)` : "이번 주"} 랜덤 배치</b><span class="tree-tag">${modeLabel} 모드</span></div>
     <div class="tree-body"><div class="load-list">${list}</div>
     <p class="hint">과목마다 한 주 양(자동은 역산 필요량, 고정은 평일/주말 숫자)과 주 N일은 그대로 두고, 요일별 시간이 공부 가능 시간 비율에 가깝도록 고른 배치들 중 하나를 매주 랜덤으로 골라요. 과목이 3일 넘게 비거나 이틀 연속 과목이 많이 겹치는 배치는 피하고, 채우기 과목은 남는 시간에 넣어요. 휴식일을 바꾸면 그날부터 남은 날만 다시 섞여요. 빨간색은 공부 가능 시간을 넘는 날이에요.</p></div>
   </li>`;

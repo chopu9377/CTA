@@ -113,6 +113,24 @@ const UNIT_OVERRIDE_DAYS = {
 
 export const DEFAULT_DAYS_PER_WEEK = 3;
 
+// 하루 구성 모드. basic: 과목별 주 N일 / deep(진득): 매일 회계 하나 + 세무회계 하나를 묵직하게 / spread(물붓기): 자동 과목을 매일 조금씩
+export const LAYOUT_MODES = [
+  { key: "basic", label: "기본", desc: "과목마다 주 N일, 요일은 매주 랜덤" },
+  { key: "deep", label: "진득", desc: "매일 회계(재무·원가) 하나 + 세무회계(법인·소득·부가) 하나를 묵직하게. 세법학 등 나머지는 주 N일 그대로" },
+  { key: "spread", label: "물붓기", desc: "자동 과목을 모든 공부일에 조금씩(시험 직전 감 유지용). 고정·채우기 과목은 그대로" }
+];
+export const DEFAULT_AUTO_SPREAD_DAYS = 60;
+
+// 진득 모드에서 하루에 하나씩 고르는 과목 묶음(과목 이름 기준). 여기 없는 과목은 주 N일 그대로 따로 배치한다.
+export const DEEP_GROUPS = {
+  acc: ["재무회계", "원가관리회계"],
+  tax: ["법인세", "소득세", "부가세"]
+};
+
+export function deepGroupOf(subject) {
+  return Object.keys(DEEP_GROUPS).find((key) => DEEP_GROUPS[key].includes(subject)) || null;
+}
+
 // 기본 목표가 아닌 과목(사용자가 직접 추가한 것)은 null
 export function recommendedWeekdays(track, subject, unit = "") {
   const override = !unit.includes("강") && UNIT_OVERRIDE_DAYS[track][`${subject}|문제`];

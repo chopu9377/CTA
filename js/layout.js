@@ -4,6 +4,7 @@ import { limitMinutes, plannedTrackOn, maintenanceTargets, cumulativeOf } from "
 import { weekStartOf, isAutoGoal, autoWeekTotal, distribute } from "./weekplan.js";
 import { dataVersion } from "./version.js";
 import { seededRandom, randomInt, shuffle } from "./random.js";
+import { deepGroupOf, DEEP_GROUPS } from "./presets.js";
 
 // 주간 랜덤 배치: 과목마다 한 주 양(자동은 역산 필요량, 고정은 평일/주말 숫자)과 주 N일은 그대로 두고
 // "무슨 요일에 무슨 과목"만 매주 랜덤으로 정한다. 요일별 시간이 공부 가능 시간 비율에 가깝게 고른 배치들 중에서 고르고,
@@ -19,8 +20,19 @@ export const LAYOUT_RULES = {
   overlapPenalty: 2500,
   maxGap: 3,
   gapPenalty: 1e8, // 사실상 필수 규칙(피할 수 있으면 요일 균형보다 먼저 피한다)
+  // 진득: 묶음마다 하루 한 과목에서 벗어난 과목 수당(약 80분 어긋남만큼 — 시간 균형이 크게 깨지면 1·3과목 허용).
+  // 실제 사용량 기준 1600 → 71%, 6400 → 93%가 딱 두 과목이었고 과부하는 늘지 않았다
+  deepPenalty: 6400,
   fillPerDay: 2
 };
+
+// 그날 적용되는 하루 구성 모드. 시험 N일 전부터는 자동으로 물붓기.
+export function layoutModeOn(data, track, dateStr) {
+  const { layoutMode, autoSpreadDays } = data.settings;
+  const exam = data.tracks[track].examDate;
+  if (autoSpreadDays > 0 && exam && dateStr >= addDays(exam, -autoSpreadDays)) return "spread";
+  return layoutMode || "basic";
+}
 
 const weekDates = (start) => Array.from({ length: 7 }, (_, i) => addDays(start, i));
 
@@ -85,9 +97,11 @@ function gapPenalty(dates, prevLast, weekEnd) {
   return over * unit;
 }
 
-// 과목별 요일 후보와 후보마다의 요일별 분 수·과목 표시 비트·공백 감점을 미리 만든다
+// 과목별 요일 후보와 후보마다의 요일별 분 수·과목 표시 비트·공백 감점을 미리 만든다.
+// 진득 모드의 묶음 과목(자동)은 며칠에 나눌지도 정해 두지 않고(1~남은 공부일 모두 후보) 묶음 감점이 고르게 한다.
+// 물붓기 모드의 자동 과목은 남은 공부일 전부에 나눈다.
 function buildModels(ctx) {
-  const { data, goals, segment, limits, weekStart, weekEnd, anchor, byDate, prefix, targetsBefore, today } = ctx;
+  const { data, goals, segment, limits, weekStart, weekEnd, anchor, byDate, prefix, targetsBefore, today, mode } = ctx;
   const m = segment.length;
   const models = [];
   goals.forEach((goal) => {
@@ -95,27 +109,32 @@ function buildModels(ctx) {
     const n = Math.max(1, Math.min(7, goal.daysPerWeek || 7));
     const doneDays = prefix.filter((d) => (byDate.get(d)[goal.id] || 0) > 0);
     const auto = isAutoGoal(data, goal) && goal.autoFrom <= anchor;
+    const group = mode === "deep" ? deepGroupOf(goal.subject) : null;
     let total = 0;
-    let k;
+    let sizes;
     if (auto) {
       const week = autoWeekTotal(data, goal, weekStart, today);
       total = week.total;
       if (week.effStart < anchor) total -= doneDays.filter((d) => d >= week.effStart).reduce((s, d) => s + byDate.get(d)[goal.id], 0);
       if (total <= 0) return;
       // 주 중간에 다시 섞을 때 남은 양은 남은 기간 비율로 새로 구해지므로 요일 수도 남은 공부일 비율만큼(지난 날 수를 빼지 않는다)
-      k = Math.max(1, Math.round((n * m) / ctx.studyDaysInWeek));
+      const k = Math.min(m, Math.max(1, Math.round((n * m) / ctx.studyDaysInWeek)));
+      if (mode === "spread") sizes = [m];
+      else if (group) sizes = Array.from({ length: Math.min(m, total) }, (_, i) => i + 1);
+      else sizes = [k];
     } else {
       if (!goal.weekdayTarget && !goal.weekendTarget) return;
-      k = n - doneDays.length;
+      const k = n - doneDays.length;
       if (k <= 0) return;
+      sizes = [Math.min(k, m)];
     }
-    k = Math.min(k, m);
     let prevLast = null;
     for (let d = addDays(anchor, -1); d >= addDays(anchor, -7) && !prevLast; d = addDays(d, -1)) {
       if ((targetsBefore(d)[goal.id] || 0) > 0) prevLast = d;
     }
+    const checkGap = n >= 2 || !!group;
     const bit = 1 << models.length;
-    const options = combos(m, k).map((idx) => {
+    const options = sizes.flatMap((size) => combos(m, size)).map((idx) => {
       const amounts = auto ? distribute(total, idx.map((i) => ({ w: limits[i] }))) : idx.map((i) => targetOn(goal, segment[i]));
       const minutes = Array(m).fill(0);
       const bits = Array(m).fill(0);
@@ -126,9 +145,9 @@ function buildModels(ctx) {
         bits[i] = bit;
         dates.push(segment[i]);
       });
-      return { idx, amounts, minutes, bits, gap: n >= 2 ? gapPenalty(dates, prevLast, weekEnd) : 0 };
+      return { idx, amounts, minutes, bits, gap: checkGap ? gapPenalty(dates, prevLast, weekEnd) : 0 };
     });
-    models.push({ goal, bit, options });
+    models.push({ goal, bit, group, options });
   });
   return models;
 }
@@ -138,7 +157,10 @@ function makeScorer(ctx, models) {
   const m = segment.length;
   const sumLimit = limits.reduce((a, b) => a + b, 0) || 1;
   const adjacent = segment.map((d, i) => (i === 0 ? true : diffDays(segment[i - 1], d) === 1));
-  const { overlapLimit, overlapPenalty } = LAYOUT_RULES;
+  const { overlapLimit, overlapPenalty, deepPenalty } = LAYOUT_RULES;
+  const groupKeys = Object.keys(DEEP_GROUPS).filter((key) => models.some((model) => model.group === key));
+  // 진득: 묶음마다 매일 딱 한 과목
+  const deep = (counts) => groupKeys.reduce((pen, key) => pen + counts[key].reduce((s, c) => s + Math.abs(c - 1), 0), 0) * deepPenalty;
 
   const balance = (loads) => {
     const total = loads.reduce((a, b) => a + b, 0);
@@ -157,6 +179,7 @@ function makeScorer(ctx, models) {
   const state = (choice, skip = -1) => {
     const loads = [...base];
     const masks = Array(m).fill(0);
+    const counts = Object.fromEntries(groupKeys.map((key) => [key, Array(m).fill(0)]));
     let gaps = 0;
     models.forEach((model, gi) => {
       if (gi === skip) return;
@@ -164,19 +187,21 @@ function makeScorer(ctx, models) {
       for (let i = 0; i < m; i++) {
         loads[i] += o.minutes[i];
         masks[i] |= o.bits[i];
+        if (model.group && o.bits[i]) counts[model.group][i]++;
       }
       gaps += o.gap;
     });
-    return { loads, masks, gaps };
+    return { loads, masks, counts, gaps };
   };
-  const withOption = (s, o) => {
+  const withOption = (s, o, group) => {
     const loads = s.loads.map((l, i) => l + o.minutes[i]);
     const masks = s.masks.map((b, i) => b | o.bits[i]);
-    return balance(loads) + overlap(masks) + o.gap;
+    const counts = group ? { ...s.counts, [group]: s.counts[group].map((c, i) => c + (o.bits[i] ? 1 : 0)) } : s.counts;
+    return balance(loads) + overlap(masks) + deep(counts) + o.gap;
   };
   const score = (choice) => {
     const s = state(choice);
-    return balance(s.loads) + overlap(s.masks) + s.gaps;
+    return balance(s.loads) + overlap(s.masks) + deep(s.counts) + s.gaps;
   };
   return { state, withOption, score };
 }
@@ -196,7 +221,7 @@ function search(ctx, models, rand) {
         let bestScore = Infinity;
         let best = [];
         models[gi].options.forEach((o, j) => {
-          const s = scorer.withOption(rest, o);
+          const s = scorer.withOption(rest, o, models[gi].group);
           if (s < bestScore - 1e-6) {
             bestScore = s;
             best = [j];
@@ -271,6 +296,7 @@ function buildLayout(data, track, weekStart, today) {
   prefix.forEach((d) => byDate.set(d, onlyGoals(frozenTargets(data, d), ids)));
   const segment = weekDates(weekStart).filter((d) => d >= anchor && !effectiveKind(data, d) && plannedTrackOn(data, d, today) === track);
   segment.forEach((d) => byDate.set(d, {}));
+  const mode = layoutModeOn(data, track, anchor);
 
   if (segment.length) {
     const targetsBefore = (d) => {
@@ -290,6 +316,7 @@ function buildLayout(data, track, weekStart, today) {
       weekStart,
       weekEnd,
       today,
+      mode,
       targetsBefore,
       studyDaysInWeek: Math.max(1, weekDates(weekStart).filter((d) => !effectiveKind(data, d) && plannedTrackOn(data, d, today) === track).length),
       limits: segment.map((d) => limitMinutes(data, d)),
@@ -300,7 +327,8 @@ function buildLayout(data, track, weekStart, today) {
     ctx.prevMask = models.reduce((mask, model) => mask | ((before[model.goal.id] || 0) > 0 ? model.bit : 0), 0);
     const loads = [...ctx.base];
     if (models.length) {
-      const rand = seededRandom(`${track}|${weekStart}|${anchor}|${segment.join(",")}`);
+      // 기본 모드는 모드 이름을 시드에 넣지 않는다(모드 기능 이전에 정해진 배치가 그대로 유지되게)
+      const rand = seededRandom(`${track}|${weekStart}|${anchor}|${mode === "basic" ? "" : `${mode}|`}${segment.join(",")}`);
       const { choice, scorer } = search(ctx, models, rand);
       keepBonusDays(ctx, models, choice, scorer);
       models.forEach((model, gi) => {
@@ -322,7 +350,7 @@ function buildLayout(data, track, weekStart, today) {
       goalDates.get(id).push(d);
     })
   );
-  return { weekStart, anchor, byDate, goalDates };
+  return { weekStart, anchor, mode, byDate, goalDates };
 }
 
 const cache = new Map();
@@ -335,7 +363,7 @@ export function weekLayout(data, track, weekStart, today = todayStr()) {
     cachedVersion = version;
   }
   const key = `${track}|${weekStart}|${today}`;
-  if (cache.has(key)) return cache.get(key) || { weekStart, anchor: weekStart, byDate: new Map(), goalDates: new Map() };
+  if (cache.has(key)) return cache.get(key) || { weekStart, anchor: weekStart, mode: "basic", byDate: new Map(), goalDates: new Map() };
   cache.set(key, null);
   const layout = buildLayout(data, track, weekStart, today);
   cache.set(key, layout);

@@ -123,6 +123,11 @@ export function bindInputHandlers({ ui, render, toast, closeSheet, announceRound
     } else if (el.dataset.settingNum) {
       storage.setSetting(el.dataset.settingNum, Math.max(0, Number(el.value) || 0));
       refreshAllPaceSlots();
+    } else if (el.dataset.settingSelect) {
+      storage.setSetting(el.dataset.settingSelect, el.value);
+      const label = el.options[el.selectedIndex]?.textContent || el.value;
+      toast(`하루 구성을 "${label}"(으)로 바꿨어요 · 오늘부터 남은 날이 다시 섞여요`);
+      refreshAllPaceSlots();
     } else if (el.dataset.setting) {
       storage.setSetting(el.dataset.setting, el.checked);
     } else if (el.dataset.colorName) {
