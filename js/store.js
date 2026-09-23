@@ -228,16 +228,22 @@ export function replaceData(parsed, { quiet = false } = {}) {
   persist({ quiet });
 }
 
+let refreshedToday = null;
+
 // 시작일부터 오늘까지 그날 목표를 고정(스냅샷)해둔다. 이후 목표를 바꿔도 지난 날 판정이 흔들리지 않게 하기 위함.
+// 오늘 목표는 아직 진행 중이라 앱을 열 때마다 한 번 새로 계산한다(앱 업데이트·다른 기기 동기화로 계산이 바뀌어도 오늘이 옛 값에 묶이지 않게).
 export function freezeDayTargets(today = todayStr()) {
   const data = getData();
   let changed = false;
   for (let d = data.startDate; d <= today; d = addDays(d, 1)) {
-    if (!data.dayTargets[d]) {
-      data.dayTargets[d] = computeTargets(data, d);
-      changed = true;
+    const refresh = d === today && refreshedToday !== today;
+    if (!data.dayTargets[d] || refresh) {
+      const next = computeTargets(data, d);
+      if (JSON.stringify(next) !== JSON.stringify(data.dayTargets[d])) changed = true;
+      data.dayTargets[d] = next;
     }
   }
+  refreshedToday = today;
   if (changed) persist({ quiet: true });
 }
 

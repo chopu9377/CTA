@@ -87,13 +87,14 @@ function maintenanceMinutes(data, dateStr, today) {
   }, 0);
 }
 
-function gapPenalty(dates, prevLast, weekEnd) {
+// 과목이 빈 날 수를 셀 때 휴식·복습일은 빼고 센다(일부러 쉬는 날 앞에 과목을 몰아넣지 않게)
+function gapPenalty(dates, prevLast, weekEnd, emptyBetween) {
   const { maxGap, gapPenalty: unit } = LAYOUT_RULES;
   if (!dates.length) return 0;
   const seq = prevLast ? [prevLast, ...dates] : dates;
   let over = 0;
-  for (let i = 1; i < seq.length; i++) over += Math.max(0, diffDays(seq[i - 1], seq[i]) - 1 - maxGap);
-  over += Math.max(0, diffDays(dates[dates.length - 1], weekEnd) - 1 - maxGap);
+  for (let i = 1; i < seq.length; i++) over += Math.max(0, emptyBetween(seq[i - 1], seq[i]) - maxGap);
+  over += Math.max(0, emptyBetween(dates[dates.length - 1], weekEnd) - maxGap);
   return over * unit;
 }
 
@@ -133,6 +134,11 @@ function buildModels(ctx) {
       if ((targetsBefore(d)[goal.id] || 0) > 0) prevLast = d;
     }
     const checkGap = n >= 2 || !!group;
+    const emptyBetween = (a, b) => {
+      let count = 0;
+      for (let d = addDays(a, 1); d < b; d = addDays(d, 1)) if (!effectiveKind(data, d)) count++;
+      return count;
+    };
     const bit = 1 << models.length;
     const options = sizes.flatMap((size) => combos(m, size)).map((idx) => {
       const amounts = auto ? distribute(total, idx.map((i) => ({ w: limits[i] }))) : idx.map((i) => targetOn(goal, segment[i]));
@@ -145,7 +151,7 @@ function buildModels(ctx) {
         bits[i] = bit;
         dates.push(segment[i]);
       });
-      return { idx, amounts, minutes, bits, gap: checkGap ? gapPenalty(dates, prevLast, weekEnd) : 0 };
+      return { idx, amounts, minutes, bits, gap: checkGap ? gapPenalty(dates, prevLast, weekEnd, emptyBetween) : 0 };
     });
     models.push({ goal, bit, group, options });
   });
