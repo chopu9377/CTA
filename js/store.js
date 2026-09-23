@@ -172,6 +172,8 @@ function normalize(data) {
   // 랜덤 배치 이전 버전 데이터: 이번 주의 지난 날(옛 요일로 굳은 날)은 그대로 두고 오늘부터 랜덤 배치를 시작한다
   if (data.layoutFrom === undefined) {
     data.layoutFrom = todayStr();
+    // 오늘 스냅샷은 옛 요일표로 만든 것이라 지운다(공휴일을 읽은 뒤 freezeDayTargets가 새 배치로 다시 굳힌다)
+    delete data.dayTargets[data.layoutFrom];
     layoutMigrated = true;
   }
   data.goals.forEach((g) => {
