@@ -28,6 +28,7 @@ const ui = {
   revealSelected: false,
   quietOpen: false,
   tomorrowOpen: false,
+  revealed: new Set(), // 내일 미리보기에서 뒤집어 본 카드("날짜|목표id")
   bonusPick: false,
   bonusDate: null,
   bonusAmounts: null,

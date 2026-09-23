@@ -1,4 +1,4 @@
-import { addDays, weekdayOf } from "./dates.js";
+import { addDays } from "./dates.js";
 import { effectiveKind, targetsFor, trackAt, computeTargets } from "./stats.js";
 import { limitMinutes, plannedTrackOn } from "./plan.js";
 import { weekStartOf } from "./weekplan.js";
@@ -58,9 +58,7 @@ export function bonusBlockReason(data, dateStr, today) {
   if (effectiveKind(data, dateStr)) return "이미 휴식·복습일이에요";
   if (bonusMinutes(data, dateStr)) return "이미 보상 휴식이에요";
   if (bonusLockedOn(data, dateStr, today)) return "시험 3주 전부터는 쓸 수 없어요";
-  const track = plannedTrackOn(data, dateStr, today);
-  const weekday = weekdayOf(dateStr);
-  if (!data.goals.some((g) => !g.archived && g.track === track && g.weekdays.includes(weekday))) return "공부할 목표가 없는 날이에요";
+  if (!Object.keys(computeTargets(data, dateStr, true)).length) return "공부할 목표가 없는 날이에요";
   return null;
 }
 

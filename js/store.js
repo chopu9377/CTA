@@ -14,7 +14,8 @@ import {
   defaultTargets,
   defaultMinutesPerUnit,
   defaultMaintenance,
-  weekdaysForPreset
+  recommendedWeekdays,
+  DEFAULT_DAYS_PER_WEEK
 } from "./presets.js";
 
 // v2는 목표 단위를 시간(분)에서 수량으로 바꾼 개편판이라 저장 키를 새로 쓴다.
@@ -35,6 +36,7 @@ function isBeforeDawnCutoff() {
 }
 
 let cache = null;
+let layoutMigrated = false;
 
 export function uid() {
   if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
@@ -79,6 +81,7 @@ export function newGoal(track, subject, unit) {
     maintWeekdayTarget: defaultMaintenance(unit).weekday,
     maintWeekendTarget: defaultMaintenance(unit).weekend,
     weekdays: [...ALL_WEEKDAYS],
+    daysPerWeek: DEFAULT_DAYS_PER_WEEK,
     total: 0,
     round: 1,
     progress: 0,
@@ -116,13 +119,15 @@ function emptyData() {
       weekendHours: DEFAULT_WEEKEND_HOURS,
       bufferDays: DEFAULT_BUFFER_DAYS
     },
-    meta: { lastBackupAt: null, updatedAt: null }
+    meta: { lastBackupAt: null, updatedAt: null },
+    layoutFrom: null
   };
   Object.assign(data.subjectColors, SUBJECT_COLOR_SLOTS);
   [2, 1].forEach((track) =>
     GOAL_PRESETS[track].forEach(([subject, unit]) => {
       const goal = newGoal(track, subject, unit);
-      goal.weekdays = weekdaysForPreset("recommended", track, subject, unit) || goal.weekdays;
+      goal.weekdays = recommendedWeekdays(track, subject, unit) || goal.weekdays;
+      goal.daysPerWeek = goal.weekdays.length;
       data.goals.push(goal);
     })
   );
@@ -164,8 +169,16 @@ function normalize(data) {
   });
   data.settings = { ...base.settings, ...(data.settings || {}) };
   data.meta = { lastBackupAt: null, updatedAt: null, ...(data.meta || {}) };
+  // 랜덤 배치 이전 버전 데이터: 이번 주의 지난 날(옛 요일로 굳은 날)은 그대로 두고 오늘부터 랜덤 배치를 시작한다
+  if (data.layoutFrom === undefined) {
+    data.layoutFrom = todayStr();
+    layoutMigrated = true;
+  }
   data.goals.forEach((g) => {
     g.weekdays = Array.isArray(g.weekdays) ? g.weekdays : [...ALL_WEEKDAYS];
+    // 요일 고정 → 주 N일(요일은 매주 랜덤 배치). 옛 데이터는 켜 두었던 요일 개수를 이어받는다
+    const days = Math.round(Number(g.daysPerWeek));
+    g.daysPerWeek = days >= 1 && days <= 7 ? days : Math.max(1, Math.min(7, g.weekdays.length || 7));
     g.total = g.total || 0;
     g.round = g.round || 1;
     g.progress = g.progress || 0;
@@ -178,7 +191,7 @@ function normalize(data) {
     if (g.maintWeekdayTarget === undefined) g.maintWeekdayTarget = defaultMaintenance(g.unit).weekday;
     if (g.maintWeekendTarget === undefined) g.maintWeekendTarget = defaultMaintenance(g.unit).weekend;
     g.archived = !!g.archived;
-    g.planMode = g.planMode === "auto" ? "auto" : "fixed";
+    g.planMode = g.planMode === "auto" || g.planMode === "fill" ? g.planMode : "fixed";
     g.autoFrom = g.planMode === "auto" && g.autoFrom ? g.autoFrom : null;
     g.replanFrom = g.planMode === "auto" && g.replanFrom ? g.replanFrom : null;
     ensureColor(data, g.subject);
@@ -191,6 +204,11 @@ export function getData() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     cache = normalize(raw ? JSON.parse(raw) : null);
+    // 기준일을 바로 저장해야 다음에 열 때도 같은 배치가 나온다(동기화 충돌 안내를 띄우지 않게 조용히 저장)
+    if (layoutMigrated) {
+      layoutMigrated = false;
+      persist({ quiet: true });
+    }
   } catch (e) {
     console.error("CTA: failed to load saved data, starting fresh", e);
     cache = emptyData();
@@ -217,11 +235,14 @@ export function freezeDayTargets(today = todayStr()) {
   if (changed) persist({ quiet: true });
 }
 
-// 계획에 영향을 주는 변경(총 분량·요일·시험일·휴식일 등)을 한 날부터 자동 목표를 "그날 진도 기준으로 남은 요일에 다시 나눈다".
-// 그 주 앞날들은 이미 굳었고, 못 한 양은 새 계획의 남은 분량에 들어간다.
-export function markReplan(goals = getData().goals) {
+// 계획에 영향을 주는 변경(총 분량·주 N일·시험일·휴식일 등)을 한 날부터 자동 목표를 "그날 진도 기준으로 남은 요일에 다시 나누고",
+// 주간 랜덤 배치도 그날부터 남은 날만 다시 섞는다(layoutFrom). 그 주 앞날들은 이미 굳었고, 못 한 양은 새 계획의 남은 분량에 들어간다.
+// 배치는 모든 과목이 함께 정해지므로 한 과목만 바뀌어도 자동 목표 전체를 같은 날로 새로 출발시킨다.
+export function markReplan() {
+  const data = getData();
   const today = appToday();
-  goals.forEach((g) => {
+  data.layoutFrom = today;
+  data.goals.forEach((g) => {
     if (!g.archived && g.planMode === "auto") g.replanFrom = today;
   });
 }

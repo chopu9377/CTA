@@ -35,7 +35,9 @@ function previewHTML(data, g, today) {
   const p = planPreview(data, g, today);
   if (!p) return "";
   const unit = countUnit(g.unit);
-  const days = p.weekDays.length ? p.weekDays.map((d) => `${WEEKDAY_LABELS[d.dow]} ${d.amount}`).join(" · ") : "이 주에는 공부일이 없어요";
+  const days = p.weekDays.length
+    ? p.weekDays.map((d) => `${WEEKDAY_LABELS[d.dow]} ${d.amount}`).join(" · ")
+    : isAutoGoal(data, g) ? "이 주에는 공부일이 없어요" : "자동으로 바꾸면 이 양을 주 N일에 나눠요";
   const weekLabel = p.upcoming ? `집중 시작 주(${formatMD(p.weekStart)}~) 필요` : "이번 주 필요";
   let actual;
   if (p.actual.state === "ok") {
@@ -81,28 +83,34 @@ function goalNode(data, g, today) {
       ${input("total", "총 분량", g.total, unit)}
       ${input("targetRounds", "목표 회독", g.targetRounds, "회독")}
       ${leaf("info", `누적 푼 양 ${cumulative}${unit}${g.total > 0 && cumulative === 0 ? " (앱 쓰기 전에 푼 양이 있으면 입력)" : ""}`)}
-      ${missing.length ? leaf("info", "빨간 항목(공통 조건 포함)을 채우면 자동 계획이 계산돼요") : g.planMode === "auto" ? leaf("ok", "<b>자동 계획 적용 중</b> <small>· 아래 이번 주 배분이 오늘 목표가 돼요</small>") : leaf("info", "<b>고정 목표</b> <small>· 오늘 탭 편집의 평일/주말 숫자를 써요. 설정 과목 카드에서 \"자동\"으로 바꾸면 계산한 목표를 써요</small>")}
-      ${missing.length ? "" : previewHTML(data, g, today)}
+      ${g.planMode === "fill" ? leaf("ok", "<b>남는 시간 채우기</b> <small>· 다른 과목 배치 후 남는 시간에 하루 최대 2개씩(역산 안 함)</small>") : missing.length ? leaf("info", "빨간 항목(공통 조건 포함)을 채우면 자동 계획이 계산돼요") : g.planMode === "auto" ? leaf("ok", "<b>자동 계획 적용 중</b> <small>· 아래 이번 주 배분이 오늘 목표가 돼요</small>") : leaf("info", "<b>고정 목표</b> <small>· 오늘 탭 편집의 평일/주말 숫자를 써요. 설정 과목 카드에서 \"자동\"으로 바꾸면 계산한 목표를 써요</small>")}
+      ${missing.length || g.planMode === "fill" ? "" : previewHTML(data, g, today)}
     </ul>
   </li>`;
 }
 
+const KIND_LABEL = { rest: "휴식", review: "복습" };
+
 function loadNode(data, track, today) {
-  const { rows, start, upcoming, planned, total } = weekLoadRows(data, track, today);
-  if (!planned) return "";
+  if (!data.goals.some((g) => !g.archived && g.track === track)) return "";
+  const { rows, start, upcoming } = weekLoadRows(data, track, today);
   const list = rows
     .map((r) => {
       const over = r.minutes > r.limit;
       const pct = r.limit ? Math.min(100, (r.minutes / r.limit) * 100) : 0;
+      const items = r.kind
+        ? KIND_LABEL[r.kind]
+        : r.items.map((it) => `<span class="load-item"><i class="swatch" style="background:${subjectColor(data, it.goal.subject)}"></i>${escapeHtml(it.goal.subject)} ${it.amount}${escapeHtml(countUnit(it.goal.unit))}${it.maint ? " (유지)" : ""}</span>`).join("") || "목표 없음";
       return `<div class="load-row"><span class="load-dow">${WEEKDAY_LABELS[r.dow]}</span>
         <div class="meter-track"><div class="meter-fill${over ? " bad" : ""}" style="width:${pct}%"></div></div>
-        <span class="load-min${over ? " over" : ""}">${formatDuration(r.minutes)} / ${formatDuration(r.limit)}</span></div>`;
+        <span class="load-min${over ? " over" : ""}">${formatDuration(r.minutes)} / ${formatDuration(r.limit)}</span>
+        <div class="load-items">${items}</div></div>`;
     })
     .join("");
   return `<li class="tree-goal">
-    <div class="tree-head"><b>${upcoming ? `집중 시작 주(${formatMD(start)}~)` : "이번 주"} 요일별 예상 공부 시간</b><span class="tree-tag">${planned}/${total}개 과목 기준</span></div>
+    <div class="tree-head"><b>${upcoming ? `집중 시작 주(${formatMD(start)}~)` : "이번 주"} 랜덤 배치</b><span class="tree-tag">요일별 과목 · 예상 시간</span></div>
     <div class="tree-body"><div class="load-list">${list}</div>
-    <p class="hint">이번 주 계획의 개수 × 1개당 소요 시간에 다른 트랙 유지 목표를 더한 값이에요. 빨간색은 공부 가능 시간을 넘는 날이에요. 요일은 '오늘' 탭 편집의 프리셋/요일 칩으로 바꿀 수 있어요.</p></div>
+    <p class="hint">과목마다 한 주 양(자동은 역산 필요량, 고정은 평일/주말 숫자)과 주 N일은 그대로 두고, 요일별 시간이 공부 가능 시간 비율에 가깝도록 고른 배치들 중 하나를 매주 랜덤으로 골라요. 과목이 3일 넘게 비거나 이틀 연속 과목이 많이 겹치는 배치는 피하고, 채우기 과목은 남는 시간에 넣어요. 휴식일을 바꾸면 그날부터 남은 날만 다시 섞여요. 빨간색은 공부 가능 시간을 넘는 날이에요.</p></div>
   </li>`;
 }
 

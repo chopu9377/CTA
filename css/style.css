@@ -704,25 +704,6 @@ body {
   background: color-mix(in srgb, var(--danger) 10%, var(--page));
 }
 
-.preset-box {
-  margin-bottom: 16px;
-  padding: 12px;
-  border-radius: var(--radius-sm);
-  background: var(--page);
-}
-
-.preset-title {
-  font-size: 13px;
-  font-weight: 700;
-  margin-bottom: 8px;
-}
-
-.preset-btns {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
 .goal-add-fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -761,6 +742,130 @@ body {
   background: var(--danger);
 }
 
+.load-items {
+  grid-column: 2 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: -2px;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.load-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.load-item .swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+.days-stepper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+.days-label,
+.days-note {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.days-value {
+  min-width: 34px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.step-btn {
+  width: 44px;
+  height: 36px;
+  border: 1.5px solid var(--gridline);
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.step-btn:active {
+  transform: scale(0.97);
+}
+
+.step-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.flip-card {
+  width: 100%;
+  border: 1.5px dashed var(--gridline);
+  background: var(--page);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.flip-card:active {
+  transform: scale(0.97);
+}
+
+.flip-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-right: 8px;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.flip-count {
+  color: var(--text-muted);
+}
+
+.flip-open {
+  animation: flip-in 0.35s ease-out;
+}
+
+@keyframes flip-in {
+  from {
+    transform: rotateX(90deg);
+    opacity: 0;
+  }
+  to {
+    transform: rotateX(0);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flip-open {
+    animation: none;
+  }
+}
+
+.flip-hint {
+  margin: 0 0 8px;
+}
+
+.flip-all {
+  margin: 4px 0 8px;
+}
+
 .goal-edit-main {
   display: grid;
   grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.1fr) 52px 52px 28px;
@@ -779,7 +884,6 @@ body {
   text-align: center;
 }
 
-.weekday-chips,
 .series-filter {
   display: flex;
   flex-wrap: wrap;

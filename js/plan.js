@@ -1,6 +1,18 @@
-import { addDays, weekdayOf } from "./dates.js";
+import { addDays, diffDays } from "./dates.js";
 import { trackAt, effectiveKind, isWeekendLike, targetsFor } from "./stats.js";
-import { weekdaysForPreset } from "./presets.js";
+import { seededRandom, spreadPick } from "./random.js";
+
+// 과목을 한 주에 며칠 하는지(주 N일)의 비율. 요일은 매주 랜덤으로 정해지므로 기간 계산은 "모든 공부일 × N/7"로 근사한다.
+export function weekShare(goal) {
+  return Math.max(1, Math.min(7, goal.daysPerWeek || 7)) / 7;
+}
+
+// 유지 목표의 요일: 그 주에 주 N일을 거의 같은 간격으로, 시작 위치만 랜덤(주 시작일·목표별로 고정)
+function onMaintenanceDay(data, goal, dateStr) {
+  const index = ((diffDays(data.startDate, dateStr) % 7) + 7) % 7;
+  const weekStart = addDays(dateStr, -index);
+  return spreadPick(seededRandom(`maint|${goal.id}|${weekStart}`), goal.daysPerWeek, 7).includes(index);
+}
 
 // 계획상 그날 활성인 트랙. 오늘·과거는 실제 전환 기록을 따르고, 미래는 "1차 활성 시작일 ~ 1차 시험일 전날"이
 // 1차 집중 기간이고 그 밖은 2차라고 본다(두 날짜가 모두 있어야 계획으로 인정).
@@ -24,11 +36,10 @@ export function maintenanceGoals(data, dateStr, today) {
 export function maintenanceTargets(data, dateStr, today) {
   const targets = {};
   if (effectiveKind(data, dateStr)) return targets;
-  const weekday = weekdayOf(dateStr);
   const weekend = isWeekendLike(dateStr);
   maintenanceGoals(data, dateStr, today).forEach((g) => {
     const amount = weekend ? g.maintWeekendTarget : g.maintWeekdayTarget;
-    if (g.weekdays.includes(weekday) && amount > 0) targets[g.id] = amount;
+    if (amount > 0 && onMaintenanceDay(data, g, dateStr)) targets[g.id] = amount;
   });
   return targets;
 }
@@ -46,16 +57,6 @@ export function dayLoad(data, dateStr, today) {
     return sum + (goal ? targets[goalId] * goal.minutesPerUnit : 0);
   }, 0);
   return { minutes, limit: limitMinutes(data, dateStr), weekend: isWeekendLike(dateStr) };
-}
-
-// 요일 프리셋이 바꾸는 "과목 × 공부 요일" 칸 수(확인 창에서 얼마나 바뀌는지 보여준다)
-export function presetImpact(data, track, presetKey) {
-  const goals = data.goals.filter((g) => !g.archived && g.track === track);
-  const count = (daysOf) => goals.reduce((sum, g) => sum + daysOf(g).length, 0);
-  return {
-    before: count((g) => g.weekdays),
-    after: count((g) => weekdaysForPreset(presetKey, track, g.subject, g.unit) || g.weekdays)
-  };
 }
 
 export function cumulativeOf(goal) {
@@ -84,23 +85,24 @@ export function studiesTrackOn(data, track, dateStr, today) {
 }
 
 // 권장량: 시험일 `bufferDays`일 전(모의고사·복습 기간)까지 목표 회독을 끝내는 페이스.
-// 남은 분량을 공부일수로 나누되 주말은 공부 가능 시간 비율(예: 7h/4h)만큼 더 배정한다.
-// 휴식·복습일, 이 목표의 쉬는 요일, 다른 트랙 집중 기간은 공부일에서 뺀다.
+// 남은 분량을 공부일수(주 N일이라 전체 공부일 × N/7)로 나누되 주말은 공부 가능 시간 비율(예: 7h/4h)만큼 더 배정한다.
+// 휴식·복습일, 다른 트랙 집중 기간은 공부일에서 뺀다.
 // 다른 트랙 집중 기간에 유지 모드로 하기로 한 양은 진도로 인정해 남은 분량에서 뺀다.
 export function paceFor(data, goal, today) {
   const info = data.tracks[goal.track];
   if (!info.examDate || goal.total <= 0 || goal.targetRounds <= 0) return null;
   const from = goal.track === 1 && info.activeFrom && info.activeFrom > today ? info.activeFrom : today;
   const endDate = addDays(info.examDate, -data.settings.bufferDays);
+  const share = weekShare(goal);
   let weekdayDays = 0;
   let weekendDays = 0;
   let maintCredit = 0;
   for (let d = from; d < endDate; d = addDays(d, 1)) {
-    if (effectiveKind(data, d) || !goal.weekdays.includes(weekdayOf(d))) continue;
+    if (effectiveKind(data, d)) continue;
     if (!studiesTrackOn(data, goal.track, d, today)) {
-      if (info.maintain) maintCredit += isWeekendLike(d) ? goal.maintWeekendTarget : goal.maintWeekdayTarget;
-    } else if (isWeekendLike(d)) weekendDays++;
-    else weekdayDays++;
+      if (info.maintain) maintCredit += (isWeekendLike(d) ? goal.maintWeekendTarget : goal.maintWeekdayTarget) * share;
+    } else if (isWeekendLike(d)) weekendDays += share;
+    else weekdayDays += share;
   }
   const rawLeft = workLeft(goal);
   const left = Math.max(0, rawLeft - maintCredit);

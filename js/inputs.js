@@ -35,11 +35,12 @@ export function bindInputHandlers({ ui, render, toast, closeSheet, announceRound
     }
     if (field === "planMode") {
       const goalId = input.dataset.id;
-      const mode = input.value === "auto" ? "auto" : "fixed";
+      const mode = input.value === "auto" || input.value === "fill" ? input.value : "fixed";
       storage.updateGoal(goalId, { planMode: mode, autoFrom: mode === "auto" ? storage.appToday() : null });
       const goal = storage.getData().goals.find((g) => g.id === goalId);
       const missing = goal ? paceMissing(storage.getData(), goal) : [];
-      toast(mode === "fixed" ? "고정 목표로 돌아왔어요" : missing.length ? "자동 계획을 켰어요 · 시험일·총 분량·목표 회독을 채우면 적용돼요" : "자동 계획을 켰어요 · 오늘부터 이번 주 계획이 적용돼요");
+      if (mode === "fill") toast("남는 시간 채우기로 바꿨어요 · 다른 과목을 배치하고 남는 시간을 하루 최대 2개까지 채워요");
+      else toast(mode === "fixed" ? "고정 목표로 돌아왔어요" : missing.length ? "자동 계획을 켰어요 · 시험일·총 분량·목표 회독을 채우면 적용돼요" : "자동 계획을 켰어요 · 오늘부터 이번 주 계획이 적용돼요");
       render();
       return;
     }

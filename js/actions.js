@@ -4,8 +4,8 @@ import { trackAt, buildContext, dayReport, historyEnd, computeTargets } from "./
 import { bonusSavings, bonusBlockReason, bonusMaxFor, bonusMinutes } from "./bonus.js";
 import { bonusSheetHTML, bonusCancelSheetHTML } from "./ui/bonus.js";
 import { formatDuration } from "./ui/shared.js";
-import { maintenanceGoals, presetImpact } from "./plan.js";
-import { WEEKDAY_PRESETS, countUnit } from "./presets.js";
+import { maintenanceGoals } from "./plan.js";
+import { countUnit } from "./presets.js";
 import * as sync from "./sync.js";
 
 const SYNC_RESULT_TEXT = {
@@ -202,7 +202,7 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
     "auto-all"() {
       const data = storage.getData();
       const today = storage.appToday();
-      const goals = data.goals.filter((g) => !g.archived && g.planMode !== "auto");
+      const goals = data.goals.filter((g) => !g.archived && g.planMode === "fixed");
       goals.forEach((g) => storage.updateGoal(g.id, { planMode: "auto", autoFrom: today }));
       toast(goals.length ? `${goals.length}개 과목을 자동 계획으로 바꿨어요` : "이미 모든 과목이 자동이에요");
       render();
@@ -251,22 +251,17 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
       ui.editing = !ui.editing;
       render();
     },
-    "apply-preset"(btn) {
-      const track = trackAt(storage.getData(), storage.appToday());
-      const { before, after } = presetImpact(storage.getData(), track, btn.dataset.preset);
-      const change = `과목별 공부 요일 합계 ${before}칸 → ${after}칸`;
-      const label = WEEKDAY_PRESETS.find((p) => p.key === btn.dataset.preset).label;
-      if (!confirm(`"${label}"으로 요일을 바꿀까요?\n\n${change}으로 바뀌어요.\n자동 계획 과목은 남은 요일에 맞춰 목표를 다시 나눠요.`)) return;
-      storage.applyWeekdayPreset(track, btn.dataset.preset);
-      toast(`요일 패턴을 적용했어요 · ${change}`);
-      render();
-    },
-    "toggle-weekday"(btn) {
+    "days-step"(btn) {
       const goal = storage.getData().goals.find((g) => g.id === btn.dataset.id);
       if (!goal) return;
-      const day = Number(btn.dataset.day);
-      const weekdays = goal.weekdays.includes(day) ? goal.weekdays.filter((d) => d !== day) : [...goal.weekdays, day].sort();
-      storage.updateGoal(goal.id, { weekdays });
+      const next = Math.max(1, Math.min(7, goal.daysPerWeek + Number(btn.dataset.step)));
+      if (next === goal.daysPerWeek) return;
+      storage.updateGoal(goal.id, { daysPerWeek: next });
+      render();
+    },
+    "flip-card"(btn) {
+      if (btn.dataset.key === "all") btn.dataset.keys.split(",").forEach((k) => ui.revealed.add(k));
+      else ui.revealed.add(btn.dataset.key);
       render();
     },
     "archive-goal"(btn) {

@@ -81,19 +81,8 @@ export function defaultMinutesPerUnit(unit) {
   return unit.includes("강") ? 60 : 20;
 }
 
-// 요일 번호는 Date.getDay() 기준(0=일 … 6=토)
-const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
-const GROUP_A_DAYS = [1, 3, 5, 0];
-const GROUP_B_DAYS = [2, 4, 6];
-
-// 회계(재무·원가)끼리, 세무회계(법인·소득·부가)끼리 묶어서 번갈아 한다.
-const ALTERNATE_GROUP = {
-  2: { 재무회계: "A", 원가관리회계: "A", 법인세: "B", 소득세: "B", 부가세: "B" },
-  1: { 재무회계: "A", 원가관리회계: "A", 법인세: "B", 소득세: "B", 부가세: "B", 세법학개론: "B" }
-};
-
-// 2차: 월·수·토 회계 / 화·목·일 세무회계 / 금은 세법학(가벼운 날). 세법학 인강은 회계·세무 날에 끼워 넣는다.
-// 1차: 같은 골격에 금요일에 재정학·행정소송법·국세기본법 문제를 몰아서 한다.
+// 새로 시작하는 기본 목표의 주 N일은 예전 추천 조합 요일의 개수를 따른다(요일 자체는 매주 랜덤 배치가 정한다).
+// 요일 번호는 Date.getDay() 기준(0=일 … 6=토). weekdays 필드는 옛 버전 호환용으로 함께 채운다.
 const RECOMMENDED_DAYS = {
   2: {
     재무회계: [1, 3, 6],
@@ -122,21 +111,10 @@ const UNIT_OVERRIDE_DAYS = {
   1: { "국세기본법|문제": [5] }
 };
 
-export const WEEKDAY_PRESETS = [
-  { key: "daily", label: "매일 전 과목", desc: "시험이 임박했을 때처럼 모든 과목을 매일 봐요." },
-  { key: "alternate", label: "격일 묶음", desc: "회계(재무·원가)와 세무회계(법인·소득·부가)를 A/B로 나눠 번갈아 해요(세법학 등은 매일)." },
-  { key: "recommended", label: "추천 조합", desc: "회계 묶음(월·수·토)과 세무회계 묶음(화·목·일)을 번갈아, 금요일은 세법학. 주말엔 3과목 이상." }
-];
+export const DEFAULT_DAYS_PER_WEEK = 3;
 
-// 프리셋이 모르는 과목(사용자가 직접 추가한 것)은 null → 요일을 건드리지 않는다.
-export function weekdaysForPreset(key, track, subject, unit = "") {
-  if (key === "daily") return [...ALL_DAYS];
-  if (key === "alternate") {
-    const group = ALTERNATE_GROUP[track][subject];
-    if (group === "A") return [...GROUP_A_DAYS];
-    if (group === "B") return [...GROUP_B_DAYS];
-    return subject in RECOMMENDED_DAYS[track] ? [...ALL_DAYS] : null;
-  }
+// 기본 목표가 아닌 과목(사용자가 직접 추가한 것)은 null
+export function recommendedWeekdays(track, subject, unit = "") {
   const override = !unit.includes("강") && UNIT_OVERRIDE_DAYS[track][`${subject}|문제`];
   if (override) return [...override];
   const days = RECOMMENDED_DAYS[track][subject];

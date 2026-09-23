@@ -38,6 +38,8 @@
   bonus.js      # 휴식 저축(보상 휴식)·이번 주 진행 상태(🐢🚗🚀) 계산(순수 함수)
   plan.js       # 권장량(회독 역산)·1차 집중 기간·유지 모드·요일별 부하 등 계획 계산(순수 함수)
   weekplan.js    # 주간 자동 역산 미리보기(주 필요량 → 정수 요일 배분, 실제 페이스, 트랙 가능 여부)
+  layout.js      # 주간 랜덤 배치: 과목별 주 N일을 요일에 랜덤으로(시간 균형·3일 공백·연속 겹침 규칙, 채우기)
+  random.js      # 결정적 난수(시드 문자열 → 같은 수열, 기기끼리 같은 배치)
   version.js     # 저장 데이터 변경 번호(계산 캐시 무효화용)
   dates.js      # 날짜 문자열 헬퍼
   presets.js    # 트랙별 기본 목표, 시험 과목, 과목 색 슬롯
@@ -58,6 +60,7 @@
     settle.js     # 이월 확인 하단 시트
     syncui.js     # 설정의 GitHub 동기화 카드, 동기화 충돌 선택 시트
 /data/holidays.json          # 공휴일 목록(정기 작업이 갱신, 서비스워커가 미리 캐시)
+/tests/layout-check.mjs      # 개발용 검증: `node tests/layout-check.mjs`(앱은 불러오지 않음, npm 패키지 없음). 계획·배치 코드를 고치면 실행
 /.github/workflows/          # 공휴일 갱신 작업(앱 코드가 아니라 저장소 자동화)
 /manifest.json
 /service-worker.js

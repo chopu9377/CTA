@@ -1,8 +1,8 @@
-import { formatKoreanDate, weekdayOf, WEEKDAY_LABELS } from "../dates.js";
+import { formatKoreanDate } from "../dates.js";
 import { trackAt, dayReport } from "../stats.js";
 import { dayLoad, maintenanceGoals, maintenanceTargets } from "../plan.js";
 import { isAutoGoal, weekProgress, isLastStudyDay } from "../weekplan.js";
-import { UNIT_SUGGESTIONS, WEEKDAY_PRESETS, TRACK_LABEL, countUnit } from "../presets.js";
+import { UNIT_SUGGESTIONS, TRACK_LABEL, countUnit } from "../presets.js";
 import { escapeHtml, subjectColor, formatDuration } from "./shared.js";
 import { tomorrowCardHTML } from "./tomorrow.js";
 
@@ -26,14 +26,18 @@ function goalRowHTML(data, ctx, row, selected, tag = "", auto = null) {
   </div>`;
 }
 
-// auto: 자동 계획 목표라 평일/주말 숫자를 쓰지 않는다. compact: 목록 전체가 자동이라 숫자 칸 자리를 아예 없앤다.
-function goalEditHTML(goal, auto = false, compact = false) {
-  const chips = WEEKDAY_LABELS.map(
-    (label, day) => `<button type="button" class="chip-btn${goal.weekdays.includes(day) ? " on" : ""}" data-action="toggle-weekday" data-id="${goal.id}" data-day="${day}">${label}</button>`
-  ).join("");
+// mode: auto(자동 계획)·fill(남는 시간 채우기)은 평일/주말 숫자를 쓰지 않는다. compact: 목록 전체가 숫자를 안 써서 숫자 칸 자리를 없앤다.
+function goalEditHTML(goal, mode, compact = false) {
   const num = (field, value, label) =>
     `<input type="number" min="0" inputmode="numeric" value="${value}" data-goal-field="${field}" data-id="${goal.id}" aria-label="${label}" />`;
-  const targets = compact ? "" : auto ? `<span class="auto-cell">자동 계획</span>` : `${num("weekdayTarget", goal.weekdayTarget, "평일 목표")}${num("weekendTarget", goal.weekendTarget, "주말 목표")}`;
+  const label = { auto: "자동 계획", fill: "채우기" }[mode];
+  const targets = compact ? "" : label ? `<span class="auto-cell">${label}</span>` : `${num("weekdayTarget", goal.weekdayTarget, "평일 목표")}${num("weekendTarget", goal.weekendTarget, "주말 목표")}`;
+  const days = mode === "fill"
+    ? `<span class="days-note">남는 시간에 하루 최대 2개씩 채워요</span>`
+    : `<span class="days-label">주</span>
+       <button type="button" class="step-btn" data-action="days-step" data-id="${goal.id}" data-step="-1" aria-label="하루 줄이기"${goal.daysPerWeek <= 1 ? " disabled" : ""}>−</button>
+       <b class="days-value">${goal.daysPerWeek}일</b>
+       <button type="button" class="step-btn" data-action="days-step" data-id="${goal.id}" data-step="1" aria-label="하루 늘리기"${goal.daysPerWeek >= 7 ? " disabled" : ""}>+</button>`;
   return `<div class="goal-edit">
     <div class="goal-edit-main${compact ? " compact" : ""}">
       <input type="text" value="${escapeHtml(goal.subject)}" data-goal-field="subject" data-id="${goal.id}" aria-label="과목" list="subject-names" />
@@ -41,17 +45,11 @@ function goalEditHTML(goal, auto = false, compact = false) {
       ${targets}
       <button type="button" class="btn-danger" data-action="archive-goal" data-id="${goal.id}" aria-label="삭제">✕</button>
     </div>
-    <div class="weekday-chips">${chips}</div>
+    <div class="days-stepper">${days}</div>
   </div>`;
 }
 
-function presetsHTML() {
-  return `<div class="preset-box">
-    <div class="preset-title">요일 패턴 프리셋</div>
-    <div class="preset-btns">${WEEKDAY_PRESETS.map((p) => `<button class="btn btn-secondary btn-sm" data-action="apply-preset" data-preset="${p.key}" type="button">${p.label}</button>`).join("")}</div>
-    <p class="hint">${WEEKDAY_PRESETS.map((p) => `<b>${p.label}</b>: ${p.desc}`).join("<br />")}</p>
-  </div>`;
-}
+const editModeOf = (data, goal) => (goal.planMode === "fill" ? "fill" : isAutoGoal(data, goal) ? "auto" : "fixed");
 
 function undoInfoHTML(data, today) {
   const entries = data.entries.filter((e) => e.date === today);
@@ -127,7 +125,7 @@ export function renderToday(data, ctx, today, ui, dawn = null) {
   const selected = [...goals, ...maintGoals].find((g) => g.id === ui.selectedGoalId) || goals[0] || maintGoals[0];
   const sheetOpen = !ui.editing && ui.pickerOpen && !!selected;
   const names = [...new Set(data.goals.map((g) => g.subject))];
-  const allAuto = goals.length > 0 && goals.every((g) => isAutoGoal(data, g));
+  const allAuto = goals.length > 0 && goals.every((g) => editModeOf(data, g) !== "fixed");
   const animate = sheetOpen && ui.pickerAnim;
   ui.pickerAnim = false;
 
@@ -156,14 +154,13 @@ export function renderToday(data, ctx, today, ui, dawn = null) {
       ${ui.editing ? "" : dawnNoticeHTML(dawn)}
       ${ui.editing ? "" : dayNoticeHTML(data, today, report)}
       ${ui.editing
-        ? `${presetsHTML()}
-           <div class="goal-edit-head${allAuto ? " compact" : ""}"><span>과목</span><span>단위</span>${allAuto ? "" : "<span>평일</span><span>주말</span>"}<span></span></div>
-           ${goals.map((g) => goalEditHTML(g, isAutoGoal(data, g), allAuto)).join("")}
+        ? `<div class="goal-edit-head${allAuto ? " compact" : ""}"><span>과목</span><span>단위</span>${allAuto ? "" : "<span>평일</span><span>주말</span>"}<span></span></div>
+           ${goals.map((g) => goalEditHTML(g, editModeOf(data, g), allAuto)).join("")}
            <form data-form="add-goal" class="form goal-add">
              <div class="goal-add-fields"><input type="text" name="subject" placeholder="과목 이름" required list="subject-names" /><input type="text" name="unit" placeholder="단위(예: 문제)" required list="unit-names" /></div>
              <button class="btn btn-secondary" type="submit">+ 목표 추가</button>
            </form>
-           <p class="hint">${allAuto ? "이름·단위·요일을 직접 수정해요. 하루 목표는 자동 계획이 계산해요." : "이름·단위·요일(고정 목표는 평일/주말 목표도)을 직접 수정해요."} 삭제해도 지난 기록은 남아요. 같은 과목 이름이면 색도 같아요. 공휴일은 주말로 계산해요.</p>
+           <p class="hint">${allAuto ? "이름·단위·주 며칠 할지를 직접 수정해요. 하루 목표는 자동 계획이 계산해요." : "이름·단위·주 며칠 할지(고정 목표는 평일/주말 목표도)를 직접 수정해요."} 어느 요일에 할지는 매주 랜덤으로 정해져요(요일별 시간은 고르게, 과목이 3일 넘게 비지 않게). 삭제해도 지난 기록은 남아요. 같은 과목 이름이면 색도 같아요. 공휴일은 주말로 계산해요.</p>
            <datalist id="subject-names">${names.map((n) => `<option value="${escapeHtml(n)}">`).join("")}</datalist>
            <datalist id="unit-names">${UNIT_SUGGESTIONS.map((n) => `<option value="${n}">`).join("")}</datalist>`
         : goals.length

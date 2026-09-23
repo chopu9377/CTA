@@ -59,9 +59,10 @@ function trackCardHTML(data, open) {
 
 // 입력칸은 그대로 두고 이 부분만 다시 그린다(칸을 옮길 때 포커스가 끊기지 않게)
 function autoHintHTML(data, g) {
+  if (g.planMode === "fill") return `<p class="hint">채우기: 역산하지 않고, 다른 과목을 먼저 배치한 뒤 그날 공부 가능 시간까지 남는 자리를 하루 최대 2개씩 채워요(최대한 빨리 끝내기). 총 분량을 넣으면 남은 양까지만 채우고, 못 채운 날은 이월하지 않아요.</p>`;
   if (g.planMode !== "auto") return "";
   if (!isAutoGoal(data, g)) return `<p class="hint">자동 계획에는 시험일·총 분량·목표 회독이 필요해요. 채우기 전에는 고정 목표를 써요.</p>`;
-  return `<p class="hint">자동: ${formatMD(g.autoFrom)}부터 매주 시작 시점의 진도로 이번 주 목표를 계산해 그 주 동안 고정해요. 오늘 탭 편집의 평일/주말 목표는 쓰지 않아요(다시 고정으로 바꾸면 그 값을 써요).</p>`;
+  return `<p class="hint">자동: ${formatMD(g.autoFrom)}부터 매주 시작 시점의 진도로 이번 주 필요량을 계산하고, 주 ${g.daysPerWeek}일에 랜덤 배치로 나눠 그 주 동안 고정해요. 오늘 탭 편집의 평일/주말 목표는 쓰지 않아요(다시 고정으로 바꾸면 그 값을 써요).</p>`;
 }
 
 export function paceSlotHTML(data, g, today) {
@@ -86,7 +87,7 @@ function totalRowHTML(data, g, today) {
       <label class="mini-field"><span>총 분량</span><input type="number" min="0" inputmode="numeric" value="${g.total || ""}" placeholder="예) 1200" data-goal-field="total" data-id="${g.id}" /></label>
       <label class="mini-field"><span>누적 푼 양</span><input type="number" min="0" inputmode="numeric" value="${cumulative || ""}" placeholder="0 (예: 340)" data-goal-field="cumulative" data-id="${g.id}" /></label>
       <label class="mini-field"><span>목표 회독</span><input type="number" min="0" inputmode="numeric" value="${g.targetRounds || ""}" placeholder="예) 3" data-goal-field="targetRounds" data-id="${g.id}" /></label>
-      <label class="mini-field"><span>하루 목표</span><select data-goal-field="planMode" data-id="${g.id}"><option value="fixed"${g.planMode === "auto" ? "" : " selected"}>고정</option><option value="auto"${g.planMode === "auto" ? " selected" : ""}>자동</option></select></label>
+      <label class="mini-field"><span>하루 목표</span><select data-goal-field="planMode" data-id="${g.id}">${[["fixed", "고정"], ["auto", "자동"], ["fill", "채우기"]].map(([v, t]) => `<option value="${v}"${g.planMode === v ? " selected" : ""}>${t}</option>`).join("")}</select></label>
       <label class="mini-field"><span>1개당 소요(분)</span><input type="number" min="1" inputmode="numeric" value="${g.minutesPerUnit}" data-goal-field="minutesPerUnit" data-id="${g.id}" /></label>
       <label class="mini-field"><span>유지 평일</span><input type="number" min="0" inputmode="numeric" value="${g.maintWeekdayTarget}" data-goal-field="maintWeekdayTarget" data-id="${g.id}" /></label>
       <label class="mini-field"><span>유지 주말</span><input type="number" min="0" inputmode="numeric" value="${g.maintWeekendTarget}" data-goal-field="maintWeekendTarget" data-id="${g.id}" /></label>
@@ -111,7 +112,7 @@ function totalsCardHTML(data, today, ui) {
           <div class="goal-add-fields"><input type="text" name="subject" placeholder="과목 이름" required list="subject-names" /><input type="text" name="unit" placeholder="단위(예: 문제)" required list="unit-names" /></div>
           <button class="btn btn-secondary" type="submit">+ 과목 추가</button>
         </form>
-        <p class="hint">과목 이름·단위는 여기서 바로 고치고, ✕로 삭제해요(지난 기록은 남아요). 고정 목표의 평일/주말 양·요일은 '오늘' 탭 편집에서 해요.</p>
+        <p class="hint">과목 이름·단위는 여기서 바로 고치고, ✕로 삭제해요(지난 기록은 남아요). 주 며칠 할지와 고정 목표의 평일/주말 양은 '오늘' 탭 편집에서 해요. 요일은 매주 랜덤으로 정해져요.</p>
         <p class="hint">'누적 푼 양'에 앱을 쓰기 전까지 푼 양을 넣으면 총 분량 기준으로 회독과 현재 진행량으로 환산돼요(주간 통계에는 잡히지 않아요). 총 분량을 먼저 넣고 누적을 넣어 주세요.</p></div>`
           : ""}
       </div>`;
@@ -144,7 +145,7 @@ function planDeriveCardHTML(data, today, open) {
       ${field("bufferDays", st.bufferDays, "시험 전 마감(일)")}
     </div>
     <p class="hint">목표 회독을 시험 며칠 전에 끝내는 페이스로 권장량을 계산해요(마지막 기간은 모의고사·복습용). 평일:주말 양의 비율은 공부 가능 시간 비율을 따르고, 공휴일은 주말로 봐요.</p>
-    ${data.goals.some((g) => !g.archived && g.planMode !== "auto") ? `<div class="form-inline" style="margin-bottom:10px"><button class="btn btn-secondary btn-sm" data-action="auto-all" type="button">모든 과목 자동으로</button><span class="hint" style="margin:0">하루 목표를 매주 자동 계산으로 바꿔요</span></div>` : ""}
+    ${data.goals.some((g) => !g.archived && g.planMode === "fixed") ? `<div class="form-inline" style="margin-bottom:10px"><button class="btn btn-secondary btn-sm" data-action="auto-all" type="button">모든 과목 자동으로</button><span class="hint" style="margin:0">하루 목표를 매주 자동 계산으로 바꿔요</span></div>` : ""}
     <p class="hint" style="margin-top:0">트랙 > 과목별로 무엇이 채워졌고 무엇이 비었는지(✗)와 결과를 보여줘요.</p>
     <div data-slot-plan>${planTreeHTML(data, today)}</div>
     </div>`}

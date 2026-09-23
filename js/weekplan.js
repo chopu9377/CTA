@@ -1,11 +1,13 @@
 import { addDays, diffDays, weekdayOf, todayStr } from "./dates.js";
 import { effectiveKind, isWeekendLike, targetsFor } from "./stats.js";
 import { dataVersion } from "./version.js";
-import { paceFor, paceMissing, studiesTrackOn, workLeft, cumulativeOf, limitMinutes, maintenanceTargets } from "./plan.js";
+import { paceFor, paceMissing, studiesTrackOn, workLeft, cumulativeOf, limitMinutes, maintenanceTargets, weekShare } from "./plan.js";
+import { layoutOn, goalDatesIn, weekLayout } from "./layout.js";
 
 // 주간 자동 역산(미리보기). 하루 목표를 먼저 올림하지 않고 "이번 주 필요량"을 소수점까지 구한 뒤 정수로 나눈다.
 // 저장하는 값은 없다: 주 시작 시점 진도 = 현재 누적 - 그 주에 입력한 기록 으로 매번 같은 계획을 다시 만든다
 // (같은 데이터면 폰과 웹의 결과가 같고 동기화 충돌이 생기지 않는다).
+// 요일은 과목별로 고정하지 않는다: 이번 주 필요량은 공부일 전체 가중치로 구하고, 어느 날에 얼마를 둘지는 layout.js의 주간 랜덤 배치가 정한다.
 
 export const STATUS_RULES = {
   onTrackDays: 7, // 예상 완료가 마감일 +7일 이내면 정상
@@ -40,17 +42,18 @@ function planBasis(data, goal, today) {
   return { upcoming, weekStart, weekEnd: addDays(weekStart, 7) };
 }
 
-// paceFor와 같은 규칙: 휴식·복습일과 그 목표의 쉬는 요일은 뺀다. 다른 트랙 집중 기간은 공부일이 아니고,
-// 유지 모드가 켜져 있으면 그날 유지량을 진도로 인정(credit)한다.
+// paceFor와 같은 규칙: 휴식·복습일은 뺀다. 다른 트랙 집중 기간은 공부일이 아니고,
+// 유지 모드가 켜져 있으면 그날 유지량을 진도로 인정(credit)한다(유지는 주 N일이라 하루 몫 × N/7).
 function collectDays(data, goal, from, end, today) {
   const info = data.tracks[goal.track];
   const ratio = weekendRatio(data);
+  const share = weekShare(goal);
   const days = [];
   let credit = 0;
   for (let d = from; d < end; d = addDays(d, 1)) {
-    if (effectiveKind(data, d) || !goal.weekdays.includes(weekdayOf(d))) continue;
+    if (effectiveKind(data, d)) continue;
     if (!studiesTrackOn(data, goal.track, d, today)) {
-      if (info.maintain) credit += isWeekendLike(d) ? goal.maintWeekendTarget : goal.maintWeekdayTarget;
+      if (info.maintain) credit += (isWeekendLike(d) ? goal.maintWeekendTarget : goal.maintWeekdayTarget) * share;
     } else {
       days.push({ date: d, dow: weekdayOf(d), w: isWeekendLike(d) ? ratio : 1 });
     }
@@ -118,8 +121,7 @@ function buildWeek(data, goal, weekStart, today) {
   const left0 = Math.max(0, rawLeftAtStart - credit);
   const plan = runPlan(days, left0, weekStart);
   const thisWeek = plan.weeks.find((w) => w.key === 0) || { days: [], need: 0, total: 0, amounts: [] };
-  const amountByDate = new Map(thisWeek.days.map((d, i) => [d.date, thisWeek.amounts[i]]));
-  return { weekStart, effStart, endDate, rawLeftAtStart, credit, left0, plan, thisWeek, amountByDate };
+  return { weekStart, effStart, endDate, rawLeftAtStart, credit, left0, plan, thisWeek };
 }
 
 // 저장 데이터가 바뀔 때마다(version.js) 비운다. 화면을 그릴 때 같은 주 계획을 여러 번 묻기 때문에 필요하다.
@@ -144,37 +146,47 @@ export function isAutoGoal(data, goal) {
   return goal.planMode === "auto" && !!goal.autoFrom && !paceMissing(data, goal).length;
 }
 
-// 그 주 계획에서 이월(redistribute) 몫이 얹히는 날: 미달 다음 날부터, 이월을 정한 날(atDate) 이후의 남은 공부일
-function carryDays(week, c) {
-  return week.thisWeek.days.filter((d) => d.date > c.fromDate && d.date >= (c.atDate || c.fromDate));
+// 이번 주 계획 필요량(랜덤 배치가 요일에 나눈다)과 계획의 출발일
+export function autoWeekTotal(data, goal, weekStart, today) {
+  const week = getWeek(data, goal, weekStart, today);
+  return { total: week.thisWeek.total, effStart: week.effStart };
 }
 
-function carryShare(data, goal, week, dateStr) {
+// 그 주 랜덤 배치에서 그 과목이 놓인 날(가중치 = 그날 공부 가능 시간)
+function studyDays(data, goal, weekStart, today) {
+  return goalDatesIn(data, goal, weekStart, today).map((date) => ({ date, w: limitMinutes(data, date) }));
+}
+
+// 그 주 계획에서 이월(redistribute) 몫이 얹히는 날: 미달 다음 날부터, 이월을 정한 날(atDate) 이후의 남은 공부일
+function carryDays(data, goal, week, c, today) {
+  return studyDays(data, goal, week.weekStart, today).filter((d) => d.date > c.fromDate && d.date >= (c.atDate || c.fromDate));
+}
+
+function carryShare(data, goal, week, dateStr, today) {
   let sum = 0;
   data.carries.forEach((c) => {
     // 새 출발(effStart) 이전 날의 이월은 새 계획의 남은 분량에 이미 들어 있으므로 다시 얹지 않는다
     if (c.goalId !== goal.id || !c.redistribute || weekStartOf(data, c.fromDate) !== week.weekStart || c.fromDate < week.effStart) return;
-    const days = carryDays(week, c);
+    const days = carryDays(data, goal, week, c, today);
     const index = days.findIndex((d) => d.date === dateStr);
     if (index >= 0) sum += distribute(c.amount, days)[index];
   });
   return sum;
 }
 
-// 자동 목표의 그날 목표 = 그 주 계획 + 같은 주 이월 몫. 아직 시작 안 한 주는 계획이 없다(그 주가 시작될 때 정해진다).
+// 자동 목표의 그날 목표 = 그 주 랜덤 배치 몫 + 같은 주 이월 몫. 아직 시작 안 한 주는 계획이 없다(그 주가 시작될 때 정해진다).
 // preview: 아직 시작 안 한 주도 "지금 진도 기준 예상"으로 계산한다(내일 미리보기용, 그 주가 시작되면 달라질 수 있다).
 export function autoTargetOn(data, goal, dateStr, preview = false) {
   const today = todayStr();
   const weekStart = weekStartOf(data, dateStr);
   if (!preview && weekStart > weekStartOf(data, today)) return 0;
   const week = getWeek(data, goal, weekStart, today);
-  return (week.amountByDate.get(dateStr) || 0) + carryShare(data, goal, week, dateStr);
+  return (layoutOn(data, goal.track, dateStr, today)[goal.id] || 0) + carryShare(data, goal, week, dateStr, today);
 }
 
 // fromDate의 미달분 amount를 이월한다면 dateStr에 얹힐 양(같은 주 남은 공부일에 나눠 얹는 자동 계획 이월 기준)
 export function carryPreview(data, goal, amount, fromDate, dateStr, today) {
-  const week = getWeek(data, goal, weekStartOf(data, fromDate), today);
-  const days = week.thisWeek.days.filter((d) => d.date > fromDate);
+  const days = studyDays(data, goal, weekStartOf(data, fromDate), today).filter((d) => d.date > fromDate);
   const index = days.findIndex((d) => d.date === dateStr);
   return index >= 0 ? distribute(amount, days)[index] : 0;
 }
@@ -185,15 +197,16 @@ export function autoApplies(data, goal, dateStr) {
 
 // 그날 미달분을 같은 주 안에서 다시 나눌 수 있는가(오늘 포함 남은 공부일이 있는가)
 export function canRedistribute(data, goal, fromDate, today) {
-  const week = getWeek(data, goal, weekStartOf(data, fromDate), today);
-  return fromDate >= week.effStart && week.thisWeek.days.some((d) => d.date > fromDate && d.date >= today);
+  const weekStart = weekStartOf(data, fromDate);
+  const week = getWeek(data, goal, weekStart, today);
+  return fromDate >= week.effStart && goalDatesIn(data, goal, weekStart, today).some((d) => d > fromDate && d >= today);
 }
 
 // 이월해서 나눠 얹은 양을 그 몫이 붙은 날들에서 다 채웠는지
 export function redistributionState(data, sums, carry, today) {
   const goal = data.goals.find((g) => g.id === carry.goalId);
   if (!goal) return "expired";
-  const days = carryDays(getWeek(data, goal, weekStartOf(data, carry.fromDate), today), carry);
+  const days = carryDays(data, goal, getWeek(data, goal, weekStartOf(data, carry.fromDate), today), carry, today);
   if (!days.length) return "expired";
   let done = 0;
   let target = 0;
@@ -207,8 +220,7 @@ export function redistributionState(data, sums, carry, today) {
 
 // 오늘이 이번 주 그 과목의 마지막 공부일인가(못 채우면 다음 주 계획에 자동 반영된다)
 export function isLastStudyDay(data, goal, today) {
-  const week = getWeek(data, goal, weekStartOf(data, today), today);
-  const dates = week.thisWeek.days.map((d) => d.date);
+  const dates = goalDatesIn(data, goal, weekStartOf(data, today), today);
   return dates.includes(today) && dates[dates.length - 1] === today;
 }
 
@@ -271,9 +283,10 @@ function actualPace(data, goal, today, upcoming) {
 
   const info = data.tracks[goal.track];
   const ratio = weekendRatio(data);
+  const share = weekShare(goal);
   let weight = 0;
   for (let d = windowStart; d < today; d = addDays(d, 1)) {
-    if (effectiveKind(data, d) || !goal.weekdays.includes(weekdayOf(d)) || !studiesTrackOn(data, goal.track, d, today)) continue;
+    if (effectiveKind(data, d) || !studiesTrackOn(data, goal.track, d, today)) continue;
     weight += isWeekendLike(d) ? ratio : 1;
   }
   if (weight <= 0) return { state: "insufficient", observed };
@@ -283,9 +296,9 @@ function actualPace(data, goal, today, upcoming) {
   let projected = null;
   for (let i = 1; i <= horizonDays && left > 0; i++) {
     const d = addDays(today, i);
-    if (effectiveKind(data, d) || !goal.weekdays.includes(weekdayOf(d))) continue;
+    if (effectiveKind(data, d)) continue;
     if (!studiesTrackOn(data, goal.track, d, today)) {
-      if (info.maintain) left -= isWeekendLike(d) ? goal.maintWeekendTarget : goal.maintWeekdayTarget;
+      if (info.maintain) left -= (isWeekendLike(d) ? goal.maintWeekendTarget : goal.maintWeekdayTarget) * share;
     } else {
       left -= rate * (isWeekendLike(d) ? ratio : 1);
     }
@@ -324,7 +337,7 @@ export function planPreview(data, goal, today) {
   const now = collectDays(data, goal, anchor, endDate, today);
   const rawLeftNow = workLeft(goal);
   const leftNow = Math.max(0, rawLeftNow - now.credit);
-  const capacityMin = now.days.reduce((sum, d) => sum + limitMinutes(data, d.date), 0);
+  const capacityMin = now.days.reduce((sum, d) => sum + limitMinutes(data, d.date), 0) * weekShare(goal);
   const impossible = leftNow * goal.minutesPerUnit > capacityMin;
 
   const actual = actualPace(data, goal, today, basis.upcoming);
@@ -340,7 +353,13 @@ export function planPreview(data, goal, today) {
     left0,
     weekNeed: thisWeek.need,
     weekTotal: thisWeek.total,
-    weekDays: thisWeek.days.map((d, i) => ({ date: d.date, dow: d.dow, amount: thisWeek.amounts[i] })),
+    weekDays: isAutoGoal(data, goal)
+      ? goalDatesIn(data, goal, basis.weekStart, today).map((date) => ({
+          date,
+          dow: weekdayOf(date),
+          amount: weekLayout(data, goal.track, basis.weekStart, today).byDate.get(date)[goal.id]
+        }))
+      : [],
     doneThisWeek: entriesOf(data, goal.id, basis.weekStart, basis.weekEnd),
     plannedFinish,
     covered,
@@ -381,32 +400,23 @@ export function trackFeasibility(data, track, today) {
   return { needMin, availMin, ratio: availMin > 0 ? needMin / availMin : null, counted, total: goals.length, from, end };
 }
 
-// 이번 주(1차가 아직 시작 전이면 집중이 시작되는 주) 계획의 날짜별 예상 공부 시간과 공부 가능 시간.
-// 계획을 계산할 수 있는 과목은 그 주 배분 × 1개당 소요 시간, 그렇지 않은 과목은 고정 목표를 쓰고, 다른 트랙 유지 목표도 더한다.
+// 이번 주(1차가 아직 시작 전이면 집중이 시작되는 주) 랜덤 배치의 날짜별 과목·예상 공부 시간과 공부 가능 시간(다른 트랙 유지 목표 포함).
 export function weekLoadRows(data, track, today) {
   const info = data.tracks[track];
   const upcoming = track === 1 && !!info.activeFrom && info.activeFrom > today;
   const start = weekStartOf(data, upcoming ? info.activeFrom : today);
-  const goals = data.goals.filter((g) => !g.archived && g.track === track);
-  const previews = new Map(goals.map((g) => [g.id, planPreview(data, g, today)]));
+  const layout = weekLayout(data, track, start, today);
+  const goalById = new Map(data.goals.map((g) => [g.id, g]));
   const rows = Array.from({ length: 7 }, (_, i) => {
     const date = addDays(start, i);
-    let minutes = 0;
-    goals.forEach((g) => {
-      const preview = previews.get(g.id);
-      let amount = 0;
-      if (preview) amount = preview.weekDays.find((d) => d.date === date)?.amount || 0;
-      else if (!effectiveKind(data, date) && g.weekdays.includes(weekdayOf(date)) && !(upcoming && date < info.activeFrom)) {
-        amount = isWeekendLike(date) ? g.weekendTarget : g.weekdayTarget;
-      }
-      minutes += amount * g.minutesPerUnit;
-    });
+    const planned = layout.byDate.get(date) || {};
     const maint = maintenanceTargets(data, date, today);
-    minutes += Object.keys(maint).reduce((sum, id) => {
-      const g = data.goals.find((x) => x.id === id);
-      return sum + (g ? maint[id] * g.minutesPerUnit : 0);
-    }, 0);
-    return { date, dow: weekdayOf(date), minutes, limit: limitMinutes(data, date) };
+    const items = [
+      ...Object.entries(planned).map(([id, amount]) => ({ goal: goalById.get(id), amount, maint: false })),
+      ...Object.entries(maint).map(([id, amount]) => ({ goal: goalById.get(id), amount, maint: true }))
+    ].filter((it) => it.goal && it.amount > 0);
+    const minutes = items.reduce((sum, it) => sum + it.amount * it.goal.minutesPerUnit, 0);
+    return { date, dow: weekdayOf(date), kind: effectiveKind(data, date), items, minutes, limit: limitMinutes(data, date) };
   });
-  return { rows, start, upcoming, planned: [...previews.values()].filter(Boolean).length, total: goals.length };
+  return { rows, start, upcoming };
 }

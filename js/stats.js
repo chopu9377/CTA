@@ -2,6 +2,7 @@ import { addDays, diffDays, weekdayOf, monthKey } from "./dates.js";
 import { holidayName } from "./holidays.js";
 import { applyBonus, bonusMinutes } from "./bonus.js";
 import { autoApplies, autoTargetOn, canRedistribute, redistributionState, isAutoGoal, weekQuota } from "./weekplan.js";
+import { layoutOn } from "./layout.js";
 
 export function trackAt(data, dateStr) {
   let track = 2;
@@ -29,14 +30,15 @@ export function targetOn(goal, dateStr) {
   return isWeekendLike(dateStr) ? goal.weekendTarget : goal.weekdayTarget;
 }
 
+// 그날 목표 = 주간 랜덤 배치(layout.js)에서 그날 놓인 양. 자동 목표는 같은 주 이월 몫을 더하고, 보상 휴식만큼 뺀다.
 export function computeTargets(data, dateStr, preview = false) {
   if (effectiveKind(data, dateStr)) return {};
   const track = trackAt(data, dateStr);
-  const weekday = weekdayOf(dateStr);
+  const planned = layoutOn(data, track, dateStr);
   const targets = {};
   data.goals.forEach((g) => {
-    if (g.archived || g.track !== track || !g.weekdays.includes(weekday)) return;
-    const amount = autoApplies(data, g, dateStr) ? autoTargetOn(data, g, dateStr, preview) : targetOn(g, dateStr);
+    if (g.archived || g.track !== track) return;
+    const amount = autoApplies(data, g, dateStr) ? autoTargetOn(data, g, dateStr, preview) : planned[g.id] || 0;
     if (amount > 0) targets[g.id] = amount;
   });
   return applyBonus(data, dateStr, targets);
@@ -108,7 +110,9 @@ export function dayReport(data, ctx, dateStr, today) {
   })).filter((r) => r.goal);
   const shortfalls = rows.filter((r) => r.done < r.target).map((r) => {
     const auto = isAutoGoal(data, r.goal);
-    return { goalId: r.goal.id, amount: r.target - r.done, auto, canCarry: !auto || (dateStr < today && canRedistribute(data, r.goal, dateStr, today)) };
+    // 채우기 과목은 남는 시간에 얹는 양이라 못 채워도 이월하지 않는다(남은 분량은 다음 날 채우기가 다시 넣는다)
+    const canCarry = r.goal.planMode === "fill" ? false : !auto || (dateStr < today && canRedistribute(data, r.goal, dateStr, today));
+    return { goalId: r.goal.id, amount: r.target - r.done, auto, canCarry };
   });
   const totalDone = ctx.byDate.get(dateStr) || 0;
   const decision = data.settlements[dateStr];
