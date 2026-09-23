@@ -1,4 +1,4 @@
-const CACHE_NAME = "cta-static-v40";
+const CACHE_NAME = "cta-static-v41";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -41,8 +41,10 @@ const APP_SHELL = [
   "./icons/icon-512.png"
 ];
 
+// GitHub Pages가 파일마다 10분 HTTP 캐시를 붙이므로, 새 버전을 설치할 때는 브라우저 캐시를 건너뛰고 서버에서 받는다
+// (짧은 간격으로 배포하면 새 버전 이름으로 옛 파일이 저장되던 문제 방지)
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
+  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL.map((url) => new Request(url, { cache: "reload" })))));
   self.skipWaiting();
 });
 
