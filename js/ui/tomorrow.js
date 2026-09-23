@@ -2,17 +2,13 @@ import { addDays, formatKoreanDate } from "../dates.js";
 import { computeTargets, effectiveKind, dayReport } from "../stats.js";
 import { limitMinutes, maintenanceGoals, maintenanceTargets } from "../plan.js";
 import { bonusMinutes } from "../bonus.js";
-import { isAutoGoal, canRedistribute, carryPreview, weekStartOf } from "../weekplan.js";
+import { isAutoGoal, weekStartOf } from "../weekplan.js";
 import { countUnit } from "../presets.js";
 import { escapeHtml, subjectColor, formatDuration } from "./shared.js";
 
-// 오늘 미달분을 이월하면 내일 목표에 얹힐 양(자동 계획 과목만. 이월 여부는 내일 앱을 열 때 정한다)
-function carryHints(data, ctx, today, tomorrow) {
-  const report = dayReport(data, ctx, today, today);
-  return report.rows
-    .filter((r) => r.done < r.target && isAutoGoal(data, r.goal) && canRedistribute(data, r.goal, today, today))
-    .map((r) => ({ goal: r.goal, short: r.target - r.done, plus: carryPreview(data, r.goal, r.target - r.done, today, tomorrow, today) }))
-    .filter((h) => h.plus > 0);
+// 오늘 자동 과목 미달분: 이번 주 안에 더 풀면 먼저 생긴 부족분부터 자동으로 갚아진다
+function autoShortToday(data, ctx, today) {
+  return dayReport(data, ctx, today, today).rows.filter((r) => r.done < r.target && isAutoGoal(data, r.goal)).length;
 }
 
 // 내일 과목은 카드 뒷면(?)으로 가려 두고, 탭하면 뒤집어 보여 준다(뒤집은 상태는 화면 상태로만 기억)
@@ -43,8 +39,7 @@ function bodyHTML(data, ctx, today, tomorrow, ui) {
   const minutes = rows.reduce((sum, r) => sum + r.amount * r.goal.minutesPerUnit, 0);
   const limit = limitMinutes(data, tomorrow);
   const nextWeek = weekStartOf(data, tomorrow) > weekStartOf(data, today);
-  // 이월 안내는 과목 이름이 드러나므로 그 카드를 뒤집은 뒤에만 보여 준다
-  const hints = nextWeek ? [] : carryHints(data, ctx, today, tomorrow).filter((h) => ui.revealed.has(`${tomorrow}|${h.goal.id}`));
+  const shortToday = nextWeek ? 0 : autoShortToday(data, ctx, today);
   const unit = (g) => escapeHtml(countUnit(g.unit));
   const keys = rows.map((r) => `${tomorrow}|${r.goal.id}`);
   const hidden = keys.filter((k) => !ui.revealed.has(k));
@@ -54,7 +49,7 @@ function bodyHTML(data, ctx, today, tomorrow, ui) {
     ${hidden.length > 1 ? `<button type="button" class="btn btn-secondary btn-sm flip-all" data-action="flip-card" data-key="all" data-keys="${hidden.join(",")}">모두 뒤집기</button>` : ""}
     <div class="notice">공부 가능 ${formatDuration(limit)} · 내일 목표 합계 약 ${formatDuration(minutes)}</div>
     ${minutes > limit ? `<div class="notice warn">내일 목표 합계가 공부 가능 시간보다 ${formatDuration(minutes - limit)} 많아요.</div>` : ""}
-    ${hints.map((h) => `<div class="notice">오늘 ${escapeHtml(h.goal.subject)} ${h.short}${unit(h.goal)} 미달 · 내일 앱을 열 때 이월하면 내일 <b>+${h.plus}${unit(h.goal)}</b></div>`).join("")}
+    ${shortToday ? `<div class="notice">오늘 못 채운 자동 과목 ${shortToday}개는 이번 주 안에 목표보다 더 풀면 먼저 생긴 부족분부터 자동으로 갚아져요(휴식·복습일 포함).</div>` : ""}
     <p class="hint">${nextWeek ? "새 주의 첫날이라 지금 진도 기준 예상이에요. 오늘 더 공부하면 과목 배치까지 달라질 수 있어요." : "지금 기록 기준이에요. 오늘 더 하거나 되돌리면 양이 바뀔 수 있고, 휴식일을 바꾸면 남은 날 과목이 다시 섞여요."}</p>`;
 }
 

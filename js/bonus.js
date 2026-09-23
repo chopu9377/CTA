@@ -79,6 +79,11 @@ export function bonusSavings(data, ctx, today) {
     if (c.redistribute || !goal) return;
     repaidMin += (c.amount - (ctx.remaining.get(c.id) ?? c.amount)) * goal.minutesPerUnit;
   });
+  // 자동 목표의 주간 소급에 쓴 초과분도 저축에서 뺀다(부족분을 먼저 갚고 남은 초과만 쌓인다)
+  ctx.autoDebts.forEach((debt, key) => {
+    const goal = goalById.get(key.split("|")[0]);
+    if (goal) repaidMin += (debt.amount - debt.left) * goal.minutesPerUnit;
+  });
   const usedMin = Object.keys(data.bonusRest).reduce((sum, date) => sum + bonusMinutes(data, date), 0);
   const rawMin = Math.max(0, Math.round(excessMin - repaidMin - usedMin));
   return { rawMin, savedMin: Math.min(BONUS_CAP_MIN, rawMin), usedMin };
@@ -90,10 +95,8 @@ export function bonusMaxFor(data, dateStr, savedMin) {
 }
 
 // 이번 주 진행 상태. 지금까지(오늘 제외) 계획보다 뒤처졌으면 behind, 오늘 목표까지 채우고도 남으면 ahead.
-// 이월해서 뒤로 넘긴 양은 뒤처진 것으로 세지 않는다(넘긴 날의 목표에서 빼고, 받는 날의 목표에 얹혀 있다).
 export function weekShip(data, ctx, today) {
   const start = weekStartOf(data, today);
-  const goalById = new Map(data.goals.map((g) => [g.id, g]));
   let netBefore = 0;
   let netToday = 0;
   for (let d = start; d <= today; d = addDays(d, 1)) {
@@ -105,10 +108,6 @@ export function weekShip(data, ctx, today) {
       else netToday += diff;
     });
   }
-  data.carries.forEach((c) => {
-    const goal = goalById.get(c.goalId);
-    if (c.redistribute && goal && c.fromDate >= start && c.fromDate < today) netBefore += c.amount * goal.minutesPerUnit;
-  });
   const net = netBefore + netToday;
   const level = net > 0 ? "ahead" : netBefore < 0 ? "behind" : "cruise";
   return { level, aheadMin: Math.max(0, Math.round(net)), behindMin: Math.max(0, Math.round(-netBefore)) };

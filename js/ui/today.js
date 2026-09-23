@@ -6,10 +6,16 @@ import { UNIT_SUGGESTIONS, TRACK_LABEL, countUnit } from "../presets.js";
 import { escapeHtml, subjectColor, formatDuration } from "./shared.js";
 import { tomorrowCardHTML } from "./tomorrow.js";
 
+// 남은 이월: 고정 목표의 이월 + 자동 목표의 이번 주 부족분(주가 끝나면 다음 주 역산에 흡수되어 빠진다)
 function carryOf(data, ctx, goalId) {
-  return data.carries
-    .filter((c) => c.goalId === goalId)
+  const fixed = data.carries
+    .filter((c) => c.goalId === goalId && !c.redistribute)
     .reduce((sum, c) => sum + Math.max(0, ctx.remaining.get(c.id) || 0), 0);
+  let auto = 0;
+  ctx.autoDebts.forEach((debt, key) => {
+    if (debt.open && key.startsWith(`${goalId}|`)) auto += debt.left;
+  });
+  return fixed + auto;
 }
 
 function goalRowHTML(data, ctx, row, selected, tag = "", auto = null) {

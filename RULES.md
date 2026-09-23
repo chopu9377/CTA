@@ -61,6 +61,7 @@
     syncui.js     # 설정의 GitHub 동기화 카드, 동기화 충돌 선택 시트
 /data/holidays.json          # 공휴일 목록(정기 작업이 갱신, 서비스워커가 미리 캐시)
 /tests/layout-check.mjs      # 개발용 검증: `node tests/layout-check.mjs`(앱은 불러오지 않음, npm 패키지 없음). 계획·배치 코드를 고치면 실행
+/tests/carry-check.mjs       # 개발용 검증: 자동 과목 주간 소급(`node tests/carry-check.mjs`). 이월·판정 코드를 고치면 실행
 /.github/workflows/          # 공휴일 갱신 작업(앱 코드가 아니라 저장소 자동화)
 /manifest.json
 /service-worker.js

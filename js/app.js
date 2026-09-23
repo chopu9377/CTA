@@ -49,7 +49,7 @@ function render() {
   const dawn = storage.dawnInfo();
   if (holidaysLoaded()) storage.freezeDayTargets(today);
   const data = storage.getData();
-  const ctx = buildContext(data);
+  const ctx = buildContext(data, today);
 
   if (ui.view === "week") root.innerHTML = renderWeek(data, ctx, today, ui);
   else if (ui.view === "today") root.innerHTML = renderToday(data, ctx, today, ui, dawn);

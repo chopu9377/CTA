@@ -1,6 +1,5 @@
 import { addDays } from "./dates.js";
-import { getData, persist, uid, refreshToday, replaceData, findGoal, markReplan, appToday } from "./store.js";
-import { isAutoGoal, canRedistribute } from "./weekplan.js";
+import { getData, persist, uid, refreshToday, replaceData, markReplan, appToday } from "./store.js";
 
 // app.js는 저장 관련 함수를 모두 이 파일에서 가져온다(핵심은 store.js, 목표·기록 변경은 goals.js).
 export { getData, freezeDayTargets, legacyDataJson, appToday, dawnInfo, setDawnChoice } from "./store.js";
@@ -43,23 +42,14 @@ export function setBonusRest(dateStr, amounts) {
   persist();
 }
 
-// 고정 목표의 이월은 이후 초과분으로 갚는다. 자동 계획 목표의 이월은 같은 주 남은 공부일에 나눠 얹고(redistribute),
-// 다시 나눌 날이 없으면 아무것도 만들지 않는다(다음 주 계획에 자동 반영).
+// 고정 목표의 이월은 이후 초과분으로 갚는다. 자동 계획·채우기 목표는 묻지 않는다(자동은 그 주 안에서 자동 소급, 채우기는 이월 없음).
 export function settleDay(dateStr, decision, shortfalls) {
   const data = getData();
-  const today = appToday();
   data.settlements[dateStr] = decision;
   if (decision === "carried") {
-    shortfalls.forEach((s) => {
-      const goal = findGoal(s.goalId);
-      if (goal && isAutoGoal(data, goal)) {
-        if (canRedistribute(data, goal, dateStr, today)) {
-          data.carries.push({ id: uid(), goalId: s.goalId, fromDate: dateStr, atDate: today, amount: s.amount, redistribute: true });
-        }
-      } else {
-        data.carries.push({ id: uid(), goalId: s.goalId, fromDate: dateStr, amount: s.amount });
-      }
-    });
+    shortfalls
+      .filter((s) => s.canCarry)
+      .forEach((s) => data.carries.push({ id: uid(), goalId: s.goalId, fromDate: dateStr, amount: s.amount }));
   }
   refreshToday();
   persist();

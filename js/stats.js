@@ -1,7 +1,7 @@
-import { addDays, diffDays, weekdayOf, monthKey } from "./dates.js";
+import { addDays, diffDays, weekdayOf, monthKey, todayStr } from "./dates.js";
 import { holidayName } from "./holidays.js";
 import { applyBonus, bonusMinutes } from "./bonus.js";
-import { autoApplies, autoTargetOn, canRedistribute, redistributionState, isAutoGoal, weekQuota } from "./weekplan.js";
+import { autoApplies, autoTargetOn, autoDebts, isAutoGoal, weekQuota } from "./weekplan.js";
 import { layoutOn } from "./layout.js";
 
 export function trackAt(data, dateStr) {
@@ -49,7 +49,8 @@ export function targetsFor(data, dateStr) {
 }
 
 // byDate는 그날 활성 트랙의 기록만 센다(유지 모드로 푼 다른 트랙 기록은 달성/미달 판정에 넣지 않기 위해).
-export function buildContext(data) {
+// autoDebts: 자동 목표의 주간 소급(부족분별 남은 양). 고정 목표의 이월은 remaining.
+export function buildContext(data, today = todayStr()) {
   const sums = new Map();
   const byDate = new Map();
   const goalTrack = new Map(data.goals.map((g) => [g.id, g.track]));
@@ -58,14 +59,14 @@ export function buildContext(data) {
     sums.set(key, (sums.get(key) || 0) + e.amount);
     if (goalTrack.get(e.goalId) === trackAt(data, e.date)) byDate.set(e.date, (byDate.get(e.date) || 0) + e.amount);
   });
-  return { sums, byDate, remaining: carryRemaining(data, sums) };
+  return { sums, byDate, remaining: carryRemaining(data, sums), autoDebts: autoDebts(data, sums, today) };
 }
 
-// 그날 목표를 넘겨 푼 양(초과분)이 이월분을 오래된 순서로 갚는다.
+// 그날 목표를 넘겨 푼 양(초과분)이 고정 목표의 이월분을 오래된 순서로 갚는다.
 function carryRemaining(data, sums) {
   const remaining = new Map();
   const carriesByGoal = new Map();
-  // 자동 계획 목표의 같은 주 이월(redistribute)은 그 주 목표에 얹히므로 초과분으로 갚는 계산에서는 뺀다
+  // 옛 버전의 자동 목표 같은 주 이월(redistribute)은 더 이상 쓰지 않는다(자동 목표는 autoDebts로 소급)
   data.carries.forEach((c) => {
     if (c.redistribute) return;
     remaining.set(c.id, c.amount);
@@ -110,14 +111,26 @@ export function dayReport(data, ctx, dateStr, today) {
   })).filter((r) => r.goal);
   const shortfalls = rows.filter((r) => r.done < r.target).map((r) => {
     const auto = isAutoGoal(data, r.goal);
-    // 채우기 과목은 남는 시간에 얹는 양이라 못 채워도 이월하지 않는다(남은 분량은 다음 날 채우기가 다시 넣는다)
-    const canCarry = r.goal.planMode === "fill" ? false : !auto || (dateStr < today && canRedistribute(data, r.goal, dateStr, today));
-    return { goalId: r.goal.id, amount: r.target - r.done, auto, canCarry };
+    // 이월/버림을 묻는 건 고정 목표만. 자동 목표는 그 주 안에서 자동 소급(autoDebts)되고, 채우기 과목은 남는 시간에 얹는 양이라 이월하지 않는다.
+    return { goalId: r.goal.id, amount: r.target - r.done, auto, canCarry: !auto && r.goal.planMode !== "fill" };
   });
   const totalDone = ctx.byDate.get(dateStr) || 0;
   const decision = data.settlements[dateStr];
   const bonus = bonusMinutes(data, dateStr);
   const fullBonus = bonus > 0 && !rows.length;
+
+  // 부족분마다: paid(다 갚음) / pending(갚는 중) / unpaid(버렸거나 주가 끝나 흡수됨)
+  const shortfallState = (s) => {
+    if (s.auto) {
+      const debt = ctx.autoDebts.get(`${s.goalId}|${dateStr}`);
+      if (!debt) return "unpaid";
+      return debt.left <= 0 ? "paid" : debt.open ? "pending" : "unpaid";
+    }
+    if (!s.canCarry || decision !== "carried") return "unpaid";
+    const carry = data.carries.find((c) => c.fromDate === dateStr && c.goalId === s.goalId && !c.redistribute);
+    if (!carry) return "unpaid";
+    return ctx.remaining.get(carry.id) <= 0 ? "paid" : "pending";
+  };
 
   let status;
   if (dateStr > today) status = kind || (fullBonus ? "bonus" : "future");
@@ -125,16 +138,13 @@ export function dayReport(data, ctx, dateStr, today) {
   else if (!rows.length) status = totalDone > 0 ? "full" : fullBonus ? "bonus" : dateStr === today ? "today" : "none";
   else if (!shortfalls.length) status = "full";
   else if (dateStr === today) status = "today";
-  else if (decision === "carried") {
-    const carries = data.carries.filter((c) => c.fromDate === dateStr);
-    const fixedPaid = carries.filter((c) => !c.redistribute).every((c) => ctx.remaining.get(c.id) <= 0);
-    const states = carries.filter((c) => c.redistribute).map((c) => redistributionState(data, ctx.sums, c, today));
-    if (fixedPaid && states.every((s) => s === "paid")) status = "carried";
-    else if (!fixedPaid || states.includes("pending")) status = "pending";
+  else {
+    const states = shortfalls.map(shortfallState);
+    if (states.every((s) => s === "paid")) status = "carried";
+    else if (states.includes("pending")) status = "pending";
     else status = totalDone > 0 ? "partial" : "miss";
-  } else status = totalDone > 0 ? "partial" : "miss";
+  }
 
-  // 자동 계획 목표는 같은 주 안에 다시 나눌 공부일이 있을 때만 이월을 묻는다(없으면 다음 주 계획에 자동 반영)
   const undecided = dateStr < today && !kind && shortfalls.some((s) => s.canCarry) && decision === undefined;
   return { date: dateStr, kind, status, rows, shortfalls, undecided, totalDone, bonus, holiday: holidayName(dateStr) };
 }
