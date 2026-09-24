@@ -1,4 +1,4 @@
-const CACHE_NAME = "cta-static-v41";
+const CACHE_NAME = "cta-static-v42";
 const APP_SHELL = [
   "./",
   "./index.html",

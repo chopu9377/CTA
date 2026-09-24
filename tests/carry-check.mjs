@@ -43,6 +43,14 @@ bumpVersion();
 ctx = buildContext(data, today);
 check(dayReport(data, ctx, "2026-09-29", today).status === "carried", "오늘 더 풀면 9/29도 이월 후 완료");
 
+// 주 중간에 다시 나눠도(오늘 휴식 지정 등 → replanFrom = 오늘) 그 전 날 부족분은 이월 대기로 남는다
+data.goals[0].replanFrom = today;
+bumpVersion();
+ctx = buildContext(data, today);
+check(debt("2026-09-29")?.amount === 2 && debt("2026-09-29")?.open, "다시 나눈 뒤에도 9/29 부족분이 소급 대상에 남음", JSON.stringify(debt("2026-09-29")));
+check(dayReport(data, ctx, "2026-09-29", today).status === "carried", "다시 나눈 뒤에도 9/29는 이월 후 완료 유지");
+data.goals[0].replanFrom = null;
+
 // 주가 끝난 뒤: 남은 부족분은 소급되지 않고 미달로 굳는다
 data.entries = data.entries.filter((e) => e.id !== "4");
 data.entries.push({ id: "5", goalId: "a", date: "2026-10-05", amount: 9, at: "5" });

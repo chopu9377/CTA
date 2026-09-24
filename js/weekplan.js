@@ -165,15 +165,16 @@ export function autoApplies(data, goal, dateStr) {
   return isAutoGoal(data, goal) && dateStr >= goal.autoFrom;
 }
 
-// 그 주 안에서 자동 계획이 새로 출발한 날(자동을 켠 날·다시 나눈 날). 그 주 밖의 출발일은 그 주와 상관없다.
-function weekEffStart(goal, weekStart) {
+// 그 주 안에서 자동 목표를 켠 날(그 전 날은 자동 목표가 아니었다). 주 중간에 다시 나눈 날(replanFrom)은 보지 않는다 —
+// 다시 나눠도 그 주에 이미 생긴 부족분은 주가 끝날 때까지 이월 대기로 남는다.
+function weekAutoStart(goal, weekStart) {
   const weekEnd = addDays(weekStart, 7);
-  return [goal.autoFrom, goal.replanFrom].filter((d) => d && d > weekStart && d < weekEnd).sort().pop() || weekStart;
+  return goal.autoFrom && goal.autoFrom > weekStart && goal.autoFrom < weekEnd ? goal.autoFrom : weekStart;
 }
 
 // 자동 목표의 주간 소급. 그 주 출발일부터 지난 날의 못 채운 양을 부족분으로 쌓고, 그날 목표를 넘겨 푼 양(휴식·복습일 포함)으로
 // 먼저 생긴 부족분부터 갚는다(그날 몫을 먼저 채운 뒤 남는 양만). 주가 끝나면 남은 부족분은 다음 주 역산에 이미 들어가므로
-// 다른 주의 초과로는 갚지 않는다. 출발일 이전 날의 부족분도 새 계획에 흡수되어 있어 세지 않는다.
+// 다른 주의 초과로는 갚지 않는다. 주 중간에 다시 나눠도(휴식 지정 등) 그 전 날의 부족분은 그대로 남는다.
 // 결과: "목표id|날짜" → { amount, left, open(그 주가 아직 안 끝남) }
 export function autoDebts(data, sums, today) {
   const out = new Map();
@@ -182,7 +183,7 @@ export function autoDebts(data, sums, today) {
     for (let ws = weekStartOf(data, goal.autoFrom); ws <= today; ws = addDays(ws, 7)) {
       const weekEnd = addDays(ws, 7);
       const debts = [];
-      for (let d = weekEffStart(goal, ws); d < weekEnd && d <= today; d = addDays(d, 1)) {
+      for (let d = weekAutoStart(goal, ws); d < weekEnd && d <= today; d = addDays(d, 1)) {
         if (d < goal.autoFrom || trackAt(data, d) !== goal.track) continue;
         const diff = (sums.get(`${goal.id}|${d}`) || 0) - (targetsFor(data, d)[goal.id] || 0);
         if (diff > 0) {
@@ -206,11 +207,11 @@ export function isLastStudyDay(data, goal, today) {
   return dates.includes(today) && dates[dates.length - 1] === today;
 }
 
-// 그 주 목표량. 자동 목표가 주 중간에 새 출발(replan)했다면 그 이전 날은 실제 한 양으로 확정하고, 이후는 새 계획의 목표를 쓴다
-// (이전 날에 못 한 양은 새 계획의 남은 분량에 이미 들어 있어서 목표에 두 번 세면 안 된다).
+// 그 주 목표량. 자동 목표를 주 중간에 켰다면 그 이전 날은 실제 한 양으로 확정하고, 이후는 그날 목표(지난 날은 스냅샷)를 쓴다.
+// 주 중간에 다시 나눈 경우도 그 전 날 목표는 그대로 센다(그 부족분은 주 안에서 이월 대기로 갚는다).
 export function weekQuota(data, sums, goal, dates) {
   let from = dates[0];
-  if (isAutoGoal(data, goal)) from = weekEffStart(goal, weekStartOf(data, from));
+  if (isAutoGoal(data, goal)) from = weekAutoStart(goal, weekStartOf(data, from));
   const sumOf = (d) => sums.get(`${goal.id}|${d}`) || 0;
   const before = dates.filter((d) => d < from).reduce((s, d) => s + sumOf(d), 0);
   const rest = dates.filter((d) => d >= from);
