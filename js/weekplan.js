@@ -175,16 +175,23 @@ function weekAutoStart(goal, weekStart) {
 // 자동 목표의 주간 소급. 그 주 출발일부터 지난 날의 못 채운 양을 부족분으로 쌓고, 그날 목표를 넘겨 푼 양(휴식·복습일 포함)으로
 // 먼저 생긴 부족분부터 갚는다(그날 몫을 먼저 채운 뒤 남는 양만). 주가 끝나면 남은 부족분은 다음 주 역산에 이미 들어가므로
 // 다른 주의 초과로는 갚지 않는다. 주 중간에 다시 나눠도(휴식 지정 등) 그 전 날의 부족분은 그대로 남는다.
+// 채우기 목표도 같은 규칙으로 그 주 안에서 소급한다(이월/버림은 묻지 않는다).
 // 결과: "목표id|날짜" → { amount, left, open(그 주가 아직 안 끝남) }
+export function weekCarries(data, goal) {
+  return isAutoGoal(data, goal) || goal.planMode === "fill";
+}
+
 export function autoDebts(data, sums, today) {
   const out = new Map();
   data.goals.forEach((goal) => {
-    if (goal.archived || !isAutoGoal(data, goal)) return;
-    for (let ws = weekStartOf(data, goal.autoFrom); ws <= today; ws = addDays(ws, 7)) {
+    if (goal.archived || !weekCarries(data, goal)) return;
+    const auto = isAutoGoal(data, goal);
+    const from = auto ? goal.autoFrom : data.startDate;
+    for (let ws = weekStartOf(data, from); ws <= today; ws = addDays(ws, 7)) {
       const weekEnd = addDays(ws, 7);
       const debts = [];
-      for (let d = weekAutoStart(goal, ws); d < weekEnd && d <= today; d = addDays(d, 1)) {
-        if (d < goal.autoFrom || trackAt(data, d) !== goal.track) continue;
+      for (let d = auto ? weekAutoStart(goal, ws) : ws; d < weekEnd && d <= today; d = addDays(d, 1)) {
+        if (d < from || trackAt(data, d) !== goal.track) continue;
         const diff = (sums.get(`${goal.id}|${d}`) || 0) - (targetsFor(data, d)[goal.id] || 0);
         if (diff > 0) {
           let pool = diff;

@@ -76,5 +76,21 @@ bumpVersion();
 ctx = buildContext(data, today);
 check(saved() === 9, "다른 과목 사용 기록은 이 과목 저축에 영향 없음", `${saved()}개`);
 
+// 채우기 과목도 같은 주 안에서 소급: 9/23(수) 3개 못 함 → 휴식일 9/24에 2, 복습일 9/25에 1 → 9/23 칸은 이월 후 완료
+const fillData = {
+  ...data, dayKinds: { "2026-09-24": "rest", "2026-09-25": "review" }, bonusRest: {},
+  goals: [{ ...data.goals[0], id: "f", subject: "세법학", planMode: "fill", autoFrom: null }],
+  dayTargets: { "2026-09-20": {}, "2026-09-21": {}, "2026-09-22": {}, "2026-09-23": { f: 3 }, "2026-09-24": {}, "2026-09-25": {} },
+  entries: [
+    { id: "f1", goalId: "f", date: "2026-09-24", amount: 2, at: "1" },
+    { id: "f2", goalId: "f", date: "2026-09-25", amount: 1, at: "2" }
+  ]
+};
+bumpVersion();
+ctx = buildContext(fillData, "2026-09-26");
+const fillDay = dayReport(fillData, ctx, "2026-09-23", "2026-09-26");
+check(fillDay.status === "carried", "채우기 과목 부족분도 같은 주 초과분으로 소급", fillDay.status);
+check(!fillDay.undecided, "채우기 과목은 이월/버림을 묻지 않음");
+
 console.log(failures.length ? `\n실패 ${failures.length}개` : "\n모두 통과");
 process.exit(failures.length ? 1 : 0);

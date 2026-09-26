@@ -1,7 +1,7 @@
 import { addDays, diffDays, weekdayOf, monthKey, todayStr } from "./dates.js";
 import { holidayName } from "./holidays.js";
 import { applyBonus, bonusMinutes } from "./bonus.js";
-import { autoApplies, autoTargetOn, autoDebts, isAutoGoal, weekQuota } from "./weekplan.js";
+import { autoApplies, autoTargetOn, autoDebts, weekCarries, weekQuota } from "./weekplan.js";
 import { layoutOn } from "./layout.js";
 
 export function trackAt(data, dateStr) {
@@ -110,9 +110,9 @@ export function dayReport(data, ctx, dateStr, today) {
     done: ctx.sums.get(`${goalId}|${dateStr}`) || 0
   })).filter((r) => r.goal);
   const shortfalls = rows.filter((r) => r.done < r.target).map((r) => {
-    const auto = isAutoGoal(data, r.goal);
-    // 이월/버림을 묻는 건 고정 목표만. 자동 목표는 그 주 안에서 자동 소급(autoDebts)되고, 채우기 과목은 남는 시간에 얹는 양이라 이월하지 않는다.
-    return { goalId: r.goal.id, amount: r.target - r.done, auto, canCarry: !auto && r.goal.planMode !== "fill" };
+    const auto = weekCarries(data, r.goal);
+    // 이월/버림을 묻는 건 고정 목표만. 자동·채우기 목표는 묻지 않고 그 주 안에서 자동 소급(autoDebts)된다.
+    return { goalId: r.goal.id, amount: r.target - r.done, auto, canCarry: !auto };
   });
   const totalDone = ctx.byDate.get(dateStr) || 0;
   const decision = data.settlements[dateStr];
