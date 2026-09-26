@@ -519,6 +519,62 @@ body {
   padding-bottom: 8px;
 }
 
+/* 공부기록: 주를 누르면 과목별 양 */
+.week-detail > summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.week-detail > summary::-webkit-details-marker {
+  display: none;
+}
+
+.week-detail[open] > summary .week {
+  margin-bottom: 0;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.week-detail-body {
+  border: 1.5px solid var(--gridline);
+  border-top: none;
+  border-radius: 0 0 14px 14px;
+  padding: 6px 10px 8px;
+  margin-bottom: 6px;
+}
+
+.wk-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 0;
+  font-size: 13px;
+  border-bottom: 1px solid var(--gridline);
+}
+
+.wk-name small,
+.wk-count small {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.wk-count {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.wk-total {
+  padding-top: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: right;
+}
+
+.week-detail-body .hint {
+  margin: 6px 0 0;
+}
+
 /* meters and rings */
 .meter-track {
   height: 8px;
