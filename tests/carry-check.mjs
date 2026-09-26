@@ -64,5 +64,17 @@ ctx = buildContext(data, today);
 check(debt("2026-09-29")?.left === 1 && debt("2026-09-29")?.open === false, "다음 주 초과분으로는 지난주 부족분을 안 갚음");
 check(dayReport(data, ctx, "2026-09-29", today).status === "partial", "주가 끝나면 9/29 칸은 부분(다음 주 역산에 흡수)");
 
+// 과목별 저축: 10/5 목표 0인 날 9개 → 그 과목 저축 9개(상한 7시간 = 21개). 그 과목에 4개 쓰면 5개 남음
+const saved = () => bonusSavings(data, ctx, today).byGoal.get("a")?.saved || 0;
+check(saved() === 9, "목표 없는 날 초과분이 그 과목 저축으로", `${saved()}개`);
+data.bonusRest["2026-10-06"] = { a: 4 };
+bumpVersion();
+ctx = buildContext(data, today);
+check(saved() === 5, "그 과목에 쓴 만큼만 그 과목 저축에서 빠짐", `${saved()}개`);
+data.bonusRest["2026-10-06"] = { other: 3 };
+bumpVersion();
+ctx = buildContext(data, today);
+check(saved() === 9, "다른 과목 사용 기록은 이 과목 저축에 영향 없음", `${saved()}개`);
+
 console.log(failures.length ? `\n실패 ${failures.length}개` : "\n모두 통과");
 process.exit(failures.length ? 1 : 0);

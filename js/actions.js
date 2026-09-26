@@ -91,9 +91,9 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
       const today = storage.appToday();
       const date = btn.dataset.date;
       const reason = bonusBlockReason(data, date, today);
-      const max = bonusMaxFor(data, date, bonusSavings(data, buildContext(data), today).savedMin);
+      const max = bonusMaxFor(data, date, bonusSavings(data, buildContext(data), today));
       if (reason || max <= 0) {
-        toast(reason || "저축이 모자라요");
+        toast(reason || "그날 과목의 저축이 없어요");
         return;
       }
       ui.bonusDate = date;
@@ -107,16 +107,12 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
       if (!goal) return;
       const targets = computeTargets(data, ui.bonusDate, true);
       const target = targets[goal.id] || 0;
-      const savedMin = bonusSavings(data, buildContext(data), today).savedMin;
+      const saved = bonusSavings(data, buildContext(data), today).byGoal.get(goal.id)?.saved || 0;
       const amounts = ui.bonusAmounts || (ui.bonusAmounts = {});
       const current = amounts[goal.id] || 0;
       const step = Number(btn.dataset.step);
       if (step > 0) {
-        const usedMin = Object.entries(amounts).reduce((sum, [id, amt]) => {
-          const g = data.goals.find((x) => x.id === id);
-          return sum + (g ? amt * g.minutesPerUnit : 0);
-        }, 0);
-        if (current >= target || usedMin + goal.minutesPerUnit > savedMin) return;
+        if (current >= target || current >= saved) return;
         amounts[goal.id] = current + 1;
       } else {
         const next = Math.max(0, current - 1);
@@ -156,7 +152,7 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
     "cancel-bonus"() {
       storage.setBonusRest(ui.bonusDate, {});
       closeSheet();
-      toast("보상 휴식을 취소했어요 · 시간이 저축으로 돌아왔어요");
+      toast("보상 휴식을 취소했어요 · 줄인 양이 과목별 저축으로 돌아왔어요");
     },
     "open-settle"() {
       showSettleSheet();

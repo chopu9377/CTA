@@ -551,6 +551,15 @@ body {
   flex: 1;
 }
 
+/* 과목별 저축 게이지: 과목마다 한 줄씩 붙여 쌓는다 */
+.ship .overall + .overall {
+  margin-top: -10px;
+}
+
+.ship .overall > span {
+  min-width: 64px;
+}
+
 .overall b {
   min-width: 36px;
   text-align: right;
@@ -578,6 +587,12 @@ body {
   font-size: 11px;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
+}
+
+.ring-over {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent, #2f6fed);
 }
 
 .swatch {

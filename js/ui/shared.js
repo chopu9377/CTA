@@ -25,8 +25,8 @@ export function formatDuration(minutes) {
   return m ? `${h}시간 ${m}분` : `${h}시간`;
 }
 
-// 채워질수록 진해지다가 100%면 꽉 찬 원 + 체크
-export function ringHTML(color, pct) {
+// 채워질수록 진해지다가 100%면 꽉 찬 원 + 체크(목표를 넘겼으면 체크 대신 별)
+export function ringHTML(color, pct, over = false) {
   const r = 26;
   const c = 2 * Math.PI * r;
   const done = pct >= 100;
@@ -35,7 +35,9 @@ export function ringHTML(color, pct) {
   if (done) {
     return `<svg viewBox="0 0 64 64" width="66" height="66">${track}
       <circle cx="32" cy="32" r="29.5" fill="${color}" />
-      <path d="M20 33 l8 8 l16 -17" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" /></svg>`;
+      ${over
+        ? `<text x="32" y="43" text-anchor="middle" font-size="30" fill="#fff">★</text>`
+        : `<path d="M20 33 l8 8 l16 -17" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />`}</svg>`;
   }
   const arc = pct > 0
     ? `<circle cx="32" cy="32" r="${r}" fill="none" stroke="${color}" stroke-opacity="${opacity}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${(c * pct / 100).toFixed(2)} ${c.toFixed(2)}" transform="rotate(-90 32 32)" />`

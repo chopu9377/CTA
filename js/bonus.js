@@ -3,7 +3,7 @@ import { effectiveKind, targetsFor, trackAt, computeTargets } from "./stats.js";
 import { limitMinutes, plannedTrackOn } from "./plan.js";
 import { weekStartOf } from "./weekplan.js";
 
-// 휴식 저축(보상 휴식): 목표보다 넘게 푼 양을 "시간"으로 모아 두었다가 미래의 하루 중 고른 과목만큼 줄이는 데 쓴다.
+// 휴식 저축(보상 휴식): 목표보다 넘게 푼 양을 과목별로 모아 두었다가 미래의 하루에 그 과목 목표를 줄이는 데 쓴다.
 // 저장하는 값은 사용 기록(bonusRest{ 날짜: { 목표id: 줄인 양 } })뿐이고, 저축액은 기록에서 매번 다시 계산한다.
 // 옛 기록(날짜당 분 숫자 하나, 전 과목 비율 차감)도 그대로 읽을 수 있다.
 
@@ -62,36 +62,60 @@ export function bonusBlockReason(data, dateStr, today) {
   return null;
 }
 
-// 초과 시간 - 이월 상환에 쓴 시간 - 이미 쓴 시간. 상한을 넘는 초과분은 진도로 남아 다음 주 계획을 낮춘다.
+// 과목별 저축 상한(개수): 그 과목 1개당 소요 시간으로 7시간어치까지
+export function bonusCapOf(goal) {
+  return Math.floor(BONUS_CAP_MIN / Math.max(1, goal.minutesPerUnit));
+}
+
+// 그날 과목별로 줄인 양. 옛 기록(분 숫자 하나)은 과목을 알 수 없어 어느 과목 저축에서도 빼지 않는다.
+function bonusAmountsOn(data, dateStr) {
+  const entry = data.bonusRest[dateStr];
+  return entry && typeof entry === "object" ? entry : {};
+}
+
+// 과목별 저축(개수) = 그 과목 초과분 - 그 과목 이월·소급 상환 - 그 과목에 쓴 보상 휴식.
+// 저축은 그 과목 목표만 줄일 수 있다(세법학을 더 풀어 법인세를 미루지 못하게). 같은 과목 안에서는 먼저 푼 양을 나중 목표에서
+// 빼는 것이라 총량은 그대로다 — 줄인 날 못 한 양은 진도에 안 잡혀 다음 주 계획에 다시 들어간다.
+// 상한을 넘는 초과분은 저축에 안 쌓이고 진도로만 남아 다음 주 계획을 낮춘다.
 export function bonusSavings(data, ctx, today) {
   const goalById = new Map(data.goals.map((g) => [g.id, g]));
-  let excessMin = 0;
+  const raw = new Map();
+  const add = (goalId, n) => goalById.has(goalId) && raw.set(goalId, (raw.get(goalId) || 0) + n);
   ctx.sums.forEach((done, key) => {
     const [goalId, date] = key.split("|");
     const goal = goalById.get(goalId);
     if (!goal || date > today || goal.track !== trackAt(data, date)) return;
     const excess = done - (targetsFor(data, date)[goalId] || 0);
-    if (excess > 0) excessMin += excess * goal.minutesPerUnit;
+    if (excess > 0) add(goalId, excess);
   });
-  let repaidMin = 0;
   data.carries.forEach((c) => {
-    const goal = goalById.get(c.goalId);
-    if (c.redistribute || !goal) return;
-    repaidMin += (c.amount - (ctx.remaining.get(c.id) ?? c.amount)) * goal.minutesPerUnit;
+    if (!c.redistribute) add(c.goalId, -(c.amount - (ctx.remaining.get(c.id) ?? c.amount)));
   });
-  // 자동 목표의 주간 소급에 쓴 초과분도 저축에서 뺀다(부족분을 먼저 갚고 남은 초과만 쌓인다)
-  ctx.autoDebts.forEach((debt, key) => {
-    const goal = goalById.get(key.split("|")[0]);
-    if (goal) repaidMin += (debt.amount - debt.left) * goal.minutesPerUnit;
+  // 자동 목표의 주간 소급에 쓴 초과분도 뺀다(부족분을 먼저 갚고 남은 초과만 쌓인다)
+  ctx.autoDebts.forEach((debt, key) => add(key.split("|")[0], -(debt.amount - debt.left)));
+  Object.keys(data.bonusRest).forEach((date) => Object.entries(bonusAmountsOn(data, date)).forEach(([id, n]) => add(id, -n)));
+
+  const byGoal = new Map();
+  let rawMin = 0;
+  let savedMin = 0;
+  raw.forEach((n, goalId) => {
+    const goal = goalById.get(goalId);
+    const left = Math.max(0, n);
+    const saved = Math.min(bonusCapOf(goal), left);
+    rawMin += left * goal.minutesPerUnit;
+    savedMin += saved * goal.minutesPerUnit;
+    if (saved > 0) byGoal.set(goalId, { goal, saved, cap: bonusCapOf(goal) });
   });
   const usedMin = Object.keys(data.bonusRest).reduce((sum, date) => sum + bonusMinutes(data, date), 0);
-  const rawMin = Math.max(0, Math.round(excessMin - repaidMin - usedMin));
-  return { rawMin, savedMin: Math.min(BONUS_CAP_MIN, rawMin), usedMin };
+  return { byGoal, rawMin: Math.round(rawMin), savedMin: Math.round(savedMin), usedMin };
 }
 
-// 하루에 쓸 수 있는 최대 시간(저축과 그날 공부 가능 시간 중 작은 쪽) — 그날을 고를 수 있는지 가늠하는 용도
-export function bonusMaxFor(data, dateStr, savedMin) {
-  return Math.min(savedMin, limitMinutes(data, dateStr));
+// 그날 줄일 수 있는 최대 시간(과목마다 그날 목표와 그 과목 저축 중 작은 쪽) — 그날을 고를 수 있는지 가늠하는 용도
+export function bonusMaxFor(data, dateStr, savings) {
+  const targets = computeTargets(data, dateStr, true);
+  let minutes = 0;
+  savings.byGoal.forEach(({ goal, saved }) => (minutes += Math.min(saved, targets[goal.id] || 0) * goal.minutesPerUnit));
+  return minutes;
 }
 
 // 이번 주 진행 상태. 지금까지(오늘 제외) 계획보다 뒤처졌으면 behind, 오늘 목표까지 채우고도 남으면 ahead.

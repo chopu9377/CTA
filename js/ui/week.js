@@ -53,9 +53,9 @@ function quotaHTML(data, ctx, track, weekIndex) {
     <div class="section-header-row"><h2 class="section-title">이번 주 쿼터 (${weekIndex + 1}주차)</h2><span class="chip">${meta}</span></div>
     <div class="overall"><span>전체</span><div class="meter-track"><div class="meter-fill" style="width:${q.overall}%"></div></div><b>${q.overall}%</b></div>
     <div class="ring-grid">${q.rings.map((r) => `<div class="ring-cell">
-      ${ringHTML(subjectColor(data, r.goal.subject), r.pct)}
+      ${ringHTML(subjectColor(data, r.goal.subject), r.pct, r.done > r.quota && r.quota > 0)}
       <div class="ring-name">${escapeHtml(r.goal.subject)}</div>
-      <div class="ring-count">${r.done}/${r.quota}${escapeHtml(countUnit(r.goal.unit))}</div></div>`).join("")}</div>
+      <div class="ring-count">${r.done}/${r.quota}${escapeHtml(countUnit(r.goal.unit))}</div>${r.done > r.quota && r.quota > 0 ? `<div class="ring-over">훌륭 (초과!)</div>` : ""}</div>`).join("")}</div>
   </div>`;
 }
 
@@ -73,14 +73,14 @@ function monthWeeksHTML(data, ctx, today, month, pick) {
 
 // 보상 휴식 날짜 고르기 모드에서 고를 수 있는 날짜(그 달에 걸친 주의 모든 날)
 function pickableDates(data, ctx, today, month) {
-  const { savedMin } = bonusSavings(data, ctx, today);
+  const savings = bonusSavings(data, ctx, today);
   const set = new Set();
   const weekCount = Math.ceil((new Date(historyEnd(data, today)) - new Date(data.startDate)) / 86400000 / 7) + 1;
   for (let w = 0; w < weekCount; w++) {
     const start = addDays(data.startDate, w * 7);
     for (let i = 0; i < 7; i++) {
       const d = addDays(start, i);
-      if (monthKey(d) === month && !bonusBlockReason(data, d, today) && bonusMaxFor(data, d, savedMin) > 0) set.add(d);
+      if (monthKey(d) === month && !bonusBlockReason(data, d, today) && bonusMaxFor(data, d, savings) > 0) set.add(d);
     }
   }
   return set;
