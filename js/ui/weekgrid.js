@@ -11,18 +11,25 @@ export function legendHTML() {
     <span><i class="dot cell-pending"></i>이월 대기</span>
     <span><i class="dot cell-miss"></i>미달</span>
     <span><i class="dot cell-rest"></i>휴식</span>
-    <span><i class="dot cell-review"></i>복습</span>
+    <span><i class="dot cell-review"></i>복습(8421모드 자동 지정은 [8]처럼 표시)</span>
     <span><i class="dot cell-bonus"></i>보상 휴식</span>
+    <span><i class="dot cell-examday"></i>시험일(D-day)</span>
   </div>`;
 }
 
 // pick: 보상 휴식 날짜 고르기 모드일 때 고를 수 있는 날짜 집합(아니면 null)
 function cellHTML(day, { mini, today, pick }) {
-  const label = day.status === "rest" ? "휴" : day.status === "review" ? "복" : day.status === "bonus" ? "🎁" : Number(day.date.slice(8));
-  const title = day.holiday ? ` title="${escapeHtml(day.holiday)}"` : "";
+  if (day.examTrack) {
+    const inner = mini ? "D-day" : `<span class="exam-track">${day.examTrack}차</span><span class="exam-dday">D-day</span>`;
+    return `<div class="cell cell-examday" title="${day.examTrack}차 시험일">${inner}</div>`;
+  }
+  const label = day.forcedReview ? `[${day.forcedReview}]` : day.status === "rest" ? "휴" : day.status === "review" ? "복" : day.status === "bonus" ? "🎁" : Number(day.date.slice(8));
+  const title = day.forcedReview ? ` title="8421모드: 시험 D-${day.forcedReview}, 전 과목 1회독 복습"` : day.holiday ? ` title="${escapeHtml(day.holiday)}"` : "";
   let attrs = "";
-  let cls = "";
-  if (!mini && pick) {
+  let cls = day.forcedReview ? " forced" : "";
+  if (day.forcedReview) {
+    // 8421모드 복습일은 강제 지정이라 탭으로 바꿀 수 없다.
+  } else if (!mini && pick) {
     if (pick.has(day.date)) {
       attrs = ` data-action="pick-bonus-day" data-date="${day.date}"`;
       cls = " tap pickable";

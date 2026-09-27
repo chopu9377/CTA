@@ -12,8 +12,36 @@ export function trackAt(data, dateStr) {
   return track;
 }
 
+// 8421모드: 시험 전 8+4+2+1=15일을 압축 복습 구간으로 강제 지정한다(사용자가 켜고 끌 수 없다 — 취향이
+// 아니라 무조건 지키는 날). 시험 D-15~D-8(8일)은 전 과목을 8일에 걸쳐 한 바퀴, D-7~D-4(4일)는 같은 한
+// 바퀴를 4일로, D-3~D-2(2일)는 2일로, D-1(1일)은 하루로 압축해서 도는 구간이라 그 구간 안의 날은 모두
+// 같은 숫자로 표시한다(D-day 당일은 시험일이라 포함하지 않는다).
+const REVIEW_BLOCKS = [
+  { min: 8, max: 15, label: 8 },
+  { min: 4, max: 7, label: 4 },
+  { min: 2, max: 3, label: 2 },
+  { min: 1, max: 1, label: 1 }
+];
+
+// 그 날이 1차·2차 시험일이면 트랙 번호를 돌려준다(빨간 D-day 칸으로 표시, 격자에서 탭 불가).
+export function examTrackFor(data, dateStr) {
+  if (data.tracks[1] && data.tracks[1].examDate === dateStr) return 1;
+  if (data.tracks[2] && data.tracks[2].examDate === dateStr) return 2;
+  return null;
+}
+
+export function forcedReviewLabel(data, dateStr) {
+  const track = trackAt(data, dateStr);
+  const examDate = data.tracks[track] && data.tracks[track].examDate;
+  if (!examDate) return null;
+  const diff = diffDays(dateStr, examDate);
+  const block = REVIEW_BLOCKS.find((b) => diff >= b.min && diff <= b.max);
+  return block ? block.label : null;
+}
+
 // 휴식/복습으로 지정한 날(또는 "공휴일 자동 휴식" 옵션이 켜진 공휴일)은 그날 목표가 없다.
 export function effectiveKind(data, dateStr) {
+  if (forcedReviewLabel(data, dateStr)) return "review";
   const kind = data.dayKinds[dateStr];
   if (kind) return kind;
   if (data.settings.holidayAutoRest && holidayName(dateStr)) return "rest";
@@ -146,7 +174,9 @@ export function dayReport(data, ctx, dateStr, today) {
   }
 
   const undecided = dateStr < today && !kind && shortfalls.some((s) => s.canCarry) && decision === undefined;
-  return { date: dateStr, kind, status, rows, shortfalls, undecided, totalDone, bonus, holiday: holidayName(dateStr) };
+  const forcedReview = forcedReviewLabel(data, dateStr);
+  const examTrack = examTrackFor(data, dateStr);
+  return { date: dateStr, kind, status, rows, shortfalls, undecided, totalDone, bonus, holiday: holidayName(dateStr), forcedReview, examTrack };
 }
 
 const NEUTRAL = ["rest", "review", "none", "bonus"];

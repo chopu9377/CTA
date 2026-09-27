@@ -375,6 +375,11 @@ body {
   color: #fff;
 }
 
+.cell.forced {
+  font-size: 9px;
+  cursor: default;
+}
+
 .cell.tap {
   cursor: pointer;
 }
@@ -414,6 +419,33 @@ body {
 .cell-pending {
   border: 2px dashed var(--cell-pending);
   color: var(--cell-pending);
+}
+
+.cell-examday {
+  background: var(--danger);
+  color: #fff;
+  flex-direction: column;
+  gap: 1px;
+  line-height: 1.05;
+  cursor: default;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.35);
+}
+
+.cell-examday .exam-track {
+  font-size: 8px;
+  font-weight: 700;
+  opacity: 0.9;
+}
+
+.cell-examday .exam-dday {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: -0.2px;
+}
+
+.week.mini .cell-examday {
+  font-size: 7px;
+  font-weight: 800;
 }
 
 .cell-today {
