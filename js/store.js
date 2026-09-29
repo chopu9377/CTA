@@ -251,10 +251,12 @@ export function freezeDayTargets(today = todayStr()) {
 // 계획에 영향을 주는 변경(총 분량·주 N일·시험일·휴식일 등)을 한 날부터 자동 목표를 "그날 진도 기준으로 남은 요일에 다시 나누고",
 // 주간 랜덤 배치도 그날부터 남은 날만 다시 섞는다(layoutFrom). 그 주 앞날들은 이미 굳었고, 못 한 양은 새 계획의 남은 분량에 들어간다.
 // 배치는 모든 과목이 함께 정해지므로 한 과목만 바뀌어도 자동 목표 전체를 같은 날로 새로 출발시킨다.
-export function markReplan(from = appToday()) {
+// amounts: false면 이번 주 양은 그대로 두고 요일 배치만 다시 섞는다(휴식/복습 지정 — 넣었다 빼도 주간 목표가 제자리로 돌아오게)
+export function markReplan(from = appToday(), { amounts = true } = {}) {
   const data = getData();
   data.layoutFrom = from;
   data.layoutAt = appToday();
+  if (!amounts) return;
   data.goals.forEach((g) => {
     if (!g.archived && g.planMode === "auto") g.replanFrom = from;
   });

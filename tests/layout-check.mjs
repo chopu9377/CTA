@@ -122,12 +122,10 @@ const before = weekLayout(data, 2, cw, today);
 const restDay = addDays(today, 2);
 const restInWeek = restDay < addDays(cw, 7);
 data.dayKinds[restDay] = "rest";
-// 내일 이후 날을 휴식으로 바꾸면 내일부터만 다시 섞는다(storage.cycleDayKind)
+// 내일 이후 날을 휴식으로 바꾸면 내일부터만 다시 섞고 양은 다시 계산하지 않는다(storage.cycleDayKind → markReplan(내일, { amounts: false }))
 const replanDay = addDays(today, 1);
 data.layoutFrom = replanDay;
-data.goals.forEach((g) => {
-  if (g.planMode === "auto") g.replanFrom = replanDay;
-});
+data.layoutAt = today;
 bumpVersion();
 const after = weekLayout(data, 2, cw, today);
 let pastSame = true;
@@ -137,11 +135,15 @@ check(sorted(before.byDate.get(today)) === sorted(after.byDate.get(today)), "휴
 check(!restInWeek || !Object.keys(after.byDate.get(restDay) || {}).length, "휴식 지정: 휴식일 목표 없음");
 let remainOk = true;
 data.goals.filter((g) => isAutoGoal(data, g)).forEach((g) => {
-  let sum = 0;
-  for (let d = replanDay; d < addDays(cw, 7); d = addDays(d, 1)) sum += (after.byDate.get(d) || {})[g.id] || 0;
-  if (sum !== autoWeekTotal(data, g, cw, today).total) remainOk = false;
+  let week = 0, fixed = 0;
+  for (let d = cw; d < addDays(cw, 7); d = addDays(d, 1)) {
+    const n = (after.byDate.get(d) || {})[g.id] || 0;
+    week += n;
+    if (d < replanDay) fixed += n;
+  }
+  if (week !== Math.max(autoWeekTotal(data, g, cw, today).total, fixed)) remainOk = false;
 });
-check(remainOk, "휴식 지정: 남은 날 합계 = 새 필요량");
+check(remainOk, "휴식 지정: 주간 합계 = 휴식 반영한 이번 주 필요량(양은 주 출발 기준 그대로)");
 const layoutKey = (l) => JSON.stringify([...l.byDate.entries()].map(([d, t]) => [d, sorted(t)]));
 const afterKey = layoutKey(after);
 delete data.dayKinds[restDay];
@@ -186,10 +188,14 @@ function modeStats(mode) {
     const ws = addDays(data.startDate, w * 7);
     const layout = weekLayout(data, 2, ws, today);
     // 앞선 검증이 이번 주를 중간부터 다시 섞어 두었으므로 다시 섞인 날(anchor 이후)만 본다
-    const seg = [...layout.byDate.entries()].filter(([d]) => d >= layout.anchor).sort();
+    const all = [...layout.byDate.entries()].sort();
+    const seg = all.filter(([d]) => d >= layout.anchor);
     data.goals.filter((g) => isAutoGoal(data, g)).forEach((g) => {
       const placed = seg.filter(([, t]) => t[g.id] > 0).length;
-      const total = autoWeekTotal(data, g, ws, today).total;
+      const week = autoWeekTotal(data, g, ws, today);
+      // 휴식 재배치는 양을 다시 계산하지 않으므로 anchor 전 날의 몫을 뺀 나머지가 남은 날에 들어간다
+      const before = all.filter(([d]) => d >= week.effStart && d < layout.anchor).reduce((s, [, t]) => s + (t[g.id] || 0), 0);
+      const total = Math.max(0, week.total - before);
       const sum = seg.reduce((s, [, t]) => s + (t[g.id] || 0), 0);
       if (sum !== total) mism++;
       if (total > 0) {
@@ -198,11 +204,13 @@ function modeStats(mode) {
       }
     });
     if (process.env.SHOW && w < 3) console.log(mode, seg.map(([d, t]) => `${d.slice(5)}[${Object.entries(t).map(([id, n]) => id + n).join(",")}]`).join(" "));
-    for (const [d, t] of seg) {
-      const acc = ACC.filter((id) => t[id] > 0).length;
-      const tax = TAX.filter((id) => t[id] > 0).length;
-      days++;
-      if (acc === 1 && tax === 1) exact++;
+    for (const [d, t] of all) {
+      if (d >= layout.anchor) {
+        const acc = ACC.filter((id) => t[id] > 0).length;
+        const tax = TAX.filter((id) => t[id] > 0).length;
+        days++;
+        if (acc === 1 && tax === 1) exact++;
+      }
       [...ACC, ...TAX].forEach((id) => {
         if (!(t[id] > 0)) return;
         if (last[id] && diffDays(last[id], d) - 1 > LAYOUT_RULES.maxGap) gapsMode.push(`${id} ${last[id]}→${d}`);
