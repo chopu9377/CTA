@@ -20,7 +20,7 @@ export const STATUS_RULES = {
 
 // 이날부터 새로 짜는 계획에만 적용하는 규칙(주 필요량 올림, 주 중간 재배치 때 이미 한 날 빼기, 어제 과목 피하기).
 // 그 전에 정해진 배치(오늘 포함)는 앱 업데이트로 바뀌지 않게 옛 규칙 그대로 계산한다.
-export const PLAN_RULES_V2_FROM = "2026-09-30";
+export const PLAN_RULES_V2_FROM = "2026-09-29";
 
 function weekendRatio(data) {
   const { weekdayHours, weekendHours } = data.settings;
