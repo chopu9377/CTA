@@ -1,5 +1,5 @@
-import { formatKoreanDate } from "../dates.js";
-import { trackAt, dayReport } from "../stats.js";
+import { formatKoreanDate, addDays } from "../dates.js";
+import { trackAt, dayReport, effectiveKind } from "../stats.js";
 import { dayLoad, maintenanceGoals, maintenanceTargets } from "../plan.js";
 import { isAutoGoal, weekProgress, isLastStudyDay } from "../weekplan.js";
 import { UNIT_SUGGESTIONS, TRACK_LABEL, countUnit } from "../presets.js";
@@ -97,6 +97,18 @@ function dawnNoticeHTML(dawn) {
     <button class="btn btn-sm btn-secondary" data-action="toggle-dawn" data-date="${dawn.other}" type="button">${formatKoreanDate(dawn.other)} 걸로 바꾸기</button></div>`;
 }
 
+function yesterdayLineHTML(data, today) {
+  const yesterday = addDays(today, -1);
+  const sums = new Map();
+  data.entries.forEach((e) => e.date === yesterday && sums.set(e.goalId, (sums.get(e.goalId) || 0) + e.amount));
+  const items = data.goals
+    .filter((g) => (sums.get(g.id) || 0) > 0)
+    .map((g) => `<span class="yday-item"><i class="swatch" style="background:${subjectColor(data, g.subject)}"></i>${escapeHtml(g.subject)} ${sums.get(g.id)}${escapeHtml(countUnit(g.unit))}</span>`);
+  const kind = { rest: "휴식", review: "복습" }[effectiveKind(data, yesterday)];
+  if (!items.length && !kind) return `<div class="yday-line"><b>어제</b> 기록 없음</div>`;
+  return `<div class="yday-line"><b>어제</b>${kind && !items.length ? ` ${kind}` : ""}${items.join("")}</div>`;
+}
+
 function dayNoticeHTML(data, today, report) {
   const load = dayLoad(data, today, today);
   const type = load.weekend ? "주말" : "평일";
@@ -159,6 +171,7 @@ export function renderToday(data, ctx, today, ui, dawn = null) {
         <button class="btn btn-secondary btn-sm" data-action="toggle-edit" type="button">${ui.editing ? "완료" : "편집"}</button></div>
       ${ui.editing ? "" : dawnNoticeHTML(dawn)}
       ${ui.editing ? "" : dayNoticeHTML(data, today, report)}
+      ${ui.editing ? "" : yesterdayLineHTML(data, today)}
       ${ui.editing
         ? `<div class="goal-edit-head${allAuto ? " compact" : ""}"><span>과목</span><span>단위</span>${allAuto ? "" : "<span>평일</span><span>주말</span>"}<span></span></div>
            ${goals.map((g) => goalEditHTML(g, editModeOf(data, g), allAuto)).join("")}

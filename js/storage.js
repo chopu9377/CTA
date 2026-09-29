@@ -15,8 +15,10 @@ export function cycleDayKind(dateStr) {
   else next = null;
   if (next) data.dayKinds[dateStr] = next;
   else delete data.dayKinds[dateStr];
-  // 이번 주 안의 휴식/복습 변경만 이번 주 계획을 다시 나눈다(다른 주는 그 주가 시작될 때 반영된다)
-  if (weekOf(data, dateStr) === weekOf(data, appToday())) markReplan();
+  // 이번 주 안의 휴식/복습 변경만 이번 주 계획을 다시 나눈다(다른 주는 그 주가 시작될 때 반영된다).
+  // 내일 이후 날을 바꾸면 오늘 과목은 그대로 두고 내일부터만 다시 섞는다
+  const today = appToday();
+  if (weekOf(data, dateStr) === weekOf(data, today)) markReplan(dateStr > today ? addDays(today, 1) : today);
   if (dateStr <= appToday() || weekOf(data, dateStr) === weekOf(data, appToday())) refreshToday();
   persist();
   return { next, blockedReview: current === "rest" && next === null };

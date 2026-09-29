@@ -1,7 +1,7 @@
 import { addDays, diffDays, todayStr } from "./dates.js";
 import { effectiveKind, targetOn } from "./stats.js";
 import { limitMinutes, plannedTrackOn, maintenanceTargets, cumulativeOf } from "./plan.js";
-import { weekStartOf, isAutoGoal, autoWeekTotal, distribute } from "./weekplan.js";
+import { weekStartOf, isAutoGoal, autoWeekTotal, distribute, PLAN_RULES_V2_FROM } from "./weekplan.js";
 import { dataVersion } from "./version.js";
 import { seededRandom, randomInt, shuffle } from "./random.js";
 import { deepGroupOf, DEEP_GROUPS } from "./presets.js";
@@ -18,6 +18,7 @@ export const LAYOUT_RULES = {
   tolerance: 1800, // 최선 배치와 이만큼(분²) 차이 안의 배치는 같은 후보로 보고 그중 랜덤
   overlapLimit: 2 / 3,
   overlapPenalty: 2500,
+  repeatPenalty: 2000, // 과목 하나가 이틀 연속(전날 실제로 한 과목 포함)일 때마다
   maxGap: 3,
   gapPenalty: 1e8, // 사실상 필수 규칙(피할 수 있으면 요일 균형보다 먼저 피한다)
   // 진득: 묶음마다 하루 한 과목에서 벗어난 과목 수당(약 80분 어긋남만큼 — 시간 균형이 크게 깨지면 1·3과목 허용).
@@ -102,13 +103,14 @@ function gapPenalty(dates, prevLast, weekEnd, emptyBetween) {
 // 진득 모드의 묶음 과목(자동)은 며칠에 나눌지도 정해 두지 않고(1~남은 공부일 모두 후보) 묶음 감점이 고르게 한다.
 // 물붓기 모드의 자동 과목은 남은 공부일 전부에 나눈다.
 function buildModels(ctx) {
-  const { data, goals, segment, limits, weekStart, weekEnd, anchor, byDate, prefix, targetsBefore, today, mode } = ctx;
+  const { data, goals, segment, limits, weekStart, weekEnd, anchor, byDate, prefix, targetsBefore, today, mode, v2, studied } = ctx;
   const m = segment.length;
   const models = [];
   goals.forEach((goal) => {
     if (goal.planMode === "fill" || models.length >= 30) return;
     const n = Math.max(1, Math.min(7, goal.daysPerWeek || 7));
     const doneDays = prefix.filter((d) => (byDate.get(d)[goal.id] || 0) > 0);
+    const usedDays = prefix.filter((d) => (byDate.get(d)[goal.id] || 0) > 0 || studied(d).has(goal.id)).length;
     const auto = isAutoGoal(data, goal) && goal.autoFrom <= anchor;
     const group = mode === "deep" ? deepGroupOf(goal.subject) : null;
     let total = 0;
@@ -119,7 +121,8 @@ function buildModels(ctx) {
       if (week.effStart < anchor) total -= doneDays.filter((d) => d >= week.effStart).reduce((s, d) => s + byDate.get(d)[goal.id], 0);
       if (total <= 0) return;
       // 주 중간에 다시 섞을 때 남은 양은 남은 기간 비율로 새로 구해지므로 요일 수도 남은 공부일 비율만큼(지난 날 수를 빼지 않는다)
-      const k = Math.min(m, Math.max(1, Math.round((n * m) / ctx.studyDaysInWeek)));
+      // v2: 이번 주에 이미 배치됐거나 실제로 한 날은 빼고 남은 날 수만(주 N일을 넘기지 않게)
+      const k = Math.min(m, Math.max(1, v2 ? n - usedDays : Math.round((n * m) / ctx.studyDaysInWeek)));
       if (mode === "spread") sizes = [m];
       else if (group) sizes = Array.from({ length: Math.min(m, total) }, (_, i) => i + 1);
       else sizes = [k];
@@ -159,11 +162,11 @@ function buildModels(ctx) {
 }
 
 function makeScorer(ctx, models) {
-  const { segment, limits, base, prevMask } = ctx;
+  const { segment, limits, base, prevMask, v2 } = ctx;
   const m = segment.length;
   const sumLimit = limits.reduce((a, b) => a + b, 0) || 1;
   const adjacent = segment.map((d, i) => (i === 0 ? true : diffDays(segment[i - 1], d) === 1));
-  const { overlapLimit, overlapPenalty, deepPenalty } = LAYOUT_RULES;
+  const { overlapLimit, overlapPenalty, repeatPenalty, deepPenalty } = LAYOUT_RULES;
   const groupKeys = Object.keys(DEEP_GROUPS).filter((key) => models.some((model) => model.group === key));
   // 진득: 묶음마다 매일 딱 한 과목
   const deep = (counts) => groupKeys.reduce((pen, key) => pen + counts[key].reduce((s, c) => s + Math.abs(c - 1), 0), 0) * deepPenalty;
@@ -177,6 +180,7 @@ function makeScorer(ctx, models) {
     for (let i = 0; i < m; i++) {
       const prev = i === 0 ? prevMask : adjacent[i] ? masks[i - 1] : 0;
       if (!prev || !masks[i]) continue;
+      if (v2) pen += repeatPenalty * popcount(prev & masks[i]);
       const ratio = popcount(prev & masks[i]) / Math.max(popcount(prev), popcount(masks[i]));
       if (ratio >= overlapLimit) pen += overlapPenalty * ratio * (prev === masks[i] ? 2 : 1);
     }
@@ -303,6 +307,16 @@ function buildLayout(data, track, weekStart, today) {
   const segment = weekDates(weekStart).filter((d) => d >= anchor && !effectiveKind(data, d) && plannedTrackOn(data, d, today) === track);
   segment.forEach((d) => byDate.set(d, {}));
   const mode = layoutModeOn(data, track, anchor);
+  const v2 = anchor >= PLAN_RULES_V2_FROM;
+  const studiedBy = new Map();
+  data.entries.forEach((e) => {
+    if (e.amount <= 0 || !ids.has(e.goalId)) return;
+    if (!studiedBy.has(e.date)) studiedBy.set(e.date, new Set());
+    studiedBy.get(e.date).add(e.goalId);
+  });
+  // 실제 기록은 재배치를 정한 시점에 이미 끝난 날 것만 본다(내일부터 다시 섞었다면 오늘 기록이 늘어도 배치가 안 바뀌게)
+  const decidedOn = data.layoutFrom === anchor && data.layoutAt && data.layoutAt < anchor ? data.layoutAt : anchor;
+  const studied = (d) => (v2 && d < decidedOn && studiedBy.get(d)) || new Set();
 
   if (segment.length) {
     const targetsBefore = (d) => {
@@ -323,14 +337,21 @@ function buildLayout(data, track, weekStart, today) {
       weekEnd,
       today,
       mode,
+      v2,
+      studied,
       targetsBefore,
       studyDaysInWeek: Math.max(1, weekDates(weekStart).filter((d) => !effectiveKind(data, d) && plannedTrackOn(data, d, today) === track).length),
       limits: segment.map((d) => limitMinutes(data, d)),
       base: segment.map((d) => maintenanceMinutes(data, d, today))
     };
     const models = buildModels(ctx);
-    const before = targetsBefore(addDays(segment[0], -1));
-    ctx.prevMask = models.reduce((mask, model) => mask | ((before[model.goal.id] || 0) > 0 ? model.bit : 0), 0);
+    const prevDay = addDays(segment[0], -1);
+    const before = targetsBefore(prevDay);
+    const prevStudied = studied(prevDay);
+    ctx.prevMask = models.reduce(
+      (mask, model) => mask | ((before[model.goal.id] || 0) > 0 || prevStudied.has(model.goal.id) ? model.bit : 0),
+      0
+    );
     const loads = [...ctx.base];
     if (models.length) {
       // 기본 모드는 모드 이름을 시드에 넣지 않는다(모드 기능 이전에 정해진 배치가 그대로 유지되게)

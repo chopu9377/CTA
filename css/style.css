@@ -1437,6 +1437,33 @@ textarea:focus {
   color: var(--text-muted);
 }
 
+.yday-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.yday-line b {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.yday-item {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.yday-item .swatch {
+  width: 7px;
+  height: 7px;
+  margin-right: 4px;
+}
+
 /* today: 오늘 목표 없는 과목 접기 */
 .quiet-toggle {
   display: flex;

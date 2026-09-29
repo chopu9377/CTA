@@ -18,6 +18,10 @@ export const STATUS_RULES = {
   horizonDays: 800 // 실제 페이스로 완료일을 찾는 최대 기간
 };
 
+// 이날부터 새로 짜는 계획에만 적용하는 규칙(주 필요량 올림, 주 중간 재배치 때 이미 한 날 빼기, 어제 과목 피하기).
+// 그 전에 정해진 배치(오늘 포함)는 앱 업데이트로 바뀌지 않게 옛 규칙 그대로 계산한다.
+export const PLAN_RULES_V2_FROM = "2026-09-30";
+
 function weekendRatio(data) {
   const { weekdayHours, weekendHours } = data.settings;
   return weekdayHours > 0 && weekendHours > 0 ? weekendHours / weekdayHours : 1;
@@ -77,7 +81,7 @@ export function distribute(total, days) {
 }
 
 // 매주 시작 시점에 남은 분량과 남은 공부일 가중치로 그 주 필요량을 다시 구하는 과정을 끝까지 돌려 본다.
-function runPlan(days, left0, weekStart) {
+function runPlan(days, left0, weekStart, roundUp) {
   const groups = new Map();
   days.forEach((d) => {
     const key = Math.floor(diffDays(weekStart, d.date) / 7);
@@ -92,7 +96,7 @@ function runPlan(days, left0, weekStart) {
     const weekDays = groups.get(key);
     const weight = weekDays.reduce((s, d) => s + d.w, 0);
     const need = weightLeft > 0 ? (left * weight) / weightLeft : 0;
-    const total = Math.min(left, Math.round(need));
+    const total = Math.min(left, roundUp ? Math.ceil(need - 1e-9) : Math.round(need));
     const amounts = distribute(total, weekDays);
     weeks.push({ key, days: weekDays, need, total, amounts });
     left -= total;
@@ -119,7 +123,7 @@ function buildWeek(data, goal, weekStart, today) {
   const rawLeftAtStart = Math.max(0, goal.targetRounds * goal.total - cumulativeAtStart);
   const { days, credit } = collectDays(data, goal, calcFrom, endDate, today);
   const left0 = Math.max(0, rawLeftAtStart - credit);
-  const plan = runPlan(days, left0, weekStart);
+  const plan = runPlan(days, left0, weekStart, effStart >= PLAN_RULES_V2_FROM);
   const thisWeek = plan.weeks.find((w) => w.key === 0) || { days: [], need: 0, total: 0, amounts: [] };
   return { weekStart, effStart, endDate, rawLeftAtStart, credit, left0, plan, thisWeek };
 }

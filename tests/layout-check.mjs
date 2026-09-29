@@ -122,20 +122,23 @@ const before = weekLayout(data, 2, cw, today);
 const restDay = addDays(today, 2);
 const restInWeek = restDay < addDays(cw, 7);
 data.dayKinds[restDay] = "rest";
-data.layoutFrom = today;
+// 내일 이후 날을 휴식으로 바꾸면 내일부터만 다시 섞는다(storage.cycleDayKind)
+const replanDay = addDays(today, 1);
+data.layoutFrom = replanDay;
 data.goals.forEach((g) => {
-  if (g.planMode === "auto") g.replanFrom = today;
+  if (g.planMode === "auto") g.replanFrom = replanDay;
 });
 bumpVersion();
 const after = weekLayout(data, 2, cw, today);
 let pastSame = true;
 for (let d = cw; d < today; d = addDays(d, 1)) if (sorted(before.byDate.get(d)) !== sorted(after.byDate.get(d))) pastSame = false;
 check(pastSame, "휴식 지정: 지난 날 목표 불변");
+check(sorted(before.byDate.get(today)) === sorted(after.byDate.get(today)), "휴식 지정(내일 이후): 오늘 과목 불변");
 check(!restInWeek || !Object.keys(after.byDate.get(restDay) || {}).length, "휴식 지정: 휴식일 목표 없음");
 let remainOk = true;
 data.goals.filter((g) => isAutoGoal(data, g)).forEach((g) => {
   let sum = 0;
-  for (let d = today; d < addDays(cw, 7); d = addDays(d, 1)) sum += (after.byDate.get(d) || {})[g.id] || 0;
+  for (let d = replanDay; d < addDays(cw, 7); d = addDays(d, 1)) sum += (after.byDate.get(d) || {})[g.id] || 0;
   if (sum !== autoWeekTotal(data, g, cw, today).total) remainOk = false;
 });
 check(remainOk, "휴식 지정: 남은 날 합계 = 새 필요량");
@@ -219,6 +222,56 @@ check(deep.gapsMode.length === 0, "진득: 과목 3일 넘게 비지 않기", de
 const spread = modeStats("spread");
 check(spread.mism === 0, "물붓기: 자동 과목 주간 합계 유지", `불일치 ${spread.mism}`);
 check(spread.everyDay === spread.autoWeeks, "물붓기: 자동 과목이 모든 공부일에(양이 공부일보다 적으면 그 양만큼의 날)", `${spread.everyDay}/${spread.autoWeeks}`);
+
+// 8) v2 규칙(PLAN_RULES_V2_FROM 이후 배치): 과목 이틀 연속을 줄이고, 주 중간 재배치 때 이미 한 날은 뺀다
+function repeatRate(penalty) {
+  const saved = LAYOUT_RULES.repeatPenalty;
+  LAYOUT_RULES.repeatPenalty = penalty;
+  bumpVersion();
+  let repeats = 0, slots = 0, prev = null;
+  for (let w = 3; w < 19; w++) {
+    const layout = weekLayout(data, 2, addDays(data.startDate, w * 7), today);
+    for (const [, t] of [...layout.byDate.entries()].sort()) {
+      const set = Object.keys(t).filter((id) => !fillIds.has(id) && t[id] > 0);
+      if (prev) repeats += set.filter((id) => prev.includes(id)).length;
+      slots += set.length;
+      prev = set;
+    }
+  }
+  LAYOUT_RULES.repeatPenalty = saved;
+  bumpVersion();
+  return repeats / slots;
+}
+const repOff = repeatRate(0);
+const repOn = repeatRate(LAYOUT_RULES.repeatPenalty);
+check(repOn < repOff, "v2: 전날과 같은 과목 비율 감소", `${(repOff * 100).toFixed(0)}% → ${(repOn * 100).toFixed(0)}%`);
+
+// 주 중간(수요일)부터 다시 섞기: 화요일에 실제로 한 과목(목표 없던 과목 포함)은 수요일에 되도록 피하고, 주 N일을 넘기지 않는다
+const ws3 = addDays(cw, 21);
+const plain = weekLayout(data, 2, ws3, today);
+const mid = addDays(ws3, 3);
+for (let d = ws3; d < mid; d = addDays(d, 1)) data.dayTargets[d] = { ...(plain.byDate.get(d) || {}) };
+const tue = addDays(mid, -1);
+const studiedTue = ["a", "b", "c", "d", "e"].filter((id) => (plain.byDate.get(tue) || {})[id] > 0 || id === "e");
+studiedTue.forEach((id, i) => data.entries.push({ id: `v2-${i}`, goalId: id, date: tue, amount: 2, at: "t" }));
+data.layoutFrom = mid;
+data.layoutAt = mid;
+data.goals.forEach((g) => g.planMode === "auto" && (g.replanFrom = mid));
+bumpVersion();
+const midLayout = weekLayout(data, 2, ws3, today);
+const midRepeats = studiedTue.filter((id) => (midLayout.byDate.get(mid) || {})[id] > 0);
+check(midRepeats.length <= 1, "v2: 어제 실제로 한 과목은 오늘 되도록 피함", `어제 ${studiedTue.join(",")} → 오늘 겹침 ${midRepeats.join(",") || "없음"}`);
+let overDays = [];
+data.goals.filter((g) => isAutoGoal(data, g)).forEach((g) => {
+  let used = 0;
+  for (let d = ws3; d < mid; d = addDays(d, 1)) if ((data.dayTargets[d][g.id] || 0) > 0 || studiedTue.includes(g.id) && d === tue) used++;
+  const later = [...midLayout.byDate.entries()].filter(([d, t]) => d >= mid && t[g.id] > 0).length;
+  if (later > Math.max(1, g.daysPerWeek - used)) overDays.push(`${g.id} 한 날 ${used} + 남은 ${later} (주 ${g.daysPerWeek})`);
+});
+check(overDays.length === 0, "v2: 주 중간 재배치에서 이미 한 날 빼기", overDays.join(", "));
+data.entries.push({ id: "v2-late", goalId: "a", date: mid, amount: 9, at: "t" });
+bumpVersion();
+check(layoutKey(weekLayout(data, 2, ws3, today)) === layoutKey(midLayout), "v2: 재배치한 날의 기록이 늘어도 배치 불변");
 
 console.log(failures.length ? `\n실패 ${failures.length}개` : "\n모두 통과");
 process.exit(failures.length ? 1 : 0);
