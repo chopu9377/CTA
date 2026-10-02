@@ -189,7 +189,8 @@ export function weekCarries(data, goal) {
 export function autoDebts(data, sums, today) {
   const out = new Map();
   data.goals.forEach((goal) => {
-    if (goal.archived || !weekCarries(data, goal)) return;
+    // 삭제(보관)한 목표도 센다 — 지운 과목의 지난 부족분이 칸을 영영 회색으로 묶어 두지 않게
+    if (!weekCarries(data, goal)) return;
     const auto = isAutoGoal(data, goal);
     const from = auto ? goal.autoFrom : data.startDate;
     const closed = []; // 지난 주들에 못 갚고 남은 부족분(out에 든 객체를 그대로 들고 있어 나중에 갚으면 결과에 반영된다)
