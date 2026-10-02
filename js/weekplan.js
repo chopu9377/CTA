@@ -176,10 +176,11 @@ function weekAutoStart(goal, weekStart) {
   return goal.autoFrom && goal.autoFrom > weekStart && goal.autoFrom < weekEnd ? goal.autoFrom : weekStart;
 }
 
-// 자동 목표의 주간 소급. 그 주 출발일부터 지난 날의 못 채운 양을 부족분으로 쌓고, 그날 목표를 넘겨 푼 양(휴식·복습일 포함)으로
-// 먼저 생긴 부족분부터 갚는다(그날 몫을 먼저 채운 뒤 남는 양만). 주가 끝나면 남은 부족분은 다음 주 역산에 이미 들어가므로
-// 다른 주의 초과로는 갚지 않는다. 주 중간에 다시 나눠도(휴식 지정 등) 그 전 날의 부족분은 그대로 남는다.
-// 채우기 목표도 같은 규칙으로 그 주 안에서 소급한다(이월/버림은 묻지 않는다).
+// 자동 목표의 소급. 그 주 출발일부터 지난 날의 못 채운 양을 부족분으로 쌓고, 그날 목표를 넘겨 푼 양(휴식·복습일 포함)으로
+// 이번 주 부족분을 먼저(오래된 순), 남으면 지난 주들에 못 갚은 부족분을 오래된 순으로 갚는다(기한 없음, v50).
+// 지난 주 부족분은 양이 이미 다음 주 역산에 들어가 있어 갚아도 계획은 안 바뀌고 칸 색(연한 초록)만 바뀐다 —
+// 실수를 만회할 기회. 그 주가 끝난 부족분은 이월 대기(주황)가 아니라 부분/미달로 보이다가 다 갚으면 연한 초록이 된다.
+// 주 중간에 다시 나눠도(휴식 지정 등) 그 전 날의 부족분은 그대로 남는다. 채우기 목표도 같은 규칙(이월/버림은 묻지 않는다).
 // 결과: "목표id|날짜" → { amount, left, open(그 주가 아직 안 끝남) }
 export function weekCarries(data, goal) {
   return isAutoGoal(data, goal) || goal.planMode === "fill";
@@ -191,22 +192,26 @@ export function autoDebts(data, sums, today) {
     if (goal.archived || !weekCarries(data, goal)) return;
     const auto = isAutoGoal(data, goal);
     const from = auto ? goal.autoFrom : data.startDate;
+    const closed = []; // 지난 주들에 못 갚고 남은 부족분(out에 든 객체를 그대로 들고 있어 나중에 갚으면 결과에 반영된다)
     for (let ws = weekStartOf(data, from); ws <= today; ws = addDays(ws, 7)) {
       const weekEnd = addDays(ws, 7);
+      const open = weekEnd > today;
       const debts = [];
       for (let d = auto ? weekAutoStart(goal, ws) : ws; d < weekEnd && d <= today; d = addDays(d, 1)) {
         if (d < from || trackAt(data, d) !== goal.track) continue;
         const diff = (sums.get(`${goal.id}|${d}`) || 0) - (targetsFor(data, d)[goal.id] || 0);
         if (diff > 0) {
           let pool = diff;
-          debts.forEach((x) => {
+          [...debts, ...closed].forEach((x) => {
             const pay = Math.min(pool, x.left);
             x.left -= pay;
             pool -= pay;
           });
-        } else if (diff < 0 && d < today) debts.push({ date: d, amount: -diff, left: -diff });
+        } else if (diff < 0 && d < today) debts.push({ date: d, amount: -diff, left: -diff, open });
       }
-      debts.forEach((x) => out.set(`${goal.id}|${x.date}`, { amount: x.amount, left: x.left, open: weekEnd > today }));
+      debts.forEach((x) => out.set(`${goal.id}|${x.date}`, x));
+      closed.push(...debts.filter((x) => x.left > 0));
+      for (let i = closed.length - 1; i >= 0; i--) if (closed[i].left <= 0) closed.splice(i, 1);
     }
   });
   return out;
