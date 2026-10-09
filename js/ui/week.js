@@ -55,8 +55,7 @@ function quotaHTML(data, ctx, track, weekIndex) {
     <div class="ring-grid">${q.rings.map((r) => `<div class="ring-cell">
       ${ringHTML(subjectColor(data, r.goal.subject), r.pct, r.done > r.quota && r.quota > 0)}
       <div class="ring-name">${escapeHtml(r.goal.subject)}</div>
-      <div class="ring-count">${r.done}/${r.quota}${escapeHtml(countUnit(r.goal.unit))}</div>${r.rawDone !== r.done ? `<div class="hint">실제 기록 ${r.rawDone}${escapeHtml(countUnit(r.goal.unit))} · 저축 사용 ${r.rawDone - r.done}</div>` : ""}${r.done > r.quota && r.quota > 0 ? `<div class="ring-over">훌륭 (초과!)</div>` : ""}</div>`).join("")}</div>
-    <p class="hint">저축으로 사용한 양은 쿼터 실적에서 중복으로 세지 않아요.</p>
+      <div class="ring-count">${r.done}/${r.quota}${escapeHtml(countUnit(r.goal.unit))}</div>${r.done > r.quota && r.quota > 0 ? `<div class="ring-over">훌륭 (초과!)</div>` : ""}</div>`).join("")}</div>
   </div>`;
 }
 

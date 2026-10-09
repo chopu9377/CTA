@@ -1,7 +1,7 @@
-// 실행: node tests/regression-check.mjs — 저축 중복 집계와 실제 휴일 변경 경로의 회귀 검사.
+// 실행: node tests/regression-check.mjs — 저축 사용의 달성 인정과 실제 휴일 변경 경로의 회귀 검사.
 import assert from "node:assert/strict";
-import { buildContext, weekQuotas, computeTargets, targetsFor } from "../js/stats.js";
-import { bonusSpentSources, weekShip } from "../js/bonus.js";
+import { buildContext, weekQuotas, computeTargets, targetsFor, dayReport } from "../js/stats.js";
+import { applyBonus, bonusSavings, weekShip } from "../js/bonus.js";
 import { weekProgress } from "../js/weekplan.js";
 import { weekLayout } from "../js/layout.js";
 import { bumpVersion } from "../js/version.js";
@@ -54,52 +54,53 @@ vat.dayTargets["2026-10-07"] = { a: 2 };
 vat.dayTargets["2026-10-09"] = { a: 2 };
 const originalEntries = JSON.stringify(vat.entries);
 let { ctx, progress } = accounting(vat);
-check("부가세: 저축에 쓴 4문제를 다시 완료로 세지 않음", () => {
-  assert.deepEqual(progress, { quota: 4, done: 0, rawDone: 4 });
-  assert.equal(ctx.autoDebts.get("a|2026-10-07").left, 2);
-  assert.equal(weekShip(vat, ctx, "2026-10-09").level, "behind");
+check("저축을 써도 실제로 푼 4문제는 주간 실적에 그대로 남음", () => {
+  assert.deepEqual(progress, { quota: 4, done: 4 });
   assert.equal(JSON.stringify(vat.entries), originalEntries);
+  assert.equal(weekShip(vat, ctx, "2026-10-09").level, "cruise");
 });
-check("주간 링·공부기록은 실제 기록도 표시", () => {
-  const ring = weekQuotas(vat, ctx, 2, 2).rings[0];
-  assert.equal(ring.pct, 0);
-  assert.equal(ring.rawDone, 4);
-  assert.match(renderWeek(vat, ctx, "2026-10-09", { bonusPick: false }), /실제 기록 4/);
-  assert.match(renderHistory(vat, ctx, "2026-10-09"), /실제 기록 4/);
+check("주간·공부기록 화면에서 실제 실적을 차감하지 않음", () => {
+  assert.equal(weekQuotas(vat, ctx, 2, 2).rings[0].done, 4);
+  assert.doesNotMatch(renderWeek(vat, ctx, "2026-10-09", { bonusPick: false }), /저축 사용|중복으로 세지/);
+  assert.match(renderHistory(vat, ctx, "2026-10-09"), /4 \/ 4/);
+});
+check("저축 사용은 목표를 채운 것으로 인정하되 누적 진도를 재가산하지 않음", () => {
+  assert.deepEqual(applyBonus(vat, "2026-10-07", { a: 6 }), { a: 2 });
+  assert.equal(vat.goals[0].progress, 4);
 });
 vat.entries.push({ id: "more", goalId: "a", date: "2026-10-09", amount: 4 });
 ({ ctx, progress } = accounting(vat));
-check("남은 오늘 목표 2 + 이월 2를 풀면 쿼터와 이월이 함께 완료", () => {
-  assert.deepEqual(progress, { quota: 4, done: 4, rawDone: 8 });
+check("추가로 푼 양도 전부 실제 실적에 포함", () => {
+  assert.deepEqual(progress, { quota: 4, done: 8 });
   assert.equal(ctx.autoDebts.get("a|2026-10-07").left, 0);
 });
-delete vat.bonusRest["2026-10-07"];
-({ progress } = accounting(vat));
-check("보상 휴식을 취소하면 사용한 실적이 돌아옴", () => assert.equal(progress.done, 8));
 
 const older = fixture();
 older.entries = [{ id: "old", goalId: "a", date: "2026-09-26", amount: 4 }, { id: "now", goalId: "a", date: "2026-10-09", amount: 2 }];
 older.dayTargets["2026-10-09"] = { a: 2 };
 ({ ctx, progress } = accounting(older));
-check("지난주 저축으로 쉰 경우 이번 주 실적은 차감하지 않음", () => {
-  assert.deepEqual(progress, { quota: 2, done: 2, rawDone: 2 });
-  assert.equal(bonusSpentSources(older, ctx).get("a|2026-09-26"), 4);
-  assert.match(renderHistory(older, ctx, "2026-10-09"), /실제 기록 4/);
+check("지난주 미리 푼 저축으로 이번 주 목표를 채울 수 있음", () => {
+  assert.deepEqual(progress, { quota: 2, done: 2 });
+  assert.equal(dayReport(older, ctx, "2026-10-07", "2026-10-09").status, "bonus");
+  assert.equal(weekProgress(older, ctx, older.goals[0], "2026-09-26").done, 4);
+  assert.equal(older.entries[0].amount, 4);
 });
 const repay = fixture();
 repay.entries.unshift({ id: "old", goalId: "a", date: "2026-09-26", amount: 4 });
 repay.dayTargets["2026-09-25"] = { a: 4 };
+repay.bonusRest["2026-10-07"] = { a: 2 };
 ({ ctx } = accounting(repay));
-check("이월 상환에 쓴 초과분을 저축 사용분으로 재사용하지 않음", () => {
-  assert.equal(bonusSpentSources(repay, ctx).get("a|2026-09-26") || 0, 0);
-  assert.equal(bonusSpentSources(repay, ctx).get("a|2026-10-06"), 4);
+check("자동 이월을 갚고 남은 저축에서 사용량만 차감", () => {
+  assert.equal(ctx.autoDebts.get("a|2026-09-25").left, 0);
+  assert.equal(bonusSavings(repay, ctx, "2026-10-09").byGoal.get("a").saved, 2);
 });
 repay.goals[0].planMode = "fixed";
 repay.carries = [{ id: "carry", goalId: "a", fromDate: "2026-09-25", amount: 4 }];
 ({ ctx } = accounting(repay));
-check("고정 목표 이월 상환도 저축 사용분과 분리", () => {
+check("고정 이월 상환과 저축 사용도 실제 실적을 삭제하지 않음", () => {
   assert.equal(ctx.remaining.get("carry"), 0);
-  assert.equal(bonusSpentSources(repay, ctx).get("a|2026-10-06"), 4);
+  assert.equal(bonusSavings(repay, ctx, "2026-10-09").byGoal.get("a").saved, 2);
+  assert.equal(weekProgress(repay, ctx, repay.goals[0], "2026-10-09").done, 4);
 });
 
 const planned = fixture();
