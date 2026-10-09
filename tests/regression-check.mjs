@@ -155,4 +155,25 @@ check("예전 형식 백업의 입력 기록도 보존", () => {
   assert.deepEqual(storage.getData().entries, vat.entries);
   assert.equal(targetsFor(storage.getData(), "2026-10-07").a, 2);
 });
+// 주 중간에 계획 설정을 바꿔도 보상 휴식으로 줄여 둔 양은 그대로 인정한다.
+store.replaceData(structuredClone(planned), { quiet: true });
+const weekDays = Array.from({ length: 7 }, (_, i) => addDays("2026-10-04", i));
+const layoutOf = () => weekLayout(storage.getData(), 2, "2026-10-04", "2026-10-07").byDate;
+const weekSums = () => Object.fromEntries(storage.getData().goals.map((g) => [g.id, weekDays.reduce((s, d) => s + ((layoutOf().get(d) || {})[g.id] || 0), 0)]));
+const sumsBefore = weekSums();
+const spent = { ...layoutOf().get("2026-10-08") };
+storage.setBonusRest("2026-10-08", spent);
+storage.setSetting("holidayAutoRest", true);
+storage.setSetting("holidayAutoRest", false);
+check("설정을 건드려도 이번 주 양은 그대로이고 저축으로 줄인 양이 다른 날에 다시 생기지 않음", () => {
+  assert.ok(Object.keys(spent).length > 0);
+  assert.deepEqual(weekSums(), sumsBefore);
+  Object.entries(spent).forEach(([id, n]) => assert.ok((layoutOf().get("2026-10-08")[id] || 0) >= n));
+});
+storage.setSetting("layoutMode", "deep");
+storage.setSetting("weekendHours", 8);
+check("다시 섞여도 보상 휴식일의 양이 줄여 둔 양보다 적어지지 않음", () => {
+  const day = layoutOf().get("2026-10-08");
+  Object.entries(spent).forEach(([id, n]) => assert.ok((day[id] || 0) >= n, `${id}: ${day[id] || 0} < ${n}`));
+});
 console.log(`\n${checks}개 모두 통과`);

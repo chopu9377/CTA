@@ -116,14 +116,18 @@ function buildWeek(data, goal, weekStart, today) {
   const endDate = addDays(info.examDate, -data.settings.bufferDays);
   const auto = goal.planMode === "auto" && !!goal.autoFrom;
   const planStart = auto ? [goal.autoFrom, goal.replanFrom].filter(Boolean).sort().pop() : null;
-  const effStart = planStart && planStart > weekStart ? planStart : weekStart;
+  const ruleStart = planStart && planStart > weekStart ? planStart : weekStart;
+  // 양은 주 시작(그 주에 자동을 켰으면 켠 날) 진도로 구한다. 주 중간에 계획을 바꿔도(replanFrom) 출발일은 옮기지 않는다 —
+  // 새 조건으로 다시 구한 이번 주 필요량에서 지난 날 목표(보상 휴식으로 줄인 양 포함)를 뺀 나머지만 남은 날에 둔다(layout.js).
+  // 그날 진도로 처음부터 다시 구하면 미리 풀어 저축으로 끝낸 과목이 남은 날에 또 생긴다.
+  const effStart = auto && goal.autoFrom > weekStart ? goal.autoFrom : weekStart;
   const upcoming = goal.track === 1 && !!info.activeFrom && info.activeFrom > today;
   const calcFrom = upcoming && info.activeFrom > effStart ? info.activeFrom : effStart;
   const cumulativeAtStart = cumulativeOf(goal) - entriesOf(data, goal.id, effStart);
   const rawLeftAtStart = Math.max(0, goal.targetRounds * goal.total - cumulativeAtStart);
   const { days, credit } = collectDays(data, goal, calcFrom, endDate, today);
   const left0 = Math.max(0, rawLeftAtStart - credit);
-  const plan = runPlan(days, left0, weekStart, effStart >= PLAN_RULES_V2_FROM);
+  const plan = runPlan(days, left0, weekStart, ruleStart >= PLAN_RULES_V2_FROM);
   const thisWeek = plan.weeks.find((w) => w.key === 0) || { days: [], need: 0, total: 0, amounts: [] };
   return { weekStart, effStart, endDate, rawLeftAtStart, credit, left0, plan, thisWeek };
 }

@@ -156,7 +156,7 @@ function buildModels(ctx) {
       });
       return { idx, amounts, minutes, bits, gap: checkGap ? gapPenalty(dates, prevLast, weekEnd, emptyBetween) : 0 };
     });
-    models.push({ goal, bit, group, options });
+    models.push({ goal, bit, group, auto, options });
   });
   return models;
 }
@@ -277,6 +277,26 @@ function keepBonusDays(ctx, models, choice, scorer) {
   });
 }
 
+// 다시 섞으면서 보상 휴식일에 놓인 양이 줄여 둔 양보다 적어지면 그 과목의 다른 날에서 옮겨 온다
+// (쓴 저축이 사라지고 그만큼이 다른 날 목표로 다시 생기지 않게).
+function coverBonus(ctx, goal, amounts) {
+  const { data, segment } = ctx;
+  segment.forEach((d, i) => {
+    const bonus = data.bonusRest[d];
+    if (!bonus || typeof bonus !== "object") return;
+    while ((amounts[i] || 0) < (bonus[goal.id] || 0)) {
+      const from = segment.reduce(
+        (best, x, j) => (j !== i && !(data.bonusRest[x]?.[goal.id] > 0) && amounts[j] > (best < 0 ? 0 : amounts[best]) ? j : best),
+        -1
+      );
+      if (from < 0) return;
+      amounts[from]--;
+      amounts[i] = (amounts[i] || 0) + 1;
+    }
+  });
+  return amounts;
+}
+
 function fillGoals(ctx, loads) {
   const { data, goals, segment, limits, byDate, anchor } = ctx;
   goals
@@ -360,10 +380,12 @@ function buildLayout(data, track, weekStart, today) {
       keepBonusDays(ctx, models, choice, scorer);
       models.forEach((model, gi) => {
         const o = model.options[choice[gi]];
-        o.idx.forEach((i, j) => {
-          if (o.amounts[j] > 0) byDate.get(segment[i])[model.goal.id] = o.amounts[j];
+        const amounts = Array(segment.length).fill(0);
+        o.idx.forEach((i, j) => (amounts[i] = o.amounts[j]));
+        (model.auto ? coverBonus(ctx, model.goal, amounts) : amounts).forEach((n, i) => {
+          if (n > 0) byDate.get(segment[i])[model.goal.id] = n;
+          loads[i] += n * model.goal.minutesPerUnit;
         });
-        o.minutes.forEach((v, i) => (loads[i] += v));
       });
     }
     fillGoals(ctx, loads);
