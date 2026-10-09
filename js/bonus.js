@@ -73,6 +73,44 @@ function bonusAmountsOn(data, dateStr) {
   return entry && typeof entry === "object" ? entry : {};
 }
 
+// 저축으로 사용한 초과분의 원래 기록일을 추적해 주간 실적에서 중복으로 세지 않는다.
+// 이전 주 저축으로 쉰 주도 구분한다. 이월 상환에 사용한 양은 다시 쓸 수 없다.
+const spentCache = new WeakMap();
+export function bonusSpentSources(data, ctx) {
+  if (spentCache.has(ctx)) return spentCache.get(ctx);
+  const available = new Map();
+  ctx.sums.forEach((done, key) => {
+    const [id, date] = key.split("|");
+    const goal = data.goals.find((g) => g.id === id);
+    if (!goal || date > ctx.today || goal.track !== trackAt(data, date)) return;
+    const excess = done - (targetsFor(data, date)[id] || 0);
+    if (excess > 0) available.set(key, excess);
+  });
+  const repay = (id, p) => {
+    const key = `${id}|${p.date}`;
+    available.set(key, Math.max(0, (available.get(key) || 0) - p.amount));
+  };
+  (ctx.carryPayments || []).forEach((p) => repay(p.goalId, p));
+  ctx.autoDebts.forEach((debt, key) => (debt.payments || []).forEach((p) => repay(key.split("|")[0], p)));
+  const spent = new Map();
+  const sources = [...available.keys()].sort((a, b) => a.split("|")[1].localeCompare(b.split("|")[1]));
+  Object.keys(data.bonusRest).sort().forEach((date) => {
+    Object.entries(bonusAmountsOn(data, date)).forEach(([id, amount]) => {
+      let left = amount;
+      for (const key of sources) {
+        const [goalId, sourceDate] = key.split("|");
+        if (goalId !== id || sourceDate > date || left <= 0) continue;
+        const used = Math.min(left, available.get(key));
+        available.set(key, available.get(key) - used);
+        spent.set(key, (spent.get(key) || 0) + used);
+        left -= used;
+      }
+    });
+  });
+  spentCache.set(ctx, spent);
+  return spent;
+}
+
 // 과목별 저축(개수) = 그 과목 초과분 - 그 과목 이월·소급 상환 - 그 과목에 쓴 보상 휴식.
 // 저축은 그 과목 목표만 줄일 수 있다(세법학을 더 풀어 법인세를 미루지 못하게). 같은 과목 안에서는 먼저 푼 양을 나중 목표에서
 // 빼는 것이라 총량은 그대로다 — 줄인 날 못 한 양은 진도에 안 잡혀 다음 주 계획에 다시 들어간다.
@@ -123,11 +161,12 @@ export function weekShip(data, ctx, today) {
   const start = weekStartOf(data, today);
   let netBefore = 0;
   let netToday = 0;
+  const spent = bonusSpentSources(data, ctx);
   for (let d = start; d <= today; d = addDays(d, 1)) {
     const targets = targetsFor(data, d);
     data.goals.forEach((g) => {
       if (g.track !== trackAt(data, d)) return;
-      const diff = ((ctx.sums.get(`${g.id}|${d}`) || 0) - (targets[g.id] || 0)) * g.minutesPerUnit;
+      const diff = ((ctx.sums.get(`${g.id}|${d}`) || 0) - (spent.get(`${g.id}|${d}`) || 0) - (targets[g.id] || 0)) * g.minutesPerUnit;
       if (d < today) netBefore += diff;
       else netToday += diff;
     });

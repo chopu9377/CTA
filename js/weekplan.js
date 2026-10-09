@@ -3,6 +3,7 @@ import { effectiveKind, isWeekendLike, targetsFor, trackAt } from "./stats.js";
 import { dataVersion } from "./version.js";
 import { paceFor, paceMissing, studiesTrackOn, workLeft, cumulativeOf, limitMinutes, maintenanceTargets, weekShare } from "./plan.js";
 import { layoutOn, goalDatesIn, weekLayout } from "./layout.js";
+import { bonusSpentSources } from "./bonus.js";
 
 // 주간 자동 역산(미리보기). 하루 목표를 먼저 올림하지 않고 "이번 주 필요량"을 소수점까지 구한 뒤 정수로 나눈다.
 // 저장하는 값은 없다: 주 시작 시점 진도 = 현재 누적 - 그 주에 입력한 기록 으로 매번 같은 계획을 다시 만든다
@@ -206,9 +207,10 @@ export function autoDebts(data, sums, today) {
           [...debts, ...closed].forEach((x) => {
             const pay = Math.min(pool, x.left);
             x.left -= pay;
+            if (pay > 0) x.payments.push({ date: d, amount: pay });
             pool -= pay;
           });
-        } else if (diff < 0 && d < today) debts.push({ date: d, amount: -diff, left: -diff, open });
+        } else if (diff < 0 && d < today) debts.push({ date: d, amount: -diff, left: -diff, open, payments: [] });
       }
       debts.forEach((x) => out.set(`${goal.id}|${x.date}`, x));
       closed.push(...debts.filter((x) => x.left > 0));
@@ -239,8 +241,10 @@ export function weekQuota(data, sums, goal, dates) {
 export function weekProgress(data, ctx, goal, today) {
   const start = weekStartOf(data, today);
   const dates = Array.from({ length: 7 }, (_, i) => addDays(start, i));
-  const done = dates.reduce((sum, d) => sum + (ctx.sums.get(`${goal.id}|${d}`) || 0), 0);
-  return { quota: weekQuota(data, ctx.sums, goal, dates), done };
+  const rawDone = dates.reduce((sum, d) => sum + (ctx.sums.get(`${goal.id}|${d}`) || 0), 0);
+  const used = bonusSpentSources(data, ctx);
+  const done = rawDone - dates.reduce((sum, d) => sum + (used.get(`${goal.id}|${d}`) || 0), 0);
+  return { quota: weekQuota(data, ctx.sums, goal, dates), done: Math.max(0, done), rawDone };
 }
 
 // 지난주(자동 계획으로 통째로 돌던 주)에 못 채운 양. 새 주 계획에 이미 들어 있다는 안내에 쓴다. 주 초반에만 돌려준다.
@@ -251,9 +255,7 @@ export function absorbedShortfalls(data, ctx, today) {
   const list = [];
   data.goals.forEach((goal) => {
     if (goal.archived || !isAutoGoal(data, goal) || goal.autoFrom > prev) return;
-    const dates = Array.from({ length: 7 }, (_, i) => addDays(prev, i));
-    const planned = weekQuota(data, ctx.sums, goal, dates);
-    const done = dates.reduce((sum, d) => sum + (ctx.sums.get(`${goal.id}|${d}`) || 0), 0);
+    const { quota: planned, done } = weekProgress(data, ctx, goal, prev);
     if (planned > done) list.push({ goal, amount: planned - done });
   });
   return list;

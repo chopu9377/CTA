@@ -31,10 +31,10 @@ function nextWeekHTML(data, week) {
 // 지난 주·이번 주: 과목별 한 양 / 그 주 목표
 function pastWeekHTML(data, ctx, week, current) {
   const q = weekQuotas(data, ctx, week.index, trackAt(data, week.start));
-  const rows = q.rings.filter((r) => r.quota > 0 || r.done > 0);
+  const rows = q.rings.filter((r) => r.quota > 0 || r.done > 0 || r.rawDone > 0);
   if (!rows.length) return `<p class="hint">이 주는 목표도 기록도 없어요.</p>`;
   return `${rows
-    .map((r) => subjectRowHTML(data, r.goal, `${r.done} / ${r.quota}${escapeHtml(countUnit(r.goal.unit))}${r.quota > 0 && r.done >= r.quota ? " ✓" : ""}`))
+    .map((r) => subjectRowHTML(data, r.goal, `${r.done} / ${r.quota}${escapeHtml(countUnit(r.goal.unit))}${r.quota > 0 && r.done >= r.quota ? " ✓" : ""}${r.rawDone !== r.done ? `<small> · 실제 기록 ${r.rawDone}${escapeHtml(countUnit(r.goal.unit))} · 저축 사용 ${r.rawDone - r.done}</small>` : ""}`))
     .join("")}
     <p class="hint">${current ? "지금까지 한 양 / 이번 주 목표예요." : "한 양 / 그 주 목표예요."}</p>`;
 }

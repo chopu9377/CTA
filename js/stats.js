@@ -1,7 +1,7 @@
 import { addDays, diffDays, weekdayOf, monthKey, todayStr } from "./dates.js";
 import { holidayName } from "./holidays.js";
 import { applyBonus, bonusMinutes } from "./bonus.js";
-import { autoApplies, autoTargetOn, autoDebts, weekCarries, weekQuota } from "./weekplan.js";
+import { autoApplies, autoTargetOn, autoDebts, weekCarries, weekProgress } from "./weekplan.js";
 import { layoutOn } from "./layout.js";
 
 export function trackAt(data, dateStr) {
@@ -87,12 +87,14 @@ export function buildContext(data, today = todayStr()) {
     sums.set(key, (sums.get(key) || 0) + e.amount);
     if (goalTrack.get(e.goalId) === trackAt(data, e.date)) byDate.set(e.date, (byDate.get(e.date) || 0) + e.amount);
   });
-  return { sums, byDate, remaining: carryRemaining(data, sums), autoDebts: autoDebts(data, sums, today) };
+  const carry = carryRemaining(data, sums);
+  return { today, sums, byDate, remaining: carry.remaining, carryPayments: carry.payments, autoDebts: autoDebts(data, sums, today) };
 }
 
 // 그날 목표를 넘겨 푼 양(초과분)이 고정 목표의 이월분을 오래된 순서로 갚는다.
 function carryRemaining(data, sums) {
   const remaining = new Map();
+  const payments = [];
   const carriesByGoal = new Map();
   // 옛 버전의 자동 목표 같은 주 이월(redistribute)은 더 이상 쓰지 않는다(자동 목표는 autoDebts로 소급)
   data.carries.forEach((c) => {
@@ -122,11 +124,12 @@ function carryRemaining(data, sums) {
           if (pool <= 0 || c.fromDate >= ex.date) return;
           const pay = Math.min(pool, remaining.get(c.id));
           remaining.set(c.id, remaining.get(c.id) - pay);
+          if (pay > 0) payments.push({ goalId, fromDate: c.fromDate, date: ex.date, amount: pay });
           pool -= pay;
         });
       });
   });
-  return remaining;
+  return { remaining, payments };
 }
 
 export function dayReport(data, ctx, dateStr, today) {
@@ -201,9 +204,8 @@ export function weekQuotas(data, ctx, weekIndex, track) {
   const rings = data.goals
     .filter((g) => !g.archived && g.track === track)
     .map((goal) => {
-      const quota = weekQuota(data, ctx.sums, goal, dates);
-      const done = dates.reduce((sum, d) => sum + (ctx.sums.get(`${goal.id}|${d}`) || 0), 0);
-      return { goal, quota, done, pct: quota > 0 ? Math.min(100, (done / quota) * 100) : 0 };
+      const { quota, done, rawDone } = weekProgress(data, ctx, goal, start);
+      return { goal, quota, done, rawDone, pct: quota > 0 ? Math.min(100, (done / quota) * 100) : 0 };
     });
   const counted = rings.filter((r) => r.quota > 0);
   const overall = counted.length ? Math.round(counted.reduce((s, r) => s + r.pct, 0) / counted.length) : 0;

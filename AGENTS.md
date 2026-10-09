@@ -147,6 +147,7 @@ tracks[1|2]               // { examDate, examEstimated, activeFrom, maintain }
 goals[]                   // { id, track, subject, unit, weekdayTarget, weekendTarget, maintWeekdayTarget, maintWeekendTarget, minutesPerUnit, daysPerWeek(1~7), weekdays[](옛 버전 호환용), total, targetRounds, round, progress, archived, planMode("fixed"|"auto"|"fill"), autoFrom, replanFrom }
 layoutFrom                // 주간 랜덤 배치를 마지막으로 다시 섞은 날(계획 변경 시각). 그 주는 이날부터 남은 날만 다시 섞는다
 layoutAt                  // 그 재배치를 정한 날(내일부터 섞었다면 오늘). 이날 전까지의 실제 기록만 배치에 반영한다
+dayKindLayout             // 선택적 { today, kinds, from, at }: 같은 날 휴식/복습 변경을 모두 되돌릴 때 복구할 원래 배치 기준. 계획량 변경 시 폐기
 entries[]                 // { id, goalId, date, amount }  푼 양(누적 입력 1건 = 1행)
 dayKinds{ date: rest|review }
 dayTargets{ date: { goalId: target } }   // 그날 목표 스냅샷(지난 날 판정이 목표 수정에 흔들리지 않게). 오늘 것은 앱을 열 때마다 한 번 새로 계산

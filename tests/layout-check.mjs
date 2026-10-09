@@ -152,7 +152,7 @@ const restoredKey = layoutKey(weekLayout(data, 2, cw, today));
 data.dayKinds[restDay] = "rest";
 bumpVersion();
 check(layoutKey(weekLayout(data, 2, cw, today)) === afterKey, "휴식 풀었다 다시 지정 → 같은 재배치(결정성)");
-check(!restInWeek || restoredKey !== afterKey, "휴식을 풀면 배치가 휴식 전으로 돌아감");
+check(!restInWeek || restoredKey !== afterKey, "휴식을 풀면 휴식 지정 배치와 달라짐(원래 배치 복구는 regression-check에서 검증)");
 delete data.dayKinds[restDay];
 bumpVersion();
 
@@ -178,7 +178,11 @@ check((weekLayout(data, 2, next, today).byDate.get(pinDay)[pinGoal] || 0) > 0, "
 delete data.bonusRest[pinDay];
 const ACC = ["a", "b"];
 const TAX = ["c", "d", "e"];
+const modeSource = data;
 function modeStats(mode) {
+  // 새 모드의 배치 규칙은 새 계획으로 검증한다. 앞 검사에서 기본 모드로 굳힌 과거 스냅샷과
+  // 소급 생성한 진득 배치를 섞으면 바꿀 수 없는 과거를 '3일 공백' 위반으로 잘못 판정한다.
+  const data = { ...modeSource, dayTargets: {}, layoutFrom: null, layoutAt: null, settings: { ...modeSource.settings } };
   data.settings.layoutMode = mode;
   bumpVersion();
   let days = 0, exact = 0, mism = 0, everyDay = 0, autoWeeks = 0;

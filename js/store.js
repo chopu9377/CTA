@@ -257,6 +257,7 @@ export function markReplan(from = appToday(), { amounts = true } = {}) {
   data.layoutFrom = from;
   data.layoutAt = appToday();
   if (!amounts) return;
+  delete data.dayKindLayout;
   data.goals.forEach((g) => {
     if (!g.archived && g.planMode === "auto") g.replanFrom = from;
   });

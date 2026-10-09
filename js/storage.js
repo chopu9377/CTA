@@ -8,6 +8,15 @@ export * from "./goals.js";
 // null → 휴식 → 복습 → null 순환. 복습일은 한 주(startDate 기준 7일)에 하루만 허용.
 export function cycleDayKind(dateStr) {
   const data = getData();
+  const today = appToday();
+  const sameWeek = weekOf(data, dateStr) === weekOf(data, today);
+  const weekKinds = () => Object.fromEntries(Object.entries(data.dayKinds)
+    .filter(([d]) => weekOf(data, d) === weekOf(data, today)).sort(([a], [b]) => a.localeCompare(b)));
+  // 같은 날 휴식/복습을 넣었다 취소하면 변경 전 시드로 돌아간다.
+  // 데이터에 남겨 재실행·다른 기기에서도 같은 복구가 되게 한다.
+  if (sameWeek && data.dayKindLayout?.today !== today) {
+    data.dayKindLayout = { today, kinds: weekKinds(), from: data.layoutFrom, at: data.layoutAt };
+  }
   const current = data.dayKinds[dateStr] || null;
   let next;
   if (current === null) next = "rest";
@@ -17,8 +26,14 @@ export function cycleDayKind(dateStr) {
   else delete data.dayKinds[dateStr];
   // 이번 주 안의 휴식/복습 변경만 이번 주 계획을 다시 나눈다(다른 주는 그 주가 시작될 때 반영된다).
   // 내일 이후 날을 바꾸면 오늘 과목은 그대로 두고 내일부터만 다시 섞는다
-  const today = appToday();
-  if (weekOf(data, dateStr) === weekOf(data, today)) markReplan(dateStr > today ? addDays(today, 1) : today, { amounts: false });
+  if (sameWeek) {
+    const saved = data.dayKindLayout;
+    if (JSON.stringify(weekKinds()) === JSON.stringify(saved.kinds)) {
+      data.layoutFrom = saved.from;
+      data.layoutAt = saved.at;
+      delete data.dayKindLayout;
+    } else markReplan(dateStr > today ? addDays(today, 1) : today, { amounts: false });
+  }
   if (dateStr <= appToday() || weekOf(data, dateStr) === weekOf(data, appToday())) refreshToday();
   persist();
   return { next, blockedReview: current === "rest" && next === null };
