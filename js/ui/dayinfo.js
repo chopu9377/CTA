@@ -1,5 +1,5 @@
 import { formatKoreanDate } from "../dates.js";
-import { dayReport } from "../stats.js";
+import { dayReport, isWeekendLike } from "../stats.js";
 import { countUnit } from "../presets.js";
 import { escapeHtml, subjectColor, formatDuration } from "./shared.js";
 
@@ -45,6 +45,21 @@ export function dayInfoSheetHTML(data, ctx, date, today) {
     </div>
     <div class="form-inline">
       <button class="btn btn-primary" data-action="close-sheet" type="button">닫기</button>
+    </div>
+  </div></div>`;
+}
+
+// 오늘·미래 칸을 탭했는데 그 주에 이미 휴식일이 있을 때: 그 휴식을 이 날로 옮길지, 하루 더 넣을지 고른다.
+// 옮기면 그 주 공부일 수가 그대로라 주간 목표가 안 바뀌고, 더 넣으면 그날 과목이 뒤로 밀린다.
+export function restSheetHTML(date, rests) {
+  const mixed = rests.some((d) => isWeekendLike(d) !== isWeekendLike(date));
+  return `<div class="sheet-backdrop"><div class="sheet">
+    <h3 class="sheet-title">${formatKoreanDate(date)} 휴식</h3>
+    <p class="hint">이 주에는 이미 휴식일이 있어요. 옮기면 주간 목표가 그대로이고, 하루 더 넣으면 그만큼이 다음 주부터 나뉘어 들어가요.${mixed ? " 평일과 주말은 공부 가능 시간이 달라서, 서로 옮기면 주간 목표가 조금 바뀌어요." : ""}</p>
+    <div class="form-inline">
+      ${rests.map((d) => `<button class="btn btn-primary" data-action="rest-move" data-from="${d}" data-date="${date}" type="button">${formatKoreanDate(d)} 휴식을 옮기기</button>`).join("")}
+      <button class="btn btn-secondary" data-action="rest-add" data-date="${date}" type="button">하루 더 넣기</button>
+      <button class="btn btn-secondary" data-action="close-sheet" type="button">닫기</button>
     </div>
   </div></div>`;
 }

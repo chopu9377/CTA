@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { buildContext, weekQuotas, computeTargets, targetsFor, dayReport } from "../js/stats.js";
 import { applyBonus, bonusSavings, weekShip } from "../js/bonus.js";
 import { weekProgress } from "../js/weekplan.js";
-import { weekLayout } from "../js/layout.js";
+import { weekLayout, layoutOn } from "../js/layout.js";
 import { bumpVersion } from "../js/version.js";
 import { addDays } from "../js/dates.js";
 import { renderWeek } from "../js/ui/week.js";
@@ -120,7 +120,6 @@ check("미래 휴일 변경은 오늘과 과거 목표를 보존", () => assert.
 // 백업/동기화로 데이터를 다시 불러와도 복구 기준이 남는지 확인.
 store.replaceData(JSON.parse(storage.exportData()), { quiet: true });
 storage.cycleDayKind("2026-10-09");
-storage.cycleDayKind("2026-10-09");
 check("실제 cycleDayKind 경로: 재실행 후 취소해도 원래 배치 복구", () => {
   assert.equal(key(), before);
   assert.equal(storage.getData().dayKindLayout, undefined);
@@ -128,15 +127,40 @@ check("실제 cycleDayKind 경로: 재실행 후 취소해도 원래 배치 복�
 storage.cycleDayKind("2026-10-07");
 storage.cycleDayKind("2026-10-08");
 storage.cycleDayKind("2026-10-07");
-storage.cycleDayKind("2026-10-07");
 check("여러 휴일 중 하나만 취소해도 다른 휴일은 보존", () => assert.equal(storage.getData().dayKinds["2026-10-08"], "rest"));
 storage.cycleDayKind("2026-10-08");
-storage.cycleDayKind("2026-10-08");
 check("여러 휴일을 모두 취소하면 원래 배치 복구", () => assert.equal(key(), before));
+check("예전에 지정한 복습일은 탭하면 해제(복습으로 넘어가지 않음)", () => {
+  storage.cycleDayKind("2026-10-09");
+  assert.equal(storage.cycleDayKind("2026-10-09").next, null);
+  storage.getData().dayKinds["2026-10-15"] = "review";
+  assert.equal(storage.cycleDayKind("2026-10-15").next, null);
+  assert.equal(key(), before);
+});
+// 휴식 옮기기: 같은 주 평일끼리는 주간 양이 그대로이고, 제자리로 돌려놓고 풀면 원래 배치로 돌아온다.
+const sumsOf = () => {
+  const layout = weekLayout(storage.getData(), 2, "2026-10-04", "2026-10-07").byDate;
+  return Object.fromEntries(storage.getData().goals.map((g) => [g.id, [...layout.values()].reduce((s, t) => s + (t[g.id] || 0), 0)]));
+};
+storage.cycleDayKind("2026-10-08");
+const restSums = sumsOf();
+check("옮길 수 있는 휴식일은 같은 주의 지나지 않은 휴식일만", () => {
+  assert.deepEqual(storage.movableRestDays("2026-10-09"), ["2026-10-08"]);
+  assert.deepEqual(storage.movableRestDays("2026-10-13"), []);
+});
+storage.moveRestDay("2026-10-08", "2026-10-09");
+check("휴식을 평일끼리 옮겨도 주간 양과 지난 날 목표는 그대로", () => {
+  assert.deepEqual(storage.getData().dayKinds, { "2026-10-09": "rest" });
+  assert.deepEqual(sumsOf(), restSums);
+  assert.deepEqual(layoutOn(storage.getData(), 2, "2026-10-09", "2026-10-07"), {});
+  assert.equal(JSON.stringify(storage.getData().dayTargets), past);
+});
+storage.moveRestDay("2026-10-09", "2026-10-08");
+storage.cycleDayKind("2026-10-08");
+check("옮긴 휴식을 되돌리고 풀면 원래 배치 복구", () => assert.equal(key(), before));
 storage.addEntry("0", 3);
 const recorded = JSON.stringify(storage.getData().entries);
 const cumulative = storage.getData().goals[0].progress;
-storage.cycleDayKind("2026-10-07");
 storage.cycleDayKind("2026-10-07");
 storage.cycleDayKind("2026-10-07");
 check("오늘 공부한 뒤 휴일을 지정·취소해도 입력과 진도 보존", () => {
@@ -147,7 +171,6 @@ check("오늘 공부한 뒤 휴일을 지정·취소해도 입력과 진도 보�
 storage.cycleDayKind("2026-10-09");
 storage.updateGoal("0", { total: 999 });
 check("중간에 목표량을 수정하면 예전 복구 기준 폐기", () => assert.equal(storage.getData().dayKindLayout, undefined));
-storage.cycleDayKind("2026-10-09");
 storage.cycleDayKind("2026-10-09");
 check("휴일 취소가 새 목표 설정을 덮어쓰지 않음", () => assert.equal(storage.getData().goals[0].total, 999));
 check("예전 형식 백업의 입력 기록도 보존", () => {
@@ -175,5 +198,23 @@ storage.setSetting("weekendHours", 8);
 check("다시 섞여도 보상 휴식일의 양이 줄여 둔 양보다 적어지지 않음", () => {
   const day = layoutOf().get("2026-10-08");
   Object.entries(spent).forEach(([id, n]) => assert.ok((day[id] || 0) >= n, `${id}: ${day[id] || 0} < ${n}`));
+});
+// 같은 과목을 여러 날 보상으로 줄여 둔 채 다시 섞일 때: 한 날은 줄인 양보다 모자라고 다른 날은 남아서 그 과목이 다시 생기면 안 된다.
+store.replaceData(structuredClone(planned), { quiet: true });
+const laterDays = weekDays.filter((d) => d > "2026-10-07");
+const multi = storage.getData().goals
+  .map((g) => ({ id: g.id, days: laterDays.filter((d) => (layoutOf().get(d) || {})[g.id] > 0) }))
+  .filter((x) => x.days.length >= 2);
+multi.forEach(({ id, days }) => days.forEach((d) => storage.setBonusRest(d, { ...storage.getData().bonusRest[d], [id]: layoutOf().get(d)[id] })));
+check("여러 날 보상을 쓴 과목은 다시 섞여도 보상일끼리 양을 맞춤(다시 생기지 않음)", () => {
+  assert.ok(multi.length > 0);
+  [[8, 4], [6, 4], [9, 3], [7, 5], [10, 4]].forEach(([weekend, weekday]) => {
+    storage.setSetting("weekendHours", weekend);
+    storage.setSetting("weekdayHours", weekday);
+    multi.forEach(({ id }) => {
+      const spare = laterDays.map((d) => ((layoutOf().get(d) || {})[id] || 0) - ((storage.getData().bonusRest[d] || {})[id] || 0));
+      assert.ok(!(spare.some((n) => n < 0) && spare.some((n) => n > 0)), `${id} 주말 ${weekend}h/평일 ${weekday}h: 남는 양 ${spare}`);
+    });
+  });
 });
 console.log(`\n${checks}개 모두 통과`);

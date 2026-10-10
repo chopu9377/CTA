@@ -14,7 +14,7 @@ export function legendHTML(open) {
     <span><i class="dot cell-pending"></i>이월 대기</span>
     <span><i class="dot cell-miss"></i>미달</span>
     <span><i class="dot cell-rest"></i>휴식</span>
-    <span><i class="dot cell-review"></i>복습(8421모드 자동 지정은 [8]처럼 표시)</span>
+    <span><i class="dot cell-review"></i>복습(시험 전 15일 8421모드, [8]처럼 표시)</span>
     <span><i class="dot cell-bonus"></i>보상 휴식</span>
     <span><i class="dot cell-examday"></i>시험일(D-day)</span>
   </div>`;

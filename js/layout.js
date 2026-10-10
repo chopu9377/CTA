@@ -281,14 +281,14 @@ function keepBonusDays(ctx, models, choice, scorer) {
 // (쓴 저축이 사라지고 그만큼이 다른 날 목표로 다시 생기지 않게).
 function coverBonus(ctx, goal, amounts) {
   const { data, segment } = ctx;
+  // 그날 보상으로 줄인 양을 빼고 남는 양. 보상 휴식일이 여러 날이면 서로 남는 양도 옮겨 올 수 있어야 한다
+  // (보상일끼리는 못 옮기게 했더니, 한 날은 줄인 양보다 모자라고 다른 날은 넘쳐서 그 과목이 다시 생겼다)
+  const spare = (j) => (amounts[j] || 0) - (data.bonusRest[segment[j]]?.[goal.id] || 0);
   segment.forEach((d, i) => {
     const bonus = data.bonusRest[d];
     if (!bonus || typeof bonus !== "object") return;
     while ((amounts[i] || 0) < (bonus[goal.id] || 0)) {
-      const from = segment.reduce(
-        (best, x, j) => (j !== i && !(data.bonusRest[x]?.[goal.id] > 0) && amounts[j] > (best < 0 ? 0 : amounts[best]) ? j : best),
-        -1
-      );
+      const from = segment.reduce((best, x, j) => (j !== i && spare(j) > (best < 0 ? 0 : spare(best)) ? j : best), -1);
       if (from < 0) return;
       amounts[from]--;
       amounts[i] = (amounts[i] || 0) + 1;
