@@ -1099,16 +1099,6 @@ body {
   margin-bottom: 16px;
 }
 
-.total-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 8px;
-  font-size: 14px;
-  font-weight: 700;
-}
-
 .total-inputs {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

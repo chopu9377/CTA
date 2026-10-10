@@ -21,13 +21,18 @@ export function legendHTML() {
 function cellHTML(day, { mini, today, pick }) {
   if (day.examTrack) {
     const inner = mini ? "D-day" : `<span class="exam-track">${day.examTrack}차</span><span class="exam-dday">D-day</span>`;
-    return `<div class="cell cell-examday" title="${day.examTrack}차 시험일">${inner}</div>`;
+    const info = !mini && !pick && day.date < today ? ` data-action="day-info" data-date="${day.date}"` : "";
+    return `<div class="cell cell-examday${info ? " tap" : ""}"${info} title="${day.examTrack}차 시험일">${inner}</div>`;
   }
   const label = day.forcedReview ? `[${day.forcedReview}]` : day.status === "rest" ? "휴" : day.status === "review" ? "복" : day.status === "bonus" ? "🎁" : Number(day.date.slice(8));
   const title = day.forcedReview ? ` title="8421모드: 시험 D-${day.forcedReview}, 전 과목 1회독 복습"` : day.holiday ? ` title="${escapeHtml(day.holiday)}"` : "";
   let attrs = "";
   let cls = day.forcedReview ? " forced" : "";
-  if (day.forcedReview) {
+  if (!mini && !pick && day.date < today) {
+    // 지난 날은 탭하면 그날 한 과목·양을 보여 준다.
+    attrs = ` data-action="day-info" data-date="${day.date}"`;
+    cls += " tap";
+  } else if (day.forcedReview) {
     // 8421모드 복습일은 강제 지정이라 탭으로 바꿀 수 없다.
   } else if (!mini && pick) {
     if (pick.has(day.date)) {

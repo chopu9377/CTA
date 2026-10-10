@@ -3,6 +3,7 @@ import { monthKey, shiftMonth, formatKoreanDate } from "./dates.js";
 import { trackAt, buildContext, dayReport, historyEnd, computeTargets } from "./stats.js";
 import { bonusSavings, bonusBlockReason, bonusMaxFor, bonusMinutes } from "./bonus.js";
 import { bonusSheetHTML, bonusCancelSheetHTML } from "./ui/bonus.js";
+import { dayInfoSheetHTML } from "./ui/dayinfo.js";
 import { formatDuration } from "./ui/shared.js";
 import { maintenanceGoals } from "./plan.js";
 import { countUnit } from "./presets.js";
@@ -72,6 +73,10 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
       const { next, blockedReview } = storage.cycleDayKind(btn.dataset.date);
       toast(blockedReview ? "복습일은 주 1일만 — 원상복귀했어요" : next === "rest" ? "휴식일로 지정 · 쿼터 자동 조정" : next === "review" ? "복습일로 지정 · 진도 없이 다시 떠올리는 날" : "원상복귀");
       render();
+    },
+    "day-info"(btn) {
+      const data = storage.getData();
+      overlay.innerHTML = dayInfoSheetHTML(data, buildContext(data), btn.dataset.date, storage.appToday());
     },
     "bonus-toggle"() {
       ui.bonusPick = !ui.bonusPick;
