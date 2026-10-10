@@ -1797,6 +1797,19 @@ textarea:focus {
   color: var(--cell-bonus-ink);
 }
 
+.cell.half::before {
+  content: "🌗";
+  position: absolute;
+  right: 1px;
+  bottom: -2px;
+  font-size: 9px;
+}
+
+.week.mini .cell.half::before {
+  font-size: 7px;
+  bottom: -3px;
+}
+
 .cell.has-bonus::before {
   content: "🎁";
   position: absolute;
@@ -1933,4 +1946,108 @@ textarea:focus {
 .btn:disabled {
   opacity: 0.45;
   pointer-events: none;
+}
+
+/* 탭바 위를 걸어 다니는 마스코트 */
+.mascot {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(50px + env(safe-area-inset-bottom));
+  z-index: 8;
+  height: 30px;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 0 10px;
+  pointer-events: none;
+}
+
+.mascot-walker {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  animation: mascot-walk 28s linear infinite;
+}
+
+.mascot-sprite {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 42px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  pointer-events: auto;
+  animation: mascot-turn 28s step-end infinite;
+}
+
+.mascot-sprite svg {
+  display: block;
+}
+
+.mascot-legs-a {
+  animation: mascot-step 0.5s step-end infinite;
+}
+
+.mascot-legs-b {
+  animation: mascot-step 0.5s step-end infinite -0.25s;
+}
+
+.mascot-bubble-pos {
+  position: absolute;
+  left: 0;
+  bottom: 34px;
+  width: max-content;
+  max-width: min(300px, 78vw);
+  animation: mascot-bubble-follow 28s linear infinite;
+}
+
+.mascot-bubble {
+  padding: 7px 11px;
+  border-radius: 12px;
+  background: var(--surface-1);
+  box-shadow: var(--card-shadow), 0 0 0 1px var(--gridline);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--text-primary);
+  animation: mascot-bubble-life 7s ease forwards;
+}
+
+@keyframes mascot-walk {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(calc(100% - 42px)); }
+}
+
+@keyframes mascot-turn {
+  0% { transform: scaleX(1); }
+  50% { transform: scaleX(-1); }
+}
+
+@keyframes mascot-bubble-follow {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(calc(-100% + 42px)); }
+}
+
+@keyframes mascot-step {
+  0% { transform: translateY(0); }
+  50% { transform: translateY(-1px); }
+}
+
+@keyframes mascot-bubble-life {
+  0% { opacity: 0; transform: translateY(4px); }
+  6%, 85% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mascot-walker,
+  .mascot-sprite,
+  .mascot-bubble-pos,
+  .mascot-legs-a,
+  .mascot-legs-b {
+    animation: none;
+  }
 }

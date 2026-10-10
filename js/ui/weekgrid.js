@@ -7,7 +7,7 @@ export function legendHTML() {
   return `<div class="legend">
     <span><i class="dot cell-full"></i>당일 달성</span>
     <span><i class="dot cell-carried"></i>이월 후 완료</span>
-    <span><i class="dot cell-partial"></i>부분</span>
+    <span><i class="dot cell-partial"></i>부분(🌗 절반 이상)</span>
     <span><i class="dot cell-pending"></i>이월 대기</span>
     <span><i class="dot cell-miss"></i>미달</span>
     <span><i class="dot cell-rest"></i>휴식</span>
@@ -44,6 +44,7 @@ function cellHTML(day, { mini, today, pick }) {
     cls = " tap";
   }
   if (day.bonus && day.status !== "bonus") cls += " has-bonus";
+  if (day.half) cls += " half";
   return `<div class="cell cell-${day.status}${cls}${day.holiday ? " holiday" : ""}"${attrs}${title}>${label}</div>`;
 }
 

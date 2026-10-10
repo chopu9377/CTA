@@ -27,7 +27,7 @@ export function dayInfoSheetHTML(data, ctx, date, today) {
     ? `${report.examTrack}차 시험일`
     : report.forcedReview
       ? `8421모드 복습일 [${report.forcedReview}]`
-      : STATUS_TEXT[report.status] || "";
+      : `${STATUS_TEXT[report.status] || ""}${report.half ? " · 🌗 절반 이상" : ""}`;
   const list = rows
     .map(({ goal, done, target }) => {
       const unit = escapeHtml(countUnit(goal.unit));

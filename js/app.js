@@ -4,6 +4,7 @@ import { loadHolidays, holidaysLoaded } from "./holidays.js";
 import { renderWeek, renderToday, renderProgress, renderExam, renderHistory, renderSettings } from "./ui.js";
 import { renderSettleSheet } from "./ui/settle.js";
 import { conflictSheetHTML } from "./ui/syncui.js";
+import { mascotHTML, mascotPhase, pickCheer, bubbleHTML } from "./ui/mascot.js";
 import { createActions } from "./actions.js";
 import { bindInputHandlers } from "./inputs.js";
 import { initSync, getSyncInfo } from "./sync.js";
@@ -11,6 +12,8 @@ import { initSync, getSyncInfo } from "./sync.js";
 const root = document.getElementById("view-root");
 const overlay = document.getElementById("overlay-root");
 const toastEl = document.getElementById("toast");
+const mascotEl = document.getElementById("mascot-root");
+mascotEl.innerHTML = mascotHTML();
 const tabButtons = document.querySelectorAll(".tab-btn");
 const PICKER_ITEM_HEIGHT = 44;
 
@@ -33,6 +36,8 @@ const ui = {
   bonusDate: null,
   bonusAmounts: null,
   weekMonth: null,
+  mascotPhase: null,
+  mascotText: null,
   sec: {}
 };
 
@@ -63,6 +68,25 @@ function render() {
   if (picker) picker.scrollTop = ui.pick * PICKER_ITEM_HEIGHT;
   if (ui.revealSelected) revealSelectedRow();
   showAppVersion();
+  updateMascot(data, ctx, today);
+}
+
+// 주간·오늘 탭에서만 보인다(입력 시트가 올라와 있으면 자리를 비켜 준다). 오늘 상태가 바뀌면(절반 넘김 등) 새로 한마디 한다.
+function updateMascot(data, ctx, today, force = false) {
+  const visible = (ui.view === "week" || ui.view === "today") && !ui.pickerOpen;
+  mascotEl.hidden = !visible;
+  if (!visible) return;
+  const phase = mascotPhase(data, ctx, today);
+  if (!force && phase === ui.mascotPhase) return;
+  ui.mascotPhase = phase;
+  ui.mascotText = pickCheer(data, ctx, today, phase, ui.mascotText);
+  mascotEl.querySelector("[data-mascot-bubble]").innerHTML = bubbleHTML(ui.mascotText);
+}
+
+function cheer() {
+  const data = storage.getData();
+  const today = storage.appToday();
+  updateMascot(data, buildContext(data, today), today, true);
 }
 
 // 고른 과목 행이 입력 시트에 가려지면 시트 위로 스크롤해서 보이게 한다
@@ -93,6 +117,7 @@ function switchView(view) {
   ui.pickerOpen = false;
   ui.bonusPick = false;
   ui.weekMonth = null;
+  ui.mascotPhase = null;
   render();
   window.scrollTo(0, 0);
 }
@@ -128,6 +153,7 @@ function resolveConflict(choice) {
 }
 
 const { actions, announceRounds } = createActions({ ui, render, toast, overlay, showSettleSheet, closeSheet, resolveConflict });
+actions["mascot-cheer"] = cheer;
 bindInputHandlers({ ui, render, toast, closeSheet, announceRounds });
 
 document.addEventListener("click", (event) => {

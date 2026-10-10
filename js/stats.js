@@ -173,13 +173,29 @@ export function dayReport(data, ctx, dateStr, today) {
     else status = totalDone > 0 ? "partial" : "miss";
   }
 
+  // 절반 표시: 다 채우진 못했어도 그날 목표(시간 환산)의 절반 이상을 한 날. 판정·이월·저축과는 무관한 표시용이다.
+  const planMin = rows.reduce((sum, r) => sum + r.target * r.goal.minutesPerUnit, 0);
+  const doneMin = rows.reduce((sum, r) => sum + Math.min(r.done, r.target) * r.goal.minutesPerUnit, 0);
+  const half = !kind && dateStr <= today && shortfalls.length > 0 && planMin > 0 && doneMin * 2 >= planMin;
+
   const undecided = dateStr < today && !kind && shortfalls.some((s) => s.canCarry) && decision === undefined;
   const forcedReview = forcedReviewLabel(data, dateStr);
   const examTrack = examTrackFor(data, dateStr);
-  return { date: dateStr, kind, status, rows, shortfalls, undecided, totalDone, bonus, holiday: holidayName(dateStr), forcedReview, examTrack };
+  return { date: dateStr, kind, status, half, rows, shortfalls, undecided, totalDone, bonus, holiday: holidayName(dateStr), forcedReview, examTrack };
 }
 
 const NEUTRAL = ["rest", "review", "none", "bonus"];
+
+// 절반 이상 한 날이 며칠 이어졌는지(오늘부터 거꾸로). 휴식·복습·목표 없는 날은 건너뛰고, 오늘은 아직 못 채웠어도 끊지 않는다.
+export function halfStreak(data, ctx, today) {
+  let count = 0;
+  for (let d = today; d >= data.startDate; d = addDays(d, -1)) {
+    const r = dayReport(data, ctx, d, today);
+    if (r.status === "full" || r.status === "carried" || r.half) count++;
+    else if (!NEUTRAL.includes(r.status) && d !== today) break;
+  }
+  return count;
+}
 
 export function weekReport(data, ctx, weekIndex, today) {
   const start = addDays(data.startDate, weekIndex * 7);
