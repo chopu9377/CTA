@@ -1,7 +1,7 @@
 import { formatKoreanDate, addDays } from "../dates.js";
-import { trackAt, dayReport, effectiveKind } from "../stats.js";
+import { trackAt, dayReport, effectiveKind, lightTarget } from "../stats.js";
 import { dayLoad, maintenanceGoals, maintenanceTargets } from "../plan.js";
-import { isAutoGoal, weekProgress, isLastStudyDay } from "../weekplan.js";
+import { isAutoGoal, weekProgress, isLastStudyDay, weekCarries } from "../weekplan.js";
 import { UNIT_SUGGESTIONS, TRACK_LABEL, countUnit } from "../presets.js";
 import { escapeHtml, subjectColor, formatDuration } from "./shared.js";
 import { tomorrowCardHTML } from "./tomorrow.js";
@@ -18,8 +18,11 @@ function carryOf(data, ctx, goalId) {
   return fixed + auto;
 }
 
-function goalRowHTML(data, ctx, row, selected, tag = "", auto = null) {
-  const { goal, target, done } = row;
+// light: "오늘은 가볍게"를 켠 날은 절반을 목표처럼 보여 준다(원래 목표는 옆에 작게)
+function goalRowHTML(data, ctx, row, selected, tag = "", auto = null, light = false) {
+  const { goal, done } = row;
+  const full = row.target;
+  const target = light && full > 0 ? lightTarget(full) : full;
   const carry = carryOf(data, ctx, goal.id);
   const fin = target > 0 && done >= target;
   return `<div class="goal-row${selected ? " selected" : ""}${fin ? " fin" : ""}${tag ? " maint" : ""}" data-action="select-goal" data-id="${goal.id}">
@@ -28,7 +31,7 @@ function goalRowHTML(data, ctx, row, selected, tag = "", auto = null) {
       <div class="goal-meta"><span class="unit">${escapeHtml(goal.unit)}</span>${tag ? `<span class="unit maint-tag">${tag}</span>` : ""}${carry ? `<span class="unit carry">이월 ${carry}${escapeHtml(countUnit(goal.unit))}</span>` : ""}${auto ? `<span class="unit auto-tag">자동 · 이번 주 ${auto.progress.done}/${auto.progress.quota}</span>` : ""}</div>
       ${auto && auto.last && !fin ? `<div class="goal-rec">이번 주 마지막 공부일 · 못 채우면 다음 주 계획에 자동 반영돼요</div>` : ""}
     </div>
-    <div class="goal-count">${target > 0 ? `${done} / ${target}<small>${escapeHtml(countUnit(goal.unit))}</small>${fin ? " ✓" : ""}` : `${done}<small>${escapeHtml(countUnit(goal.unit))} · 오늘 목표 없음</small>`}</div>
+    <div class="goal-count">${target > 0 ? `${done} / ${target}<small>${escapeHtml(countUnit(goal.unit))}${target < full ? ` · 원래 ${full}` : ""}</small>${fin ? " ✓" : ""}` : `${done}<small>${escapeHtml(countUnit(goal.unit))} · 오늘 목표 없음</small>`}</div>
   </div>`;
 }
 
@@ -123,6 +126,19 @@ function dayNoticeHTML(data, today, report) {
   return head + warn;
 }
 
+// 지친 날용: 과목마다 절반만 목표로 보여 준다. 계획·판정은 그대로라 덜 한 양은 기존 규칙대로 넘어간다
+// (자동·채우기 과목은 그 주 안에서 자동 소급, 고정 과목은 다음 날 이월/버림을 묻는다).
+function lightHTML(data, report, light) {
+  if (report.kind || !report.rows.length) return "";
+  if (!light) {
+    if (!report.shortfalls.length) return "";
+    return `<div class="light-line"><button class="btn btn-secondary btn-sm" data-action="toggle-light" type="button">🪶 오늘은 가볍게</button><span>지친 날엔 절반만 해요</span></div>`;
+  }
+  const asks = report.rows.some((r) => !weekCarries(data, r.goal));
+  return `<div class="notice light">🪶 가볍게 모드 · 과목마다 절반만 채우면 돼요. 덜 한 양은 이번 주 안에 더 풀면 자동으로 갚아져요${asks ? "(고정 목표는 내일 이월할지 물어봐요)" : ""}.
+    <button class="btn btn-sm btn-secondary" data-action="toggle-light" type="button">원래대로</button></div>`;
+}
+
 // 다른 트랙 집중 기간에 가볍게 이어 가는 목표. 못 채워도 달성/미달 판정·이월에 영향이 없다.
 function maintSectionHTML(data, ctx, today, maintGoals, maintTargets, selected) {
   if (!maintGoals.length) return "";
@@ -157,7 +173,7 @@ export function renderToday(data, ctx, today, ui, dawn = null) {
   const quietOpen = ui.quietOpen || (sheetOpen && quietGoals.some((g) => g.id === selected.id));
   const rowHTML = (g) => {
     const auto = isAutoGoal(data, g) ? { progress: weekProgress(data, ctx, g, today), last: !report.kind && isLastStudyDay(data, g, today) } : null;
-    return goalRowHTML(data, ctx, rowFor(g), sheetOpen && g.id === selected.id, "", auto);
+    return goalRowHTML(data, ctx, rowFor(g), sheetOpen && g.id === selected.id, "", auto, ui.light);
   };
   const quietHTML = quietGoals.length
     ? `<button class="quiet-toggle" data-action="toggle-quiet" type="button" aria-expanded="${quietOpen}">
@@ -172,6 +188,7 @@ export function renderToday(data, ctx, today, ui, dawn = null) {
       ${ui.editing ? "" : dawnNoticeHTML(dawn)}
       ${ui.editing ? "" : dayNoticeHTML(data, today, report)}
       ${ui.editing ? "" : yesterdayLineHTML(data, today)}
+      ${ui.editing ? "" : lightHTML(data, report, ui.light)}
       ${ui.editing
         ? `<div class="goal-edit-head${allAuto ? " compact" : ""}"><span>과목</span><span>단위</span>${allAuto ? "" : "<span>평일</span><span>주말</span>"}<span></span></div>
            ${goals.map((g) => goalEditHTML(g, editModeOf(data, g), allAuto)).join("")}

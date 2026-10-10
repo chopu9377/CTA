@@ -41,7 +41,7 @@ export function bubbleHTML(text) {
   return `<div class="mascot-bubble">${escapeHtml(text)}</div>`;
 }
 
-// 탭바 위를 좌우로 걸어 다니는 픽셀 마스코트. 한 번만 그려 두고(걷기 애니메이션이 끊기지 않게) 말풍선만 갈아 끼운다.
+// 상단 바를 좌우로 걸어 다니는 픽셀 마스코트. 한 번만 그려 두고(걷기 애니메이션이 끊기지 않게) 말풍선만 갈아 끼운다.
 export function mascotHTML() {
   return `<div class="mascot-walker">
     <div class="mascot-bubble-pos" data-mascot-bubble></div>

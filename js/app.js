@@ -38,6 +38,7 @@ const ui = {
   weekMonth: null,
   mascotPhase: null,
   mascotText: null,
+  light: false,
   sec: {}
 };
 
@@ -55,12 +56,13 @@ function render() {
   if (holidaysLoaded()) storage.freezeDayTargets(today);
   const data = storage.getData();
   const ctx = buildContext(data, today);
+  ui.light = storage.isLightDay(today);
 
   if (ui.view === "week") root.innerHTML = renderWeek(data, ctx, today, ui);
   else if (ui.view === "today") root.innerHTML = renderToday(data, ctx, today, ui, dawn);
   else if (ui.view === "progress") root.innerHTML = renderProgress(data, ui, today);
   else if (ui.view === "exam") root.innerHTML = renderExam(data, ui, today);
-  else if (ui.view === "history") root.innerHTML = renderHistory(data, ctx, today);
+  else if (ui.view === "history") root.innerHTML = renderHistory(data, ctx, today, ui);
   else root.innerHTML = renderSettings(data, today, storage.legacyDataJson() !== null, getSyncInfo(), ui);
 
   tabButtons.forEach((btn) => btn.classList.toggle("active", btn.dataset.view === ui.view));
@@ -71,16 +73,22 @@ function render() {
   updateMascot(data, ctx, today);
 }
 
-// 주간·오늘 탭에서만 보인다(입력 시트가 올라와 있으면 자리를 비켜 준다). 오늘 상태가 바뀌면(절반 넘김 등) 새로 한마디 한다.
+// 탭을 열 때(switchView가 mascotPhase를 비운다)와 오늘 상태가 바뀔 때(절반 넘김 등) 새로 한마디 한다.
 function updateMascot(data, ctx, today, force = false) {
-  const visible = (ui.view === "week" || ui.view === "today") && !ui.pickerOpen;
-  mascotEl.hidden = !visible;
-  if (!visible) return;
   const phase = mascotPhase(data, ctx, today);
   if (!force && phase === ui.mascotPhase) return;
+  // 기록을 넣다가 절반·완료를 찍은 순간에만 폴짝 뛴다(탭을 열 때·눌렀을 때는 말만 한다)
+  if (!force && ui.mascotPhase && (phase === "half" || phase === "done")) jumpMascot();
   ui.mascotPhase = phase;
   ui.mascotText = pickCheer(data, ctx, today, phase, ui.mascotText);
   mascotEl.querySelector("[data-mascot-bubble]").innerHTML = bubbleHTML(ui.mascotText);
+}
+
+function jumpMascot() {
+  const body = mascotEl.querySelector(".mascot-sprite svg");
+  body.classList.remove("jump");
+  void body.getBoundingClientRect();
+  body.classList.add("jump");
 }
 
 function cheer() {

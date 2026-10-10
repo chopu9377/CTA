@@ -129,6 +129,11 @@ function carryRemaining(data, sums) {
   return remaining;
 }
 
+// "오늘은 가볍게"에서 보여 주는 과목별 목표(절반, 올림). 표시용이라 판정·이월에는 쓰지 않는다.
+export function lightTarget(target) {
+  return Math.ceil(target / 2);
+}
+
 export function dayReport(data, ctx, dateStr, today) {
   const kind = effectiveKind(data, dateStr);
   const targets = targetsFor(data, dateStr);

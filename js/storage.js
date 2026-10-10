@@ -2,7 +2,7 @@ import { addDays } from "./dates.js";
 import { getData, persist, uid, refreshToday, replaceData, markReplan, appToday } from "./store.js";
 
 // app.js는 저장 관련 함수를 모두 이 파일에서 가져온다(핵심은 store.js, 목표·기록 변경은 goals.js).
-export { getData, freezeDayTargets, legacyDataJson, appToday, dawnInfo, setDawnChoice } from "./store.js";
+export { getData, freezeDayTargets, legacyDataJson, appToday, dawnInfo, setDawnChoice, isLightDay, setLightDay } from "./store.js";
 export * from "./goals.js";
 
 // null → 휴식 → 복습 → null 순환. 복습일은 한 주(startDate 기준 7일)에 하루만 허용.

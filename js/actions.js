@@ -1,6 +1,6 @@
 import * as storage from "./storage.js";
 import { monthKey, shiftMonth, formatKoreanDate } from "./dates.js";
-import { trackAt, buildContext, dayReport, historyEnd, computeTargets } from "./stats.js";
+import { trackAt, buildContext, dayReport, historyEnd, computeTargets, lightTarget } from "./stats.js";
 import { bonusSavings, bonusBlockReason, bonusMaxFor, bonusMinutes } from "./bonus.js";
 import { bonusSheetHTML, bonusCancelSheetHTML } from "./ui/bonus.js";
 import { dayInfoSheetHTML } from "./ui/dayinfo.js";
@@ -53,7 +53,8 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
     const data = storage.getData();
     const today = storage.appToday();
     const row = dayReport(data, buildContext(data), today, today).rows.find((r) => r.goal.id === goalId);
-    const left = row ? row.target - row.done : 0;
+    const target = row ? (storage.isLightDay(today) ? lightTarget(row.target) : row.target) : 0;
+    const left = row ? target - row.done : 0;
     return left > 0 ? Math.min(10, left) : ui.pick;
   }
 
@@ -161,6 +162,13 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
     },
     "open-settle"() {
       showSettleSheet();
+    },
+    "toggle-light"() {
+      const today = storage.appToday();
+      const on = !storage.isLightDay(today);
+      storage.setLightDay(on ? today : null);
+      toast(on ? "오늘은 가볍게 · 과목마다 절반만 채워요" : "원래 목표로 돌아왔어요");
+      render();
     },
     "toggle-dawn"(btn) {
       storage.setDawnChoice(btn.dataset.date);

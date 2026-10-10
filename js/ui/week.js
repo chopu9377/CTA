@@ -108,7 +108,7 @@ export function renderWeek(data, ctx, today, ui) {
         ${streak ? `<span class="chip" title="목표의 절반 이상 한 날이 이어진 일수">🔥 절반 이상 ${streak}일째</span>` : ""}
       </div>
       ${ui.bonusPick ? monthNavHTML(month, today, data) : ""}
-      ${legendHTML()}${monthWeeksHTML(data, ctx, today, month, pick)}
+      ${legendHTML(ui.sec.legend)}${monthWeeksHTML(data, ctx, today, month, pick)}
       <p class="hint">이번 달 주간만 보여요(지난 기록은 '공부기록' 탭). 미래 칸을 탭: 1번 휴식 → 2번 복습(주 1일) → 3번 원상복귀. 🎁 칸을 탭하면 보상 휴식을 취소할 수 있어요. 🌗는 다 못 채웠어도 절반 이상 한 날이고, 절반만 해도 🔥 연속 기록은 이어져요(쉬는 날은 건너뜀).</p>
     </div>
     ${quotaHTML(data, ctx, track, currentWeekIndex(data, today))}

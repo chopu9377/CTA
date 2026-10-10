@@ -61,8 +61,8 @@ check("저축을 써도 실제로 푼 4문제는 주간 실적에 그대로 남�
 });
 check("주간·공부기록 화면에서 실제 실적을 차감하지 않음", () => {
   assert.equal(weekQuotas(vat, ctx, 2, 2).rings[0].done, 4);
-  assert.doesNotMatch(renderWeek(vat, ctx, "2026-10-09", { bonusPick: false }), /저축 사용|중복으로 세지/);
-  assert.match(renderHistory(vat, ctx, "2026-10-09"), /4 \/ 4/);
+  assert.doesNotMatch(renderWeek(vat, ctx, "2026-10-09", { bonusPick: false, sec: {} }), /저축 사용|중복으로 세지/);
+  assert.match(renderHistory(vat, ctx, "2026-10-09", { sec: {} }), /4 \/ 4/);
 });
 check("저축 사용은 목표를 채운 것으로 인정하되 누적 진도를 재가산하지 않음", () => {
   assert.deepEqual(applyBonus(vat, "2026-10-07", { a: 6 }), { a: 2 });

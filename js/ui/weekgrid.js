@@ -3,8 +3,11 @@ import { escapeHtml } from "./shared.js";
 
 const TAPPABLE = ["future", "rest", "review", "today", "none", "bonus"];
 
-export function legendHTML() {
-  return `<div class="legend">
+// 색깔 설명은 접어 두고, 누르면 펼친다(펼친 상태는 화면 상태 ui.sec.legend)
+export function legendHTML(open) {
+  const toggle = `<button class="legend-toggle" data-action="toggle-sec" data-sec="legend" type="button" aria-expanded="${open ? "true" : "false"}">색깔 설명 <span aria-hidden="true">${open ? "▴" : "▾"}</span></button>`;
+  if (!open) return toggle;
+  return `${toggle}<div class="legend">
     <span><i class="dot cell-full"></i>당일 달성</span>
     <span><i class="dot cell-carried"></i>이월 후 완료</span>
     <span><i class="dot cell-partial"></i>부분(🌗 절반 이상)</span>

@@ -314,6 +314,23 @@ export function dawnInfo() {
   return { resolved, other: resolved === prev ? real : prev };
 }
 
+// "오늘은 가볍게": 그날 하루 오늘 탭에서 과목마다 절반만 목표로 보여 준다. 표시만 바꾸고 계획·판정은 그대로라
+// (덜 한 양은 기존 이월 규칙이 처리한다) 새벽 모드 선택처럼 기기별 localStorage에만 둔다(동기화·백업 대상 아님).
+const LIGHT_KEY = "cta-light";
+
+export function isLightDay(dateStr) {
+  try {
+    return localStorage.getItem(LIGHT_KEY) === dateStr;
+  } catch (e) {
+    return false;
+  }
+}
+
+export function setLightDay(dateStr) {
+  if (dateStr) localStorage.setItem(LIGHT_KEY, dateStr);
+  else localStorage.removeItem(LIGHT_KEY);
+}
+
 export function setDawnChoice(date) {
   writeDawnChoice(todayStr(), date);
 }
