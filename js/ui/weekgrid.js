@@ -17,6 +17,7 @@ export function legendHTML(open) {
     <span><i class="dot cell-review"></i>복습(시험 전 15일 8421모드, [8]처럼 표시)</span>
     <span><i class="dot cell-bonus"></i>보상 휴식</span>
     <span><i class="dot cell-examday"></i>시험일(D-day)</span>
+    <span>🥊 운동일(공부 가능 시간이 짧은 평일)</span>
   </div>`;
 }
 
@@ -48,7 +49,8 @@ function cellHTML(day, { mini, today, pick }) {
   }
   if (day.bonus && day.status !== "bonus") cls += " has-bonus";
   if (day.half) cls += " half";
-  return `<div class="cell cell-${day.status}${cls}${day.holiday ? " holiday" : ""}"${attrs}${title}>${label}</div>`;
+  const glove = day.workout ? `<span class="glove" aria-label="운동일">🥊</span>` : "";
+  return `<div class="cell cell-${day.status}${cls}${day.holiday ? " holiday" : ""}"${attrs}${title}>${label}${glove}</div>`;
 }
 
 export function weekHTML(week, { mini, today, currentIndex, pick = null }) {

@@ -123,6 +123,9 @@ export function bindInputHandlers({ ui, render, toast, closeSheet, announceRound
     } else if (el.dataset.settingNum) {
       storage.setSetting(el.dataset.settingNum, Math.max(0, Number(el.value) || 0));
       refreshAllPaceSlots();
+    } else if (el.dataset.workoutHours !== undefined) {
+      storage.setWorkout({ hours: Math.max(0, Number(el.value) || 0) });
+      refreshAllPaceSlots();
     } else if (el.dataset.settingSelect) {
       storage.setSetting(el.dataset.settingSelect, el.value);
       const label = el.options[el.selectedIndex]?.textContent || el.value;

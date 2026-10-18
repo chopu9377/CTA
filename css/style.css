@@ -1810,6 +1810,20 @@ textarea:focus {
   bottom: -3px;
 }
 
+.cell .glove {
+  position: absolute;
+  left: 1px;
+  bottom: -2px;
+  font-size: 8px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.week.mini .cell .glove {
+  font-size: 6px;
+  bottom: -3px;
+}
+
 .cell.has-bonus::before {
   content: "🎁";
   position: absolute;

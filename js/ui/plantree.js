@@ -1,5 +1,5 @@
 import { formatMD, addDays, WEEKDAY_LABELS } from "../dates.js";
-import { trackAt } from "../stats.js";
+import { trackAt, currentWorkout } from "../stats.js";
 import { paceMissing, hasFocusPlan } from "../plan.js";
 import { planPreview, trackFeasibility, isAutoGoal, weekLoadRows } from "../weekplan.js";
 import { TRACK_LABEL, countUnit, LAYOUT_MODES } from "../presets.js";
@@ -9,7 +9,7 @@ const MARKS = { ok: "✓", bad: "✗", info: "·" };
 const leaf = (state, html) => `<li class="tree-leaf ${state}"><span class="tree-mark">${MARKS[state]}</span><div>${html}</div></li>`;
 const gotoBtn = (attrs) => `<button type="button" class="link-btn" data-action="goto-input" ${attrs}>입력하러 가기</button>`;
 
-function commonLeaves(data, track) {
+function commonLeaves(data, track, today) {
   const info = data.tracks[track];
   const { weekdayHours, weekendHours, bufferDays } = data.settings;
   const ratio = weekdayHours > 0 && weekendHours > 0 ? (weekendHours / weekdayHours).toFixed(2) : "1";
@@ -20,6 +20,8 @@ function commonLeaves(data, track) {
       : leaf("bad", `시험일이 비어 있어요 ${gotoBtn(`data-track="${track}" data-field="examDate"`)}`)
   );
   leaves.push(leaf("info", `공부 가능 시간 평일 ${weekdayHours}시간 · 주말 ${weekendHours}시간 → 평일:주말 양 = 1:${ratio}`));
+  const workout = currentWorkout(data, today);
+  if (workout.days.length) leaves.push(leaf("info", `🥊 운동일 ${workout.days.map((d) => WEEKDAY_LABELS[d]).join("·")}은 ${workout.hours}시간으로 잡았어요`));
   if (track === 2) {
     leaves.push(
       hasFocusPlan(data)
@@ -122,7 +124,7 @@ function trackNode(data, track, today, active) {
   return `<li class="tree-track">
     <div class="tree-head"><b>${label}</b><span class="tree-tag ${goals.length && ready === goals.length ? "ok" : "bad"}">과목 ${ready}/${goals.length} 계산됨</span></div>
     <ul>
-      <li class="tree-goal"><div class="tree-head"><b>공통 조건</b></div><ul>${commonLeaves(data, track)}${feasibilityLeaf(data, track, today)}</ul></li>
+      <li class="tree-goal"><div class="tree-head"><b>공통 조건</b></div><ul>${commonLeaves(data, track, today)}${feasibilityLeaf(data, track, today)}</ul></li>
       ${goals.map((g) => goalNode(data, g, today)).join("")}
       ${loadNode(data, track, today)}
     </ul>

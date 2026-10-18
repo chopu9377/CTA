@@ -75,7 +75,7 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
       // 그 주에 이미 휴식일이 있으면 하루 더 넣을지, 그 휴식을 이 날로 옮길지 묻는다
       const rests = storage.getData().dayKinds[date] ? [] : storage.movableRestDays(date);
       if (rests.length) {
-        overlay.innerHTML = restSheetHTML(date, rests);
+        overlay.innerHTML = restSheetHTML(storage.getData(), date, rests);
         return;
       }
       const { next } = storage.cycleDayKind(date);
@@ -223,6 +223,15 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
     },
     "toggle-sec"(btn) {
       ui.sec[btn.dataset.sec] = !ui.sec[btn.dataset.sec];
+      render();
+    },
+    "toggle-workout-day"(btn) {
+      const data = storage.getData();
+      const dow = Number(btn.dataset.dow);
+      const { days } = storage.currentWorkout(data, storage.appToday());
+      const on = !days.includes(dow);
+      storage.setWorkout({ days: on ? [...days, dow] : days.filter((d) => d !== dow) });
+      toast(`${btn.textContent}요일 운동일 ${on ? "켬 🥊" : "끔"} · 오늘부터 남은 날이 다시 섞여요`);
       render();
     },
     "auto-all"() {

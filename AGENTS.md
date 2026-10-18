@@ -64,6 +64,9 @@
   앱을 쓰기 전까지 푼 양은 설정의 "누적 푼 양"에 넣으면 총 분량 기준으로 회독/진행량으로 환산된다
   (주간 통계에는 잡히지 않음).
 - **평일/주말**: 토·일과 **공휴일은 주말**로 본다(공부 가능 시간이 더 길다). 고정 목표는 하루 목표를 평일 값과 주말 값 두 개로 갖는다(직장 병행).
+  **운동일(v59)**: 설정에서 고른 평일(월~금)은 공부 가능 시간을 따로(기본 평일의 절반) 잡는다(`stats.js` `workoutOn`·`dayWeight`, `plan.js` `limitMinutes`).
+  역산 가중치·배치 시간 한도가 모두 그만큼 줄어 자동 과목 양이 다른 날로 간다(고정 과목 숫자는 그대로). 주말·공휴일은 영향 없음. 계획은
+  `settings.workouts[{ from, days, hours }]`로 시작일과 함께 쌓아 바꾸기 전 날 계산은 그대로다. 격자 칸에 작은 🥊.
 - **목표 회독 → 역산**: 목표마다 목표 회독수를 두면 `(목표 회독 × 총 분량 − 지금까지 푼 양)`을 **시험일 N일 전(기본 30일,
   마지막 기간은 모의고사·복습)까지** 끝내도록 자동 계획이 이번 주 필요량을 구한다. 평일:주말 비율은 공부 가능 시간 비율(기본 4h:7h ≈ 1:1.75).
   공부일수는 휴식·복습일을 뺀 날 × 주 N일/7. 설정의 [권장량 도출]이 무엇이 비었는지, 과목별 이번 주 배분·예상 완료일·상태,
@@ -171,7 +174,7 @@ carries[]                 // { id, goalId, fromDate, amount }  고정 목표의 
                           // 자동 목표의 소급은 저장하지 않고 entries + dayTargets로 매번 계산(stats.buildContext → autoDebts)
 exams{ 1|2: [{ id, date, label, scores[4] }] }
 subjectColors{ 과목명: 슬롯번호(1~12) | "#rrggbb" }
-settings{ holidayAutoRest, weekdayHours, weekendHours, bufferDays, layoutMode("basic"|"deep"|"spread"), autoSpreadDays }
+settings{ holidayAutoRest, weekdayHours, weekendHours, bufferDays, layoutMode("basic"|"deep"|"spread"), autoSpreadDays, workouts[{ from, days[요일 1~5], hours }] }
 meta{ lastBackupAt, updatedAt }   // updatedAt: 사용자가 마지막으로 바꾼 시각(동기화 판단용)
 ```
 

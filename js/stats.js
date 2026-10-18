@@ -54,6 +54,28 @@ export function isWeekendLike(dateStr) {
   return day === 0 || day === 6 || !!holidayName(dateStr);
 }
 
+// 운동하는 평일(설정 › 운동일)이면 그날 적용되는 운동 계획({ from, days, hours })을, 아니면 null을 돌려준다.
+// 계획은 시작일과 함께 쌓아 두어 바꾸기 전 날의 계산은 그대로다. 주말·공휴일은 운동해도 원래 주말 시간을 쓴다.
+export function workoutOn(data, dateStr) {
+  if (isWeekendLike(dateStr)) return null;
+  const plan = currentWorkout(data, dateStr);
+  return plan.days.includes(weekdayOf(dateStr)) ? plan : null;
+}
+
+// 그날 기준 운동일 계획(없으면 운동일 없음, 운동일 시간은 평일의 절반)
+export function currentWorkout(data, dateStr) {
+  return (data.settings.workouts || []).filter((p) => p.from <= dateStr).pop() || { days: [], hours: data.settings.weekdayHours / 2 };
+}
+
+// 공부일 가중치(평일 = 1). 주말은 공부 가능 시간 비율만큼, 운동일은 (운동일 시간 / 평일 시간)만큼.
+export function dayWeight(data, dateStr) {
+  const { weekdayHours, weekendHours } = data.settings;
+  if (!(weekdayHours > 0 && weekendHours > 0)) return 1;
+  if (isWeekendLike(dateStr)) return weekendHours / weekdayHours;
+  const workout = workoutOn(data, dateStr);
+  return workout ? workout.hours / weekdayHours : 1;
+}
+
 export function targetOn(goal, dateStr) {
   return isWeekendLike(dateStr) ? goal.weekendTarget : goal.weekdayTarget;
 }
@@ -186,7 +208,7 @@ export function dayReport(data, ctx, dateStr, today) {
   const undecided = dateStr < today && !kind && shortfalls.some((s) => s.canCarry) && decision === undefined;
   const forcedReview = forcedReviewLabel(data, dateStr);
   const examTrack = examTrackFor(data, dateStr);
-  return { date: dateStr, kind, status, half, rows, shortfalls, undecided, totalDone, bonus, holiday: holidayName(dateStr), forcedReview, examTrack };
+  return { date: dateStr, kind, status, half, rows, shortfalls, undecided, totalDone, bonus, holiday: holidayName(dateStr), forcedReview, examTrack, workout: !!workoutOn(data, dateStr) };
 }
 
 const NEUTRAL = ["rest", "review", "none", "bonus"];

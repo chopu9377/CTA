@@ -120,7 +120,8 @@ function emptyData() {
       weekendHours: DEFAULT_WEEKEND_HOURS,
       bufferDays: DEFAULT_BUFFER_DAYS,
       layoutMode: "basic",
-      autoSpreadDays: DEFAULT_AUTO_SPREAD_DAYS
+      autoSpreadDays: DEFAULT_AUTO_SPREAD_DAYS,
+      workouts: [] // 운동일 계획 [{ from, days: [요일], hours }], 시작일 순
     },
     meta: { lastBackupAt: null, updatedAt: null },
     layoutFrom: null,
@@ -173,6 +174,7 @@ function normalize(data) {
   });
   data.settings = { ...base.settings, ...(data.settings || {}) };
   if (!["basic", "deep", "spread"].includes(data.settings.layoutMode)) data.settings.layoutMode = "basic";
+  if (!Array.isArray(data.settings.workouts)) data.settings.workouts = [];
   data.meta = { lastBackupAt: null, updatedAt: null, ...(data.meta || {}) };
   // 랜덤 배치 이전 버전 데이터: 이번 주의 지난 날(옛 요일로 굳은 날)은 그대로 두고 오늘부터 랜덤 배치를 시작한다
   if (data.layoutFrom === undefined) {

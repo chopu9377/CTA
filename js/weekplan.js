@@ -1,5 +1,5 @@
 import { addDays, diffDays, weekdayOf, todayStr } from "./dates.js";
-import { effectiveKind, isWeekendLike, targetsFor, trackAt } from "./stats.js";
+import { effectiveKind, isWeekendLike, targetsFor, trackAt, dayWeight } from "./stats.js";
 import { dataVersion } from "./version.js";
 import { paceFor, paceMissing, studiesTrackOn, workLeft, cumulativeOf, limitMinutes, maintenanceTargets, weekShare } from "./plan.js";
 import { layoutOn, goalDatesIn, weekLayout } from "./layout.js";
@@ -21,11 +21,6 @@ export const STATUS_RULES = {
 // 이날부터 새로 짜는 계획에만 적용하는 규칙(주 필요량 올림, 주 중간 재배치 때 이미 한 날 빼기, 어제 과목 피하기).
 // 그 전에 정해진 배치(오늘 포함)는 앱 업데이트로 바뀌지 않게 옛 규칙 그대로 계산한다.
 export const PLAN_RULES_V2_FROM = "2026-09-29";
-
-function weekendRatio(data) {
-  const { weekdayHours, weekendHours } = data.settings;
-  return weekdayHours > 0 && weekendHours > 0 ? weekendHours / weekdayHours : 1;
-}
 
 function entriesOf(data, goalId, from, to) {
   return data.entries
@@ -50,7 +45,6 @@ function planBasis(data, goal, today) {
 // 유지 모드가 켜져 있으면 그날 유지량을 진도로 인정(credit)한다(유지는 주 N일이라 하루 몫 × N/7).
 function collectDays(data, goal, from, end, today) {
   const info = data.tracks[goal.track];
-  const ratio = weekendRatio(data);
   const share = weekShare(goal);
   const days = [];
   let credit = 0;
@@ -59,7 +53,7 @@ function collectDays(data, goal, from, end, today) {
     if (!studiesTrackOn(data, goal.track, d, today)) {
       if (info.maintain) credit += (isWeekendLike(d) ? goal.maintWeekendTarget : goal.maintWeekdayTarget) * share;
     } else {
-      days.push({ date: d, dow: weekdayOf(d), w: isWeekendLike(d) ? ratio : 1 });
+      days.push({ date: d, dow: weekdayOf(d), w: dayWeight(data, d) });
     }
   }
   return { days, credit };
@@ -273,12 +267,11 @@ function actualPace(data, goal, today, upcoming) {
   if (observed < minObservedDays) return { state: "insufficient", observed };
 
   const info = data.tracks[goal.track];
-  const ratio = weekendRatio(data);
   const share = weekShare(goal);
   let weight = 0;
   for (let d = windowStart; d < today; d = addDays(d, 1)) {
     if (effectiveKind(data, d) || !studiesTrackOn(data, goal.track, d, today)) continue;
-    weight += isWeekendLike(d) ? ratio : 1;
+    weight += dayWeight(data, d);
   }
   if (weight <= 0) return { state: "insufficient", observed };
 
@@ -291,7 +284,7 @@ function actualPace(data, goal, today, upcoming) {
     if (!studiesTrackOn(data, goal.track, d, today)) {
       if (info.maintain) left -= (isWeekendLike(d) ? goal.maintWeekendTarget : goal.maintWeekdayTarget) * share;
     } else {
-      left -= rate * (isWeekendLike(d) ? ratio : 1);
+      left -= rate * dayWeight(data, d);
     }
     if (left <= 0) projected = d;
   }

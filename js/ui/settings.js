@@ -1,7 +1,7 @@
-import { exportedLastBackupDays, trackAt } from "../stats.js";
+import { exportedLastBackupDays, trackAt, currentWorkout } from "../stats.js";
 import { isAutoGoal } from "../weekplan.js";
 import { paceMissing } from "../plan.js";
-import { formatMD } from "../dates.js";
+import { formatMD, WEEKDAY_LABELS } from "../dates.js";
 import { TRACK_LABEL, UNIT_SUGGESTIONS, LAYOUT_MODES } from "../presets.js";
 import { planTreeHTML } from "./plantree.js";
 import { escapeHtml, subjectColor } from "./shared.js";
@@ -132,6 +132,19 @@ function customColorCardHTML(data) {
     <p class="hint">기본 색 12개를 다 쓴 뒤 추가된 과목이에요.</p></div>`;
 }
 
+// 운동일: 고른 평일은 공부 가능 시간을 따로 잡는다(주말·공휴일은 그대로)
+function workoutHTML(data, today) {
+  const plan = currentWorkout(data, today);
+  const chips = [1, 2, 3, 4, 5]
+    .map((d) => `<button type="button" class="chip-btn${plan.days.includes(d) ? " on" : ""}" data-action="toggle-workout-day" data-dow="${d}">${WEEKDAY_LABELS[d]}</button>`)
+    .join("");
+  return `<div class="total-inputs">
+      <div class="mini-field"><span>운동일 🥊</span><div class="series-filter" style="margin-top:2px">${chips}</div></div>
+      <label class="mini-field"><span>운동일 가능(시간)</span><input type="number" min="0" step="0.5" inputmode="decimal" value="${plan.hours}" data-workout-hours /></label>
+    </div>
+    <p class="hint">운동하는 평일은 공부 가능 시간을 이만큼으로 잡아 그날 양이 줄고, 그만큼 다른 날로 나뉘어요(주말·공휴일은 그대로). 바꾸면 오늘부터 적용돼요.</p>`;
+}
+
 function planDeriveCardHTML(data, today, open) {
   const st = data.settings;
   const field = (key, value, label) =>
@@ -145,6 +158,7 @@ function planDeriveCardHTML(data, today, open) {
       ${field("bufferDays", st.bufferDays, "시험 전 마감(일)")}
     </div>
     <p class="hint">목표 회독을 시험 며칠 전에 끝내는 페이스로 권장량을 계산해요(마지막 기간은 모의고사·복습용). 평일:주말 양의 비율은 공부 가능 시간 비율을 따르고, 공휴일은 주말로 봐요.</p>
+    ${workoutHTML(data, today)}
     <div class="total-inputs">
       <label class="mini-field"><span>하루 구성</span><select data-setting-select="layoutMode">${LAYOUT_MODES.map((m) => `<option value="${m.key}"${st.layoutMode === m.key ? " selected" : ""}>${m.label}</option>`).join("")}</select></label>
       ${field("autoSpreadDays", st.autoSpreadDays, "시험 며칠 전 물붓기")}

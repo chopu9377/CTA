@@ -1,6 +1,7 @@
 // 실행: node tests/regression-check.mjs — 저축 사용의 달성 인정과 실제 휴일 변경 경로의 회귀 검사.
 import assert from "node:assert/strict";
-import { buildContext, weekQuotas, computeTargets, targetsFor, dayReport } from "../js/stats.js";
+import { buildContext, weekQuotas, computeTargets, targetsFor, dayReport, dayWeight, workoutOn } from "../js/stats.js";
+import { limitMinutes } from "../js/plan.js";
 import { applyBonus, bonusSavings, weekShip } from "../js/bonus.js";
 import { weekProgress } from "../js/weekplan.js";
 import { weekLayout, layoutOn } from "../js/layout.js";
@@ -216,5 +217,18 @@ check("여러 날 보상을 쓴 과목은 다시 섞여도 보상일끼리 양�
       assert.ok(!(spare.some((n) => n < 0) && spare.some((n) => n > 0)), `${id} 주말 ${weekend}h/평일 ${weekday}h: 남는 양 ${spare}`);
     });
   });
+});
+check("운동일: 고른 평일만 공부 가능 시간·가중치가 줄고, 시작일 전·주말은 그대로", () => {
+  const data = fixture();
+  data.settings.workouts = [{ from: "2026-10-13", days: [2, 4], hours: 2 }];
+  assert.equal(workoutOn(data, "2026-10-06"), null); // 시작 전 화요일
+  assert.equal(dayWeight(data, "2026-10-06"), 1);
+  assert.equal(dayWeight(data, "2026-10-13"), 0.5); // 화
+  assert.equal(limitMinutes(data, "2026-10-15"), 120); // 목
+  assert.equal(dayWeight(data, "2026-10-14"), 1); // 수
+  assert.equal(dayWeight(data, "2026-10-17"), 7 / 4); // 토
+  data.settings.workouts.push({ from: "2026-10-20", days: [], hours: 2 });
+  assert.equal(dayWeight(data, "2026-10-20"), 1); // 끈 뒤
+  assert.equal(dayWeight(data, "2026-10-13"), 0.5); // 끄기 전 날은 그대로
 });
 console.log(`\n${checks}개 모두 통과`);

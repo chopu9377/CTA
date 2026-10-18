@@ -1,4 +1,5 @@
 import { addDays } from "./dates.js";
+import { currentWorkout } from "./stats.js";
 import { getData, persist, uid, refreshToday, replaceData, markReplan, appToday } from "./store.js";
 
 // app.js는 저장 관련 함수를 모두 이 파일에서 가져온다(핵심은 store.js, 목표·기록 변경은 goals.js).
@@ -114,6 +115,24 @@ export function setSetting(key, value) {
     markReplan();
     refreshToday();
   }
+  persist();
+}
+
+// 운동일(공부 가능 시간을 줄이는 평일)을 오늘부터 바꾼다. 지난 날 계산이 흔들리지 않게 시작일과 함께 쌓아 둔다.
+export { currentWorkout };
+
+export function setWorkout({ days, hours }) {
+  const data = getData();
+  const today = appToday();
+  const current = currentWorkout(data, today);
+  const next = {
+    from: today,
+    days: [...new Set(days ?? current.days)].filter((d) => d >= 1 && d <= 5).sort(),
+    hours: Math.max(0, hours ?? current.hours)
+  };
+  data.settings.workouts = [...data.settings.workouts.filter((p) => p.from < today), next];
+  markReplan();
+  refreshToday();
   persist();
 }
 

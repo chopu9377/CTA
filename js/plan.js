@@ -1,5 +1,5 @@
 import { addDays, diffDays } from "./dates.js";
-import { trackAt, effectiveKind, isWeekendLike, targetsFor } from "./stats.js";
+import { trackAt, effectiveKind, isWeekendLike, targetsFor, workoutOn, dayWeight } from "./stats.js";
 import { seededRandom, spreadPick } from "./random.js";
 
 // 과목을 한 주에 며칠 하는지(주 N일)의 비율. 요일은 매주 랜덤으로 정해지므로 기간 계산은 "모든 공부일 × N/7"로 근사한다.
@@ -45,7 +45,8 @@ export function maintenanceTargets(data, dateStr, today) {
 }
 
 export function limitMinutes(data, dateStr) {
-  const hours = isWeekendLike(dateStr) ? data.settings.weekendHours : data.settings.weekdayHours;
+  const workout = workoutOn(data, dateStr);
+  const hours = workout ? workout.hours : isWeekendLike(dateStr) ? data.settings.weekendHours : data.settings.weekdayHours;
   return Math.round(hours * 60);
 }
 
@@ -102,7 +103,7 @@ export function paceFor(data, goal, today) {
     if (!studiesTrackOn(data, goal.track, d, today)) {
       if (info.maintain) maintCredit += (isWeekendLike(d) ? goal.maintWeekendTarget : goal.maintWeekdayTarget) * share;
     } else if (isWeekendLike(d)) weekendDays += share;
-    else weekdayDays += share;
+    else weekdayDays += share * dayWeight(data, d); // 운동일은 평일 하루보다 가볍게 센다
   }
   const rawLeft = workLeft(goal);
   const left = Math.max(0, rawLeft - maintCredit);
