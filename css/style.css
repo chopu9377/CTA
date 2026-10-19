@@ -1789,6 +1789,92 @@ textarea:focus {
 
 .prog-info {
   min-width: 0;
+  flex: 1;
+}
+
+/* 진도율: 최근 2주 목표 + 밀린 양 게이지(0% ~ 🐢 10%) / 고정 과목 완료 예상 */
+.pstat-main {
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.pstat-box,
+.pstat-note {
+  margin-top: 6px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pstat-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: color-mix(in srgb, var(--text-muted) 11%, transparent);
+  color: var(--text-secondary);
+}
+
+.pstat-box b {
+  color: var(--text-primary);
+}
+
+.pstat-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.pstat-val {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.pstat-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--gridline);
+  overflow: hidden;
+}
+
+.pstat-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+
+.pstat-scale {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.pstat-bar i.is-ok { background: var(--cal-good); }
+.pstat-bar i.is-warn { background: var(--cell-pending); }
+.pstat-bar i.is-bad { background: var(--cal-bad); }
+.pstat-bar i.is-fixed { background: var(--accent); }
+.pstat-val.is-ok { color: var(--cal-good); }
+.pstat-val.is-warn { color: var(--cell-pending); }
+.pstat-val.is-bad { color: var(--cal-bad); }
+.pstat-val.is-ahead { color: var(--accent); }
+
+.pstat-note {
+  font-weight: 600;
+}
+
+.pstat-note.is-ok {
+  background: color-mix(in srgb, var(--cal-good) 10%, transparent);
+  color: var(--cal-good);
+}
+
+.pstat-note.is-ahead {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent);
 }
 
 /* 보상 휴식 · 진행 상태(배) */
