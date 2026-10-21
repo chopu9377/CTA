@@ -2226,7 +2226,7 @@ textarea:focus {
 
 .wh-list {
   display: grid;
-  gap: 8px;
+  gap: 12px;
   margin-bottom: 12px;
 }
 
@@ -2296,4 +2296,32 @@ textarea:focus {
 
 .wh-total b {
   color: var(--text-primary);
+}
+
+/* 공부 시간 카드: 그날 과목 약자와 양 [재]3 [법]2 */
+.wh-subs {
+  grid-column: 2 / 4;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: -4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.wh-sub b {
+  margin-right: 2px;
+}
+
+.wh-sub b::before {
+  content: "[";
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.wh-sub b::after {
+  content: "]";
+  color: var(--text-muted);
+  font-weight: 400;
 }
