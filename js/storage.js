@@ -1,6 +1,6 @@
 import { addDays } from "./dates.js";
 import { currentWorkout } from "./stats.js";
-import { postponeDest } from "./postpone.js";
+import { postponeDest, postponeOut } from "./postpone.js";
 import { getData, persist, uid, refreshToday, replaceData, markReplan, appToday } from "./store.js";
 
 // app.js는 저장 관련 함수를 모두 이 파일에서 가져온다(핵심은 store.js, 목표·기록 변경은 goals.js).
@@ -89,8 +89,20 @@ export function setPostpone(dateStr, amounts) {
   const data = getData();
   const cleaned = Object.fromEntries(Object.entries(amounts || {}).filter(([, n]) => Number.isFinite(n) && n > 0));
   if (!data.postpones) data.postpones = {};
+  const before = postponeOut(data, dateStr);
   if (Object.keys(cleaned).length) data.postpones[dateStr] = cleaned;
   else delete data.postpones[dateStr];
+  // 내일부터 다시 섞은 주에는 오늘 스냅샷이 오늘 배치의 기준이다(layout.js frozenTargets가 넘긴 양을 되돌려 읽는다).
+  // 스냅샷을 새 넘기기에 맞춰 직접 고쳐 둬야 다시 계산해도 넘긴 양이 빠진 채로 남는다.
+  const snap = data.dayTargets[dateStr];
+  if (snap) {
+    const after = postponeOut(data, dateStr);
+    new Set([...Object.keys(before), ...Object.keys(after)]).forEach((id) => {
+      const next = (snap[id] || 0) + (before[id] || 0) - (after[id] || 0);
+      if (next > 0) snap[id] = next;
+      else delete snap[id];
+    });
+  }
   refreshToday();
   persist();
 }

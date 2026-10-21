@@ -107,4 +107,20 @@ check("휴식일 지정한 날은 넘기기가 없음(오늘 휴식이면 취소
   const data = { ...moved, dayKinds: { [TODAY]: "rest" } };
   assert.deepEqual(tf({ ...data, dayTargets: {} }, TODAY), {});
 });
+// 내일부터 다시 섞은 주(layoutFrom = 내일): 오늘은 스냅샷이 배치 기준이라 넘긴 양이 실제로 빠져야 한다(v65 버그)
+const anchored = await scenario((s, data) => {
+  data.layoutFrom = addDays(TODAY, 1);
+  data.layoutAt = TODAY;
+  s.setPostpone(TODAY, { [goalId]: n });
+});
+check("내일부터 다시 섞은 주에도 넘긴 양이 오늘 목표에서 빠짐", () => {
+  assert.equal(tf(anchored, TODAY)[goalId] || 0, t0[goalId] - n);
+});
+const anchoredUndo = await scenario((s, data) => {
+  data.layoutFrom = addDays(TODAY, 1);
+  data.layoutAt = TODAY;
+  s.setPostpone(TODAY, { [goalId]: n });
+  s.setPostpone(TODAY, {});
+});
+check("넘기기를 취소하면 오늘 목표가 원래대로", () => assert.equal(tf(anchoredUndo, TODAY)[goalId], t0[goalId]));
 console.log(`postpone-check: ${checks} checks passed`);
