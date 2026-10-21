@@ -6,6 +6,7 @@ import { escapeHtml, ringHTML, subjectColor } from "./shared.js";
 import { legendHTML, weekHTML } from "./weekgrid.js";
 import { bonusSavings, bonusBlockReason, bonusMaxFor } from "../bonus.js";
 import { shipCardHTML } from "./bonus.js";
+import { weekHoursHTML } from "./weekhours.js";
 
 function ddayText(info, today) {
   if (!info.examDate) return "시험일 미설정";
@@ -112,5 +113,6 @@ export function renderWeek(data, ctx, today, ui) {
       <p class="hint">이번 달 주간만 보여요(지난 기록은 '공부기록' 탭). 오늘·미래 칸을 탭하면 휴식일로 지정하고, 다시 탭하면 풀려요. 그 주에 이미 휴식일이 있으면 옮길지 하루 더 넣을지 물어봐요. 🎁 칸을 탭하면 보상 휴식을 취소할 수 있어요. 🌗는 다 못 채웠어도 절반 이상 한 날이고, 절반만 해도 🔥 연속 기록은 이어져요(쉬는 날은 건너뜀).</p>
     </div>
     ${quotaHTML(data, ctx, track, currentWeekIndex(data, today))}
+    ${weekHoursHTML(data, ctx, today, ui)}
   </section>`;
 }

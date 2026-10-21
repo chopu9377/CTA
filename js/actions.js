@@ -263,6 +263,10 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
       ui.tomorrowOpen = !ui.tomorrowOpen;
       render();
     },
+    "week-hours"(btn) {
+      ui.weekHours = btn.dataset.which;
+      render();
+    },
     "toggle-sec"(btn) {
       ui.sec[btn.dataset.sec] = !ui.sec[btn.dataset.sec];
       render();
