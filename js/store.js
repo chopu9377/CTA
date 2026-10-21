@@ -110,6 +110,7 @@ function emptyData() {
     dayKinds: {},
     dayTargets: {},
     bonusRest: {},
+    postpones: {},
     settlements: {},
     carries: [],
     exams: { 1: [], 2: [] },
@@ -164,6 +165,15 @@ function normalize(data) {
           return Object.keys(cleaned).length ? [date, cleaned] : null;
         }
         return null;
+      })
+      .filter(Boolean)
+  );
+  // 내일로 넘기기: { 넘긴 날: { 목표id: 양 } }
+  data.postpones = Object.fromEntries(
+    Object.entries(data.postpones && typeof data.postpones === "object" ? data.postpones : {})
+      .map(([date, v]) => {
+        const cleaned = Object.fromEntries(Object.entries(v && typeof v === "object" ? v : {}).filter(([, n]) => Number.isFinite(n) && n > 0));
+        return Object.keys(cleaned).length ? [date, cleaned] : null;
       })
       .filter(Boolean)
   );
@@ -258,6 +268,10 @@ export function markReplan(from = appToday(), { amounts = true } = {}) {
   const data = getData();
   data.layoutFrom = from;
   data.layoutAt = appToday();
+  // 그날부터 다시 섞으면 그날 넘긴 양의 기준(원래 배치)이 바뀌니 내일로 넘긴 기록을 지운다(받는 날만 바뀌는 건 괜찮다)
+  Object.keys(data.postpones || {}).forEach((d) => {
+    if (d >= from) delete data.postpones[d];
+  });
   if (!amounts) return;
   delete data.dayKindLayout;
   data.goals.forEach((g) => {

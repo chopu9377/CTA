@@ -5,6 +5,7 @@ import { weekStartOf, isAutoGoal, autoWeekTotal, distribute, PLAN_RULES_V2_FROM 
 import { dataVersion } from "./version.js";
 import { seededRandom, randomInt, shuffle } from "./random.js";
 import { deepGroupOf, DEEP_GROUPS } from "./presets.js";
+import { undoPostpone } from "./postpone.js";
 
 // 주간 랜덤 배치: 과목마다 한 주 양(자동은 역산 필요량, 고정은 평일/주말 숫자)과 주 N일은 그대로 두고
 // "무슨 요일에 무슨 과목"만 매주 랜덤으로 정한다. 요일별 시간이 공부 가능 시간 비율에 가깝게 고른 배치들 중에서 고르고,
@@ -61,11 +62,11 @@ function popcount(x) {
   return c;
 }
 
-// 이미 굳은 날의 목표. 보상 휴식으로 줄인 과목도 그날 공부하기로 했던 것으로 본다.
+// 이미 굳은 날의 목표. 보상 휴식으로 줄인 과목도 그날 공부하기로 했던 것으로 보고, 내일로 넘긴·넘겨받은 양은 원래 배치로 되돌린다.
 function frozenTargets(data, dateStr) {
   const snap = data.dayTargets[dateStr];
   if (!snap) return null;
-  const out = { ...snap };
+  const out = undoPostpone(data, dateStr, snap);
   const bonus = data.bonusRest[dateStr];
   if (bonus && typeof bonus === "object") Object.entries(bonus).forEach(([id, n]) => (out[id] = (out[id] || 0) + n));
   return out;

@@ -1,5 +1,6 @@
 import { addDays } from "./dates.js";
 import { currentWorkout } from "./stats.js";
+import { postponeDest } from "./postpone.js";
 import { getData, persist, uid, refreshToday, replaceData, markReplan, appToday } from "./store.js";
 
 // app.js는 저장 관련 함수를 모두 이 파일에서 가져온다(핵심은 store.js, 목표·기록 변경은 goals.js).
@@ -19,6 +20,14 @@ function changeDayKinds(dates, apply) {
     data.dayKindLayout = { today, kinds: weekKinds(), from: data.layoutFrom, at: data.layoutAt };
   }
   apply(data);
+  // 오늘 넘긴 양을 받을 날이 사라지면(남은 날이 다 휴식) 넘기기를 취소하고 오늘 목표를 되돌린다.
+  // 내일부터 다시 섞을 때는 오늘 스냅샷이 배치의 기준이라, 스냅샷에서 뺀 양을 직접 되돌려야 한다.
+  const moved = data.postpones?.[today];
+  if (moved && !postponeDest(data, today)) {
+    const snap = data.dayTargets[today];
+    if (snap) Object.entries(moved).forEach(([id, n]) => (snap[id] = (snap[id] || 0) + n));
+    delete data.postpones[today];
+  }
   // 이번 주 안의 휴식 변경만 이번 주 계획을 다시 나눈다(다른 주는 그 주가 시작될 때 반영된다).
   // 내일 이후 날을 바꾸면 오늘 과목은 그대로 두고 내일부터만 다시 섞는다
   if (inWeek.length) {
@@ -72,6 +81,17 @@ export function setBonusRest(dateStr, amounts) {
   if (Object.keys(cleaned).length) data.bonusRest[dateStr] = cleaned;
   else delete data.bonusRest[dateStr];
   if (dateStr <= appToday()) refreshToday();
+  persist();
+}
+
+// 내일로 넘기기: 오늘 과목별로 넘길 양({ 목표id: 양 }). 빈 값이면 취소. 받는 날은 매번 계산한다(postpone.js).
+export function setPostpone(dateStr, amounts) {
+  const data = getData();
+  const cleaned = Object.fromEntries(Object.entries(amounts || {}).filter(([, n]) => Number.isFinite(n) && n > 0));
+  if (!data.postpones) data.postpones = {};
+  if (Object.keys(cleaned).length) data.postpones[dateStr] = cleaned;
+  else delete data.postpones[dateStr];
+  refreshToday();
   persist();
 }
 

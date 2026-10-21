@@ -4,6 +4,8 @@ import { trackAt, buildContext, dayReport, historyEnd, computeTargets, lightTarg
 import { bonusSavings, bonusBlockReason, bonusMaxFor, bonusMinutes } from "./bonus.js";
 import { bonusSheetHTML, bonusCancelSheetHTML } from "./ui/bonus.js";
 import { dayInfoSheetHTML, restSheetHTML } from "./ui/dayinfo.js";
+import { postponeSheetHTML, todayPostponeLimits } from "./ui/postpone.js";
+import { postponeOut } from "./postpone.js";
 import { formatDuration } from "./ui/shared.js";
 import { maintenanceGoals } from "./plan.js";
 import { countUnit } from "./presets.js";
@@ -61,6 +63,11 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
   function showBonusSheet() {
     const data = storage.getData();
     overlay.innerHTML = bonusSheetHTML(data, buildContext(data), storage.appToday(), ui);
+  }
+
+  function showPostponeSheet() {
+    const data = storage.getData();
+    overlay.innerHTML = postponeSheetHTML(data, buildContext(data), storage.appToday(), ui);
   }
 
   const actions = {
@@ -179,6 +186,41 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
     },
     "open-settle"() {
       showSettleSheet();
+    },
+    "postpone-open"() {
+      ui.postponeAmounts = { ...postponeOut(storage.getData(), storage.appToday()) };
+      showPostponeSheet();
+    },
+    "postpone-step"(btn) {
+      const data = storage.getData();
+      const limit = todayPostponeLimits(data, buildContext(data), storage.appToday())[btn.dataset.goal];
+      if (!limit) return;
+      const amounts = ui.postponeAmounts || (ui.postponeAmounts = {});
+      const next = Math.max(0, Math.min(limit.max, (amounts[btn.dataset.goal] || 0) + Number(btn.dataset.step)));
+      if (next) amounts[btn.dataset.goal] = next;
+      else delete amounts[btn.dataset.goal];
+      showPostponeSheet();
+    },
+    "confirm-postpone"() {
+      const data = storage.getData();
+      const today = storage.appToday();
+      const limits = todayPostponeLimits(data, buildContext(data), today);
+      const amounts = Object.fromEntries(
+        Object.entries(ui.postponeAmounts || {})
+          .map(([id, n]) => [id, Math.min(n, limits[id]?.max || 0)])
+          .filter(([, n]) => n > 0)
+      );
+      storage.setPostpone(today, amounts);
+      ui.postponeAmounts = null;
+      closeSheet();
+      const names = Object.entries(amounts)
+        .map(([id, n]) => {
+          const g = data.goals.find((x) => x.id === id);
+          return g ? `${g.subject} ${n}${countUnit(g.unit)}` : "";
+        })
+        .filter(Boolean)
+        .join(", ");
+      toast(names ? `${names} 넘겼어요 · 다음 공부일 목표에 더해져요` : "넘기기를 취소했어요");
     },
     "toggle-light"() {
       const today = storage.appToday();

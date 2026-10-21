@@ -3,6 +3,7 @@ import { holidayName } from "./holidays.js";
 import { applyBonus, bonusMinutes } from "./bonus.js";
 import { autoApplies, autoTargetOn, autoDebts, weekCarries, weekQuota } from "./weekplan.js";
 import { layoutOn } from "./layout.js";
+import { applyPostpone } from "./postpone.js";
 
 export function trackAt(data, dateStr) {
   let track = 2;
@@ -80,7 +81,7 @@ export function targetOn(goal, dateStr) {
   return isWeekendLike(dateStr) ? goal.weekendTarget : goal.weekdayTarget;
 }
 
-// 그날 목표 = 주간 랜덤 배치(layout.js)에서 그날 놓인 양. 자동 목표는 같은 주 이월 몫을 더하고, 보상 휴식만큼 뺀다.
+// 그날 목표 = 주간 랜덤 배치(layout.js)에서 그날 놓인 양. 보상 휴식만큼 빼고, 내일로 넘긴 양을 빼고 넘겨받은 양을 더한다.
 export function computeTargets(data, dateStr, preview = false) {
   if (effectiveKind(data, dateStr)) return {};
   const track = trackAt(data, dateStr);
@@ -91,7 +92,7 @@ export function computeTargets(data, dateStr, preview = false) {
     const amount = autoApplies(data, g, dateStr) ? autoTargetOn(data, g, dateStr, preview) : planned[g.id] || 0;
     if (amount > 0) targets[g.id] = amount;
   });
-  return applyBonus(data, dateStr, targets);
+  return applyPostpone(data, dateStr, applyBonus(data, dateStr, targets));
 }
 
 export function targetsFor(data, dateStr) {

@@ -36,6 +36,7 @@
   sync.js       # GitHub 저장소 JSON과 동기화(브라우저에서 GitHub API 직접 호출, 토큰은 별도 키)
   stats.js      # 하루 상태·이월 상환·주간 쿼터·월별 집계 등 순수 계산 로직
   bonus.js      # 휴식 저축(보상 휴식)·이번 주 진행 상태(🐢🚗🚀) 계산(순수 함수)
+  postpone.js   # 내일로 넘기기: 받는 날·넘긴/넘겨받은 양·넘길 수 있는 최대치(순수 함수)
   plan.js       # 권장량(회독 역산)·1차 집중 기간·유지 모드·요일별 부하 등 계획 계산(순수 함수)
   weekplan.js    # 주간 자동 역산 미리보기(주 필요량 → 정수 요일 배분, 실제 페이스, 트랙 가능 여부)
   progressstatus.js # 진도율 탭 과목 상태(밀린 양이 주간 필요량을 몇 % 늘렸나 → 🐢🚗🚀, 고정 과목은 완료 예상일)
@@ -57,6 +58,7 @@
     settings.js   # 설정 화면
     plantree.js   # 설정의 "권장량 도출" 트리(입력 상태·결과·요일별 예상 시간)
     bonus.js      # 주간 진행 카드·휴식 저축 사용/취소 시트
+    postpone.js   # 오늘 탭 [내일로 넘기기] 줄·과목별 스테퍼 시트
     tomorrow.js   # 오늘 탭 맨 아래 "내일 미리보기" 접이식 카드
     mascot.js     # 상단 바를 걸어 다니는 마스코트와 응원 문구(모든 탭)
     dayinfo.js    # 주간 탭에서 날짜 칸을 탭했을 때 뜨는 시트(지난 날 기록, 휴식 옮기기/하루 더 넣기)
@@ -65,6 +67,7 @@
 /data/holidays.json          # 공휴일 목록(정기 작업이 갱신, 서비스워커가 미리 캐시)
 /tests/layout-check.mjs      # 개발용 검증: `node tests/layout-check.mjs`(앱은 불러오지 않음, npm 패키지 없음). 계획·배치 코드를 고치면 실행
 /tests/carry-check.mjs       # 개발용 검증: 자동 과목 주간 소급(`node tests/carry-check.mjs`). 이월·판정 코드를 고치면 실행
+/tests/postpone-check.mjs    # 개발용 검증: 내일로 넘기기(`node tests/postpone-check.mjs`). 목표·배치·휴식 변경 코드를 고치면 실행
 /.github/workflows/          # 공휴일 갱신 작업(앱 코드가 아니라 저장소 자동화)
 /manifest.json
 /service-worker.js

@@ -5,6 +5,8 @@ import { isAutoGoal, weekProgress, isLastStudyDay, weekCarries } from "../weekpl
 import { UNIT_SUGGESTIONS, TRACK_LABEL, countUnit } from "../presets.js";
 import { escapeHtml, subjectColor, formatDuration } from "./shared.js";
 import { tomorrowCardHTML } from "./tomorrow.js";
+import { postponeLineHTML } from "./postpone.js";
+import { postponeIn } from "../postpone.js";
 
 // 남은 이월: 고정 목표의 이월 + 자동 목표의 이번 주 부족분(주가 끝나면 다음 주 역산에 흡수되어 빠진다)
 function carryOf(data, ctx, goalId) {
@@ -19,7 +21,7 @@ function carryOf(data, ctx, goalId) {
 }
 
 // light: "오늘은 가볍게"를 켠 날은 절반을 목표처럼 보여 준다(원래 목표는 옆에 작게)
-function goalRowHTML(data, ctx, row, selected, tag = "", auto = null, light = false) {
+function goalRowHTML(data, ctx, row, selected, tag = "", auto = null, light = false, incoming = 0) {
   const { goal, done } = row;
   const full = row.target;
   const target = light && full > 0 ? lightTarget(full) : full;
@@ -28,7 +30,7 @@ function goalRowHTML(data, ctx, row, selected, tag = "", auto = null, light = fa
   return `<div class="goal-row${selected ? " selected" : ""}${fin ? " fin" : ""}${tag ? " maint" : ""}" data-action="select-goal" data-id="${goal.id}">
     <div>
       <div class="goal-name"><i class="swatch" style="background:${subjectColor(data, goal.subject)}"></i>${escapeHtml(goal.subject)}<span class="round">${goal.round}${goal.targetRounds ? `/${goal.targetRounds}` : ""}회독</span></div>
-      <div class="goal-meta"><span class="unit">${escapeHtml(goal.unit)}</span>${tag ? `<span class="unit maint-tag">${tag}</span>` : ""}${carry ? `<span class="unit carry">이월 ${carry}${escapeHtml(countUnit(goal.unit))}</span>` : ""}${auto ? `<span class="unit auto-tag">자동 · 이번 주 ${auto.progress.done}/${auto.progress.quota}</span>` : ""}</div>
+      <div class="goal-meta"><span class="unit">${escapeHtml(goal.unit)}</span>${tag ? `<span class="unit maint-tag">${tag}</span>` : ""}${carry ? `<span class="unit carry">이월 ${carry}${escapeHtml(countUnit(goal.unit))}</span>` : ""}${incoming ? `<span class="unit carry">넘겨받음 ${incoming}${escapeHtml(countUnit(goal.unit))}</span>` : ""}${auto ? `<span class="unit auto-tag">자동 · 이번 주 ${auto.progress.done}/${auto.progress.quota}</span>` : ""}</div>
       ${auto && auto.last && !fin ? `<div class="goal-rec">이번 주 마지막 공부일 · 못 채우면 다음 주 계획에 자동 반영돼요</div>` : ""}
     </div>
     <div class="goal-count">${target > 0 ? `${done} / ${target}<small>${escapeHtml(countUnit(goal.unit))}${target < full ? ` · 원래 ${full}` : ""}</small>${fin ? " ✓" : ""}` : `${done}<small>${escapeHtml(countUnit(goal.unit))} · 오늘 목표 없음</small>`}</div>
@@ -161,6 +163,7 @@ export function renderToday(data, ctx, today, ui, dawn = null) {
   const names = [...new Set(data.goals.map((g) => g.subject))];
   const allAuto = goals.length > 0 && goals.every((g) => editModeOf(data, g) !== "fixed");
   const animate = sheetOpen && ui.pickerAnim;
+  const incoming = report.kind ? {} : postponeIn(data, today);
   ui.pickerAnim = false;
 
   // 오늘 목표도 이월도 기록도 없는 과목은 접어 둔다(탭하면 펼쳐지고, 골라서 추가 입력은 가능)
@@ -173,7 +176,7 @@ export function renderToday(data, ctx, today, ui, dawn = null) {
   const quietOpen = ui.quietOpen || (sheetOpen && quietGoals.some((g) => g.id === selected.id));
   const rowHTML = (g) => {
     const auto = isAutoGoal(data, g) ? { progress: weekProgress(data, ctx, g, today), last: !report.kind && isLastStudyDay(data, g, today) } : null;
-    return goalRowHTML(data, ctx, rowFor(g), sheetOpen && g.id === selected.id, "", auto, ui.light);
+    return goalRowHTML(data, ctx, rowFor(g), sheetOpen && g.id === selected.id, "", auto, ui.light, incoming[g.id] || 0);
   };
   const quietHTML = quietGoals.length
     ? `<button class="quiet-toggle" data-action="toggle-quiet" type="button" aria-expanded="${quietOpen}">
@@ -189,6 +192,7 @@ export function renderToday(data, ctx, today, ui, dawn = null) {
       ${ui.editing ? "" : dayNoticeHTML(data, today, report)}
       ${ui.editing ? "" : yesterdayLineHTML(data, today)}
       ${ui.editing ? "" : lightHTML(data, report, ui.light)}
+      ${ui.editing ? "" : postponeLineHTML(data, ctx, today, report)}
       ${ui.editing
         ? `<div class="goal-edit-head${allAuto ? " compact" : ""}"><span>과목</span><span>단위</span>${allAuto ? "" : "<span>평일</span><span>주말</span>"}<span></span></div>
            ${goals.map((g) => goalEditHTML(g, editModeOf(data, g), allAuto)).join("")}
