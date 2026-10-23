@@ -23,17 +23,18 @@ function carryOf(data, ctx, goalId) {
 // light: "오늘은 가볍게"를 켠 날은 절반을 목표처럼 보여 준다(원래 목표는 옆에 작게)
 function goalRowHTML(data, ctx, row, selected, tag = "", auto = null, light = false, incoming = 0) {
   const { goal, done } = row;
+  const pre = row.prepaid || 0; // 앞날에 미리 풀어 둔 양으로 채운 몫
   const full = row.target;
   const target = light && full > 0 ? lightTarget(full) : full;
   const carry = carryOf(data, ctx, goal.id);
-  const fin = target > 0 && done >= target;
+  const fin = target > 0 && done + pre >= target;
   return `<div class="goal-row${selected ? " selected" : ""}${fin ? " fin" : ""}${tag ? " maint" : ""}" data-action="select-goal" data-id="${goal.id}">
     <div>
       <div class="goal-name"><i class="swatch" style="background:${subjectColor(data, goal.subject)}"></i>${escapeHtml(goal.subject)}<span class="round">${goal.round}${goal.targetRounds ? `/${goal.targetRounds}` : ""}회독</span></div>
-      <div class="goal-meta"><span class="unit">${escapeHtml(goal.unit)}</span>${tag ? `<span class="unit maint-tag">${tag}</span>` : ""}${carry ? `<span class="unit carry">이월 ${carry}${escapeHtml(countUnit(goal.unit))}</span>` : ""}${incoming ? `<span class="unit carry">넘겨받음 ${incoming}${escapeHtml(countUnit(goal.unit))}</span>` : ""}${auto ? `<span class="unit auto-tag">자동 · 이번 주 ${auto.progress.done}/${auto.progress.quota}</span>` : ""}</div>
+      <div class="goal-meta"><span class="unit">${escapeHtml(goal.unit)}</span>${tag ? `<span class="unit maint-tag">${tag}</span>` : ""}${carry ? `<span class="unit carry">이월 ${carry}${escapeHtml(countUnit(goal.unit))}</span>` : ""}${incoming ? `<span class="unit carry">넘겨받음 ${incoming}${escapeHtml(countUnit(goal.unit))}</span>` : ""}${pre ? `<span class="unit auto-tag">미리 품 ${pre}${escapeHtml(countUnit(goal.unit))}</span>` : ""}${auto ? `<span class="unit auto-tag">자동 · 이번 주 ${auto.progress.done}/${auto.progress.quota}</span>` : ""}</div>
       ${auto && auto.last && !fin ? `<div class="goal-rec">이번 주 마지막 공부일 · 못 채우면 다음 주 계획에 자동 반영돼요</div>` : ""}
     </div>
-    <div class="goal-count">${target > 0 ? `${done} / ${target}<small>${escapeHtml(countUnit(goal.unit))}${target < full ? ` · 원래 ${full}` : ""}</small>${fin ? " ✓" : ""}` : `${done}<small>${escapeHtml(countUnit(goal.unit))} · 오늘 목표 없음</small>`}</div>
+    <div class="goal-count">${target > 0 ? `${done + pre} / ${target}<small>${escapeHtml(countUnit(goal.unit))}${target < full ? ` · 원래 ${full}` : ""}</small>${fin ? " ✓" : ""}` : `${done}<small>${escapeHtml(countUnit(goal.unit))} · 오늘 목표 없음</small>`}</div>
   </div>`;
 }
 
@@ -116,6 +117,8 @@ function yesterdayLineHTML(data, today) {
 
 function dayNoticeHTML(data, today, report) {
   const load = dayLoad(data, today, today);
+  // 앞날에 미리 풀어 채운 몫은 오늘 할 시간에서 뺀다
+  load.minutes -= report.rows.reduce((s, r) => s + Math.min(r.prepaid, r.target) * r.goal.minutesPerUnit, 0);
   const type = load.weekend ? "주말" : "평일";
   const holiday = report.holiday ? ` · ${escapeHtml(report.holiday)}` : "";
   if (report.kind) {

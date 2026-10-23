@@ -69,6 +69,7 @@
 /tests/layout-check.mjs      # 개발용 검증: `node tests/layout-check.mjs`(앱은 불러오지 않음, npm 패키지 없음). 계획·배치 코드를 고치면 실행
 /tests/carry-check.mjs       # 개발용 검증: 자동 과목 주간 소급(`node tests/carry-check.mjs`). 이월·판정 코드를 고치면 실행
 /tests/postpone-check.mjs    # 개발용 검증: 내일로 넘기기(`node tests/postpone-check.mjs`). 목표·배치·휴식 변경 코드를 고치면 실행
+/tests/prepay-check.mjs      # 개발용 검증: 미리 풀기(초과분이 같은 주 뒷날을 채움, `node tests/prepay-check.mjs`). 소급·저축 코드를 고치면 실행
 /.github/workflows/          # 공휴일 갱신 작업(앱 코드가 아니라 저장소 자동화)
 /manifest.json
 /service-worker.js

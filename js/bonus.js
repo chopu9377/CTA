@@ -93,6 +93,8 @@ export function bonusSavings(data, ctx, today) {
   });
   // 자동 목표의 주간 소급에 쓴 초과분도 뺀다(부족분을 먼저 갚고 남은 초과만 쌓인다)
   ctx.autoDebts.forEach((debt, key) => add(key.split("|")[0], -(debt.amount - debt.left)));
+  // 같은 주 뒷날 목표를 미리 채운 양도 뺀다(그날 목표가 이미 줄어든 셈이라 저축으로 또 쓰면 두 번 쉬게 된다)
+  (ctx.prepaid || new Map()).forEach((n, key) => add(key.split("|")[0], -n));
   Object.keys(data.bonusRest).forEach((date) => Object.entries(bonusAmountsOn(data, date)).forEach(([id, n]) => add(id, -n)));
 
   const byGoal = new Map();

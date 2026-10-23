@@ -15,7 +15,8 @@ function destLabel(today, dest) {
 function doneOn(data, ctx, today) {
   const done = {};
   data.goals.forEach((g) => {
-    const n = ctx.sums.get(`${g.id}|${today}`) || 0;
+    // 앞날에 미리 풀어 둔 양으로 채운 몫도 한 것으로 친다(그만큼은 넘길 게 없다)
+    const n = (ctx.sums.get(`${g.id}|${today}`) || 0) + (ctx.prepaid?.get(`${g.id}|${today}`) || 0);
     if (n > 0) done[g.id] = n;
   });
   return done;

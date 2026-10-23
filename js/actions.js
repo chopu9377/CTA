@@ -56,7 +56,7 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
     const today = storage.appToday();
     const row = dayReport(data, buildContext(data), today, today).rows.find((r) => r.goal.id === goalId);
     const target = row ? (storage.isLightDay(today) ? lightTarget(row.target) : row.target) : 0;
-    const left = row ? target - row.done : 0;
+    const left = row ? target - row.done - row.prepaid : 0;
     return left > 0 ? Math.min(10, left) : ui.pick;
   }
 

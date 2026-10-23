@@ -21,6 +21,8 @@ export const STATUS_RULES = {
 // 이날부터 새로 짜는 계획에만 적용하는 규칙(주 필요량 올림, 주 중간 재배치 때 이미 한 날 빼기, 어제 과목 피하기).
 // 그 전에 정해진 배치(오늘 포함)는 앱 업데이트로 바뀌지 않게 옛 규칙 그대로 계산한다.
 export const PLAN_RULES_V2_FROM = "2026-09-29";
+// 미리 푼 양이 같은 주 뒷날 목표를 채우는 규칙(v66)을 적용하는 첫 주. 그 전 주의 판정·저축은 그대로 둔다.
+export const PREPAY_FROM = "2026-10-18";
 
 function entriesOf(data, goalId, from, to) {
   return data.entries
@@ -184,8 +186,12 @@ export function weekCarries(data, goal) {
   return isAutoGoal(data, goal) || goal.planMode === "fill";
 }
 
-export function autoDebts(data, sums, today) {
+// 미리 풀기(v66): 그날 목표를 넘겨 푼 양은 먼저 부족분을 갚고, 남으면 같은 주 뒷날(오늘·미래 포함) 목표를 날짜순으로 미리 채운다.
+// 채운 양은 prepaid("목표id|날짜" → 양)로 돌려주고, 그날은 그만큼 한 것으로 본다(목표 숫자는 그대로 — 배치·스냅샷을 건드리지 않는다).
+// 그 주 뒷날을 다 채우고도 남는 양만 휴식 저축에 쌓인다(bonus.js). 주를 넘겨서는 안 채운다(다음 주 계획이 진도로 이미 낮춘다).
+export function autoLedger(data, sums, today) {
   const out = new Map();
+  const prepaid = new Map();
   data.goals.forEach((goal) => {
     // 삭제(보관)한 목표도 센다 — 지운 과목의 지난 부족분이 칸을 영영 회색으로 묶어 두지 않게
     if (!weekCarries(data, goal)) return;
@@ -195,10 +201,14 @@ export function autoDebts(data, sums, today) {
     for (let ws = weekStartOf(data, from); ws <= today; ws = addDays(ws, 7)) {
       const weekEnd = addDays(ws, 7);
       const open = weekEnd > today;
+      const prepay = ws >= PREPAY_FROM;
       const debts = [];
-      for (let d = auto ? weekAutoStart(goal, ws) : ws; d < weekEnd && d <= today; d = addDays(d, 1)) {
+      let credit = 0;
+      // 이번 주는 미리 채운 양을 보여 주려고 주 끝까지 본다(미래 날은 아직 한 양이 0)
+      const last = prepay && open ? addDays(weekEnd, -1) : today;
+      for (let d = auto ? weekAutoStart(goal, ws) : ws; d < weekEnd && d <= last; d = addDays(d, 1)) {
         if (d < from || trackAt(data, d) !== goal.track) continue;
-        const diff = (sums.get(`${goal.id}|${d}`) || 0) - (targetsFor(data, d)[goal.id] || 0);
+        const diff = (d <= today ? sums.get(`${goal.id}|${d}`) || 0 : 0) - (targetsFor(data, d)[goal.id] || 0);
         if (diff > 0) {
           let pool = diff;
           [...debts, ...closed].forEach((x) => {
@@ -206,14 +216,26 @@ export function autoDebts(data, sums, today) {
             x.left -= pay;
             pool -= pay;
           });
-        } else if (diff < 0 && d < today) debts.push({ date: d, amount: -diff, left: -diff, open });
+          if (prepay) credit += pool;
+        } else if (diff < 0) {
+          const use = Math.min(credit, -diff);
+          if (use > 0) {
+            prepaid.set(`${goal.id}|${d}`, use);
+            credit -= use;
+          }
+          if (d < today && use < -diff) debts.push({ date: d, amount: -diff - use, left: -diff - use, open });
+        }
       }
       debts.forEach((x) => out.set(`${goal.id}|${x.date}`, x));
       closed.push(...debts.filter((x) => x.left > 0));
       for (let i = closed.length - 1; i >= 0; i--) if (closed[i].left <= 0) closed.splice(i, 1);
     }
   });
-  return out;
+  return { debts: out, prepaid };
+}
+
+export function autoDebts(data, sums, today) {
+  return autoLedger(data, sums, today).debts;
 }
 
 // 오늘이 이번 주 그 과목의 마지막 공부일인가(못 채우면 다음 주 계획에 자동 반영된다)

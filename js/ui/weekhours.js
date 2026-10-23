@@ -36,6 +36,14 @@ export function shortNames(goals) {
 function dayRow(data, ctx, d, today) {
   const kind = effectiveKind(data, d);
   const targets = { ...(d <= today ? targetsFor(data, d) : computeTargets(data, d, true)), ...maintenanceTargets(data, d, today) };
+  // 오늘·앞날은 미리 풀어 둔 양으로 채워진 몫을 빼고 남은 계획만 보여 준다
+  if (d >= today) {
+    Object.keys(targets).forEach((id) => {
+      const left = targets[id] - (ctx.prepaid?.get(`${id}|${d}`) || 0);
+      if (left > 0) targets[id] = left;
+      else delete targets[id];
+    });
+  }
   const done = d <= today ? data.goals.reduce((s, g) => s + (ctx.sums.get(`${g.id}|${d}`) || 0) * g.minutesPerUnit, 0) : 0;
   return { date: d, kind, targets: kind ? {} : targets, plan: kind ? 0 : minutesOf(data, targets), done, limit: kind ? 0 : limitMinutes(data, d) };
 }

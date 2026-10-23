@@ -1,7 +1,7 @@
 import { addDays, diffDays, weekdayOf, monthKey, todayStr } from "./dates.js";
 import { holidayName } from "./holidays.js";
 import { applyBonus, bonusMinutes } from "./bonus.js";
-import { autoApplies, autoTargetOn, autoDebts, weekCarries, weekQuota } from "./weekplan.js";
+import { autoApplies, autoTargetOn, autoLedger, weekCarries, weekQuota } from "./weekplan.js";
 import { layoutOn } from "./layout.js";
 import { applyPostpone } from "./postpone.js";
 
@@ -110,7 +110,8 @@ export function buildContext(data, today = todayStr()) {
     sums.set(key, (sums.get(key) || 0) + e.amount);
     if (goalTrack.get(e.goalId) === trackAt(data, e.date)) byDate.set(e.date, (byDate.get(e.date) || 0) + e.amount);
   });
-  return { sums, byDate, remaining: carryRemaining(data, sums), autoDebts: autoDebts(data, sums, today) };
+  const ledger = autoLedger(data, sums, today);
+  return { sums, byDate, remaining: carryRemaining(data, sums), autoDebts: ledger.debts, prepaid: ledger.prepaid };
 }
 
 // 그날 목표를 넘겨 푼 양(초과분)이 고정 목표의 이월분을 오래된 순서로 갚는다.
@@ -163,12 +164,13 @@ export function dayReport(data, ctx, dateStr, today) {
   const rows = Object.keys(targets).map((goalId) => ({
     goal: data.goals.find((g) => g.id === goalId),
     target: targets[goalId],
-    done: ctx.sums.get(`${goalId}|${dateStr}`) || 0
+    done: ctx.sums.get(`${goalId}|${dateStr}`) || 0,
+    prepaid: ctx.prepaid?.get(`${goalId}|${dateStr}`) || 0 // 앞날에 미리 풀어 둔 양으로 채운 몫
   })).filter((r) => r.goal);
-  const shortfalls = rows.filter((r) => r.done < r.target).map((r) => {
+  const shortfalls = rows.filter((r) => r.done + r.prepaid < r.target).map((r) => {
     const auto = weekCarries(data, r.goal);
     // 이월/버림을 묻는 건 고정 목표만. 자동·채우기 목표는 묻지 않고 그 주 안에서 자동 소급(autoDebts)된다.
-    return { goalId: r.goal.id, amount: r.target - r.done, auto, canCarry: !auto };
+    return { goalId: r.goal.id, amount: r.target - r.done - r.prepaid, auto, canCarry: !auto };
   });
   const totalDone = ctx.byDate.get(dateStr) || 0;
   const decision = data.settlements[dateStr];
@@ -203,7 +205,7 @@ export function dayReport(data, ctx, dateStr, today) {
 
   // 절반 표시: 다 채우진 못했어도 그날 목표(시간 환산)의 절반 이상을 한 날. 판정·이월·저축과는 무관한 표시용이다.
   const planMin = rows.reduce((sum, r) => sum + r.target * r.goal.minutesPerUnit, 0);
-  const doneMin = rows.reduce((sum, r) => sum + Math.min(r.done, r.target) * r.goal.minutesPerUnit, 0);
+  const doneMin = rows.reduce((sum, r) => sum + Math.min(r.done + r.prepaid, r.target) * r.goal.minutesPerUnit, 0);
   const half = !kind && dateStr <= today && shortfalls.length > 0 && planMin > 0 && doneMin * 2 >= planMin;
 
   const undecided = dateStr < today && !kind && shortfalls.some((s) => s.canCarry) && decision === undefined;

@@ -8,7 +8,7 @@ import { escapeHtml, subjectColor, formatDuration } from "./shared.js";
 
 // 오늘 자동 과목 미달분: 이번 주 안에 더 풀면 먼저 생긴 부족분부터 자동으로 갚아진다
 function autoShortToday(data, ctx, today) {
-  return dayReport(data, ctx, today, today).rows.filter((r) => r.done < r.target && isAutoGoal(data, r.goal)).length;
+  return dayReport(data, ctx, today, today).rows.filter((r) => r.done + r.prepaid < r.target && isAutoGoal(data, r.goal)).length;
 }
 
 // 내일 과목은 카드 뒷면(?)으로 가려 두고, 탭하면 뒤집어 보여 준다(뒤집은 상태는 화면 상태로만 기억)
@@ -28,7 +28,10 @@ function bodyHTML(data, ctx, today, tomorrow, ui) {
   const kind = effectiveKind(data, tomorrow);
   if (kind) return `<div class="notice">${kind === "rest" ? "내일은 휴식일이에요" : "내일은 복습일이에요 — 진도 대신 이번 주 공부를 다시 떠올려봐요"}</div>`;
   const bonus = bonusMinutes(data, tomorrow);
-  const targets = computeTargets(data, tomorrow, true);
+  // 오늘까지 미리 풀어 둔 양으로 채워진 몫은 빼고 보여 준다
+  const targets = Object.fromEntries(Object.entries(computeTargets(data, tomorrow, true))
+    .map(([id, n]) => [id, n - (ctx.prepaid?.get(`${id}|${tomorrow}`) || 0)])
+    .filter(([, n]) => n > 0));
   const maint = maintenanceTargets(data, tomorrow, today);
   const rows = [
     ...data.goals.filter((g) => targets[g.id] > 0).map((g) => ({ goal: g, amount: targets[g.id], tag: "" })),
