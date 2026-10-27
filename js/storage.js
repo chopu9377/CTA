@@ -1,5 +1,5 @@
 import { addDays } from "./dates.js";
-import { currentWorkout } from "./stats.js";
+import { currentWorkout, trackAt } from "./stats.js";
 import { postponeDest, postponeOut } from "./postpone.js";
 import { getData, persist, uid, refreshToday, replaceData, markReplan, appToday } from "./store.js";
 
@@ -133,6 +133,8 @@ export function setTrackInfo(track, patch) {
 export function setActiveTrack(track) {
   const data = getData();
   const today = appToday();
+  // 이미 켜진 트랙을 다시 누르면 아무것도 안 한다(전에는 오늘부터 계획을 다시 섞어 오늘 과목이 바뀌었다)
+  if (trackAt(data, today) === track) return;
   data.trackSwitches = data.trackSwitches.filter((s) => s.from !== today);
   data.trackSwitches.push({ from: today, track });
   markReplan();

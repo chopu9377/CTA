@@ -231,4 +231,10 @@ check("운동일: 고른 평일만 공부 가능 시간·가중치가 줄고, �
   assert.equal(dayWeight(data, "2026-10-20"), 1); // 끈 뒤
   assert.equal(dayWeight(data, "2026-10-13"), 0.5); // 끄기 전 날은 그대로
 });
+check("이미 켜진 트랙을 다시 눌러도 계획을 다시 섞지 않음", () => {
+  store.replaceData(fixture(), { quiet: true });
+  const before = JSON.stringify(storage.getData());
+  storage.setActiveTrack(2);
+  assert.equal(JSON.stringify(storage.getData()), before);
+});
 console.log(`\n${checks}개 모두 통과`);
