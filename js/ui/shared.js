@@ -8,6 +8,17 @@ export function escapeHtml(str) {
   }[ch]));
 }
 
+// 목적격 조사: 받침이 있으면 "을", 없으면 "를"
+export function eul(word) {
+  const code = word.charCodeAt(word.length - 1) - 0xac00;
+  return `${word}${code >= 0 && code < 11172 && code % 28 ? "을" : "를"}`;
+}
+
+// 이번 주 남은 날 배치를 오늘부터 다시 섞는 변경 전에 묻는다(잘못 눌러 오늘 과목이 바뀌는 일 방지)
+export function confirmReplan(what) {
+  return confirm(`⚠️ ${what}\n\n바꾸면 이번 주 남은 날 과목 배치가 오늘부터 다시 섞여요. 오늘 과목이 바뀔 수 있어요.\n계속할까요?`);
+}
+
 export function clampPct(rate) {
   return Math.min(100, Math.max(0, rate || 0));
 }

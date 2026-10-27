@@ -123,7 +123,7 @@ export function settleDay(dateStr, decision, shortfalls) {
 export function setTrackInfo(track, patch) {
   const data = getData();
   Object.assign(data.tracks[track], patch);
-  if (["examDate", "activeFrom", "maintain"].some((k) => k in patch)) {
+  if (REPLAN_TRACK_FIELDS.some((k) => k in patch)) {
     markReplan();
     refreshToday();
   }
@@ -142,10 +142,14 @@ export function setActiveTrack(track) {
   persist();
 }
 
+// 바꾸면 이번 주 계획을 오늘부터 다시 섞는 설정
+export const REPLAN_SETTINGS = ["weekdayHours", "weekendHours", "bufferDays", "holidayAutoRest", "layoutMode", "autoSpreadDays"];
+export const REPLAN_TRACK_FIELDS = ["examDate", "activeFrom", "maintain"];
+
 export function setSetting(key, value) {
   const data = getData();
   data.settings[key] = value;
-  if (["weekdayHours", "weekendHours", "bufferDays", "holidayAutoRest", "layoutMode", "autoSpreadDays"].includes(key)) {
+  if (REPLAN_SETTINGS.includes(key)) {
     markReplan();
     refreshToday();
   }

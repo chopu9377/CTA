@@ -1,7 +1,7 @@
 import { getData, persist, uid, ensureColor, newGoal, refreshToday, findGoal, markReplan, appToday } from "./store.js";
 
 // 이 필드가 바뀌면 이번 주 계획·랜덤 배치를 오늘부터 새로 나눈다
-const PLAN_FIELDS = ["total", "targetRounds", "daysPerWeek", "planMode", "weekdayTarget", "weekendTarget", "minutesPerUnit", "maintWeekdayTarget", "maintWeekendTarget"];
+export const PLAN_FIELDS = ["total", "targetRounds", "daysPerWeek", "planMode", "weekdayTarget", "weekendTarget", "minutesPerUnit", "maintWeekdayTarget", "maintWeekendTarget"];
 
 function rollRounds(goal) {
   let rolled = 0;

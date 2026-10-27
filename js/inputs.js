@@ -3,6 +3,7 @@ import { buildContext, pendingSettlements, trackAt } from "./stats.js";
 import { EXAM_SUBJECTS } from "./presets.js";
 import { paceMissing } from "./plan.js";
 import { paceSlotHTML, planTreeHTML } from "./ui.js";
+import { confirmReplan, eul } from "./ui/shared.js";
 import * as sync from "./sync.js";
 
 function refreshLoadSlot() {
@@ -26,6 +27,16 @@ function refreshAllPaceSlots() {
 export function bindInputHandlers({ ui, render, toast, closeSheet, announceRounds }) {
   function applyGoalField(input) {
     const field = input.dataset.goalField;
+    const goal0 = storage.getData().goals.find((g) => g.id === input.dataset.id);
+    // 계획에 영향을 주는 값이 실제로 바뀔 때만 묻고, 취소하면 원래 값으로 다시 그린다
+    if (goal0 && (field === "cumulative" || storage.PLAN_FIELDS.includes(field))) {
+      const now = field === "cumulative" ? null : String(goal0[field]);
+      const label = { cumulative: "누적 푼 양", planMode: "하루 목표 모드", total: "총 분량", targetRounds: "목표 회독", minutesPerUnit: "1개당 소요 시간" }[field] || "목표량";
+      if (now !== String(input.value) && !confirmReplan(`${goal0.subject} ${eul(label)} 바꿀까요?`)) {
+        render();
+        return;
+      }
+    }
     if (field === "cumulative") {
       const result = storage.setCumulative(input.dataset.id, parseInt(input.value, 10) || 0);
       const goal = storage.getData().goals.find((g) => g.id === input.dataset.id);
@@ -86,6 +97,7 @@ export function bindInputHandlers({ ui, render, toast, closeSheet, announceRound
       const subject = String(fd.get("subject")).trim();
       const unit = String(fd.get("unit")).trim();
       if (!subject || !unit) return;
+      if (!confirmReplan(`${subject} 목표를 추가할까요?`)) return;
       storage.addGoal(Number(fd.get("track")) || trackAt(storage.getData(), storage.appToday()), subject, unit);
       render();
     } else if (form.matches('[data-form="add-exam"]')) {
@@ -106,6 +118,23 @@ export function bindInputHandlers({ ui, render, toast, closeSheet, announceRound
 
   document.addEventListener("change", (event) => {
     const el = event.target;
+
+    // 설정 쪽 계획 변경도 먼저 묻는다(취소하면 원래 값으로 다시 그림)
+    const replanWhat = el.dataset.trackField && storage.REPLAN_TRACK_FIELDS.includes(el.dataset.trackField)
+      ? { examDate: "시험일", activeFrom: "1차 활성 시작일", maintain: "유지 모드" }[el.dataset.trackField]
+      : el.dataset.settingNum && storage.REPLAN_SETTINGS.includes(el.dataset.settingNum)
+        ? "공부 가능 시간·계획 설정"
+        : el.dataset.workoutHours !== undefined
+          ? "운동일 공부 가능 시간"
+          : el.dataset.settingSelect && storage.REPLAN_SETTINGS.includes(el.dataset.settingSelect)
+            ? "하루 구성"
+            : el.dataset.setting && storage.REPLAN_SETTINGS.includes(el.dataset.setting)
+              ? "공휴일 자동 휴식"
+              : null;
+    if (replanWhat && !confirmReplan(`${eul(replanWhat)} 바꿀까요?`)) {
+      render();
+      return;
+    }
 
     if (el.dataset.goalField) applyGoalField(el);
     else if (el.dataset.syncField) {

@@ -6,7 +6,7 @@ import { bonusSheetHTML, bonusCancelSheetHTML } from "./ui/bonus.js";
 import { dayInfoSheetHTML, restSheetHTML } from "./ui/dayinfo.js";
 import { postponeSheetHTML, todayPostponeLimits } from "./ui/postpone.js";
 import { postponeOut } from "./postpone.js";
-import { formatDuration } from "./ui/shared.js";
+import { formatDuration, confirmReplan } from "./ui/shared.js";
 import { maintenanceGoals } from "./plan.js";
 import { countUnit } from "./presets.js";
 import * as sync from "./sync.js";
@@ -72,7 +72,11 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
 
   const actions = {
     "set-track"(btn) {
-      storage.setActiveTrack(Number(btn.dataset.track));
+      const track = Number(btn.dataset.track);
+      const data = storage.getData();
+      if (trackAt(data, storage.appToday()) === track) return;
+      if (!confirmReplan(`${track}차로 전환할까요?`)) return;
+      storage.setActiveTrack(track);
       ui.selectedGoalId = null;
       ui.pickerOpen = false;
       render();
@@ -276,6 +280,7 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
       const dow = Number(btn.dataset.dow);
       const { days } = storage.currentWorkout(data, storage.appToday());
       const on = !days.includes(dow);
+      if (!confirmReplan(`${btn.textContent}요일 운동일을 ${on ? "켤까요" : "끌까요"}?`)) return;
       storage.setWorkout({ days: on ? [...days, dow] : days.filter((d) => d !== dow) });
       toast(`${btn.textContent}요일 운동일 ${on ? "켬 🥊" : "끔"} · 오늘부터 남은 날이 다시 섞여요`);
       render();
@@ -284,6 +289,7 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
       const data = storage.getData();
       const today = storage.appToday();
       const goals = data.goals.filter((g) => !g.archived && g.planMode === "fixed");
+      if (goals.length && !confirmReplan(`고정 과목 ${goals.length}개를 자동 계획으로 바꿀까요?`)) return;
       goals.forEach((g) => storage.updateGoal(g.id, { planMode: "auto", autoFrom: today }));
       toast(goals.length ? `${goals.length}개 과목을 자동 계획으로 바꿨어요` : "이미 모든 과목이 자동이에요");
       render();
@@ -337,6 +343,7 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
       if (!goal) return;
       const next = Math.max(1, Math.min(7, goal.daysPerWeek + Number(btn.dataset.step)));
       if (next === goal.daysPerWeek) return;
+      if (!confirmReplan(`${goal.subject} 주 ${goal.daysPerWeek}일 → ${next}일로 바꿀까요?`)) return;
       storage.updateGoal(goal.id, { daysPerWeek: next });
       render();
     },
@@ -346,7 +353,7 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
       render();
     },
     "archive-goal"(btn) {
-      if (!confirm("이 목표를 삭제할까요? 지난 기록은 남아요.")) return;
+      if (!confirmReplan("이 목표를 삭제할까요? 지난 기록은 남아요.")) return;
       storage.archiveGoal(btn.dataset.id);
       render();
     },
