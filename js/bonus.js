@@ -2,6 +2,7 @@ import { addDays } from "./dates.js";
 import { effectiveKind, targetsFor, trackAt, computeTargets } from "./stats.js";
 import { limitMinutes, plannedTrackOn } from "./plan.js";
 import { weekStartOf } from "./weekplan.js";
+import { minutesOn } from "./minutes.js";
 
 // 휴식 저축(보상 휴식): 목표보다 넘게 푼 양을 과목별로 모아 두었다가 미래의 하루에 그 과목 목표를 줄이는 데 쓴다.
 // 저장하는 값은 사용 기록(bonusRest{ 날짜: { 목표id: 줄인 양 } })뿐이고, 저축액은 기록에서 매번 다시 계산한다.
@@ -29,7 +30,7 @@ export function bonusMinutes(data, dateStr) {
   const goalById = new Map(data.goals.map((g) => [g.id, g]));
   return Object.entries(entry).reduce((sum, [goalId, amount]) => {
     const goal = goalById.get(goalId);
-    return sum + (goal ? amount * goal.minutesPerUnit : 0);
+    return sum + (goal ? amount * minutesOn(goal, dateStr) : 0);
   }, 0);
 }
 
@@ -129,7 +130,7 @@ export function weekShip(data, ctx, today) {
     const targets = targetsFor(data, d);
     data.goals.forEach((g) => {
       if (g.track !== trackAt(data, d)) return;
-      const diff = ((ctx.sums.get(`${g.id}|${d}`) || 0) - (targets[g.id] || 0)) * g.minutesPerUnit;
+      const diff = ((ctx.sums.get(`${g.id}|${d}`) || 0) - (targets[g.id] || 0)) * minutesOn(g, d);
       if (d < today) netBefore += diff;
       else netToday += diff;
     });

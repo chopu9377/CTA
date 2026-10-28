@@ -237,4 +237,20 @@ check("이미 켜진 트랙을 다시 눌러도 계획을 다시 섞지 않음",
   storage.setActiveTrack(2);
   assert.equal(JSON.stringify(storage.getData()), before);
 });
+{
+  const { minutesOn, recordMinutesChange } = await import("../js/minutes.js");
+  const g = { minutesPerUnit: 20 };
+  recordMinutesChange(g, 10, "2026-10-22");
+  recordMinutesChange(g, 17.5, "2026-10-28");
+  g.minutesPerUnit = 17.5;
+  check("시간 기록: 바꾸기 전 20분 · 10/22부터 10분 · 10/28부터 17.5분", () => {
+    assert.equal(minutesOn(g, "2026-10-20"), 20);
+    assert.equal(minutesOn(g, "2026-10-26"), 10);
+    assert.equal(minutesOn(g, "2026-10-28"), 17.5);
+    assert.equal(minutesOn(g, "2026-11-30"), 17.5);
+    assert.equal(minutesOn({ minutesPerUnit: 25 }, "2026-10-01"), 25);
+  });
+  recordMinutesChange(g, 15, "2026-10-28");
+  check("같은 날 다시 바꾸면 그날 값만 바뀜", () => assert.deepEqual(g.minutesHistory.map((x) => x.from), ["0000-00-00", "2026-10-22", "2026-10-28"]));
+}
 console.log(`\n${checks}개 모두 통과`);

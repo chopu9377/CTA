@@ -88,7 +88,7 @@ function totalRowHTML(data, g, today) {
       <label class="mini-field"><span>누적 푼 양</span><input type="number" min="0" inputmode="numeric" value="${cumulative || ""}" placeholder="0 (예: 340)" data-goal-field="cumulative" data-id="${g.id}" /></label>
       <label class="mini-field"><span>목표 회독</span><input type="number" min="0" inputmode="numeric" value="${g.targetRounds || ""}" placeholder="예) 3" data-goal-field="targetRounds" data-id="${g.id}" /></label>
       <label class="mini-field"><span>하루 목표</span><select data-goal-field="planMode" data-id="${g.id}">${[["fixed", "고정"], ["auto", "자동"], ["fill", "채우기"]].map(([v, t]) => `<option value="${v}"${g.planMode === v ? " selected" : ""}>${t}</option>`).join("")}</select></label>
-      <label class="mini-field"><span>1개당 소요(분)</span><input type="number" min="1" inputmode="numeric" value="${g.minutesPerUnit}" data-goal-field="minutesPerUnit" data-id="${g.id}" /></label>
+      <label class="mini-field"><span>1개당 소요(분)</span><input type="number" min="1" step="0.5" inputmode="decimal" value="${g.minutesPerUnit}" data-goal-field="minutesPerUnit" data-id="${g.id}" /></label>
       <label class="mini-field"><span>유지 평일</span><input type="number" min="0" inputmode="numeric" value="${g.maintWeekdayTarget}" data-goal-field="maintWeekdayTarget" data-id="${g.id}" /></label>
       <label class="mini-field"><span>유지 주말</span><input type="number" min="0" inputmode="numeric" value="${g.maintWeekendTarget}" data-goal-field="maintWeekendTarget" data-id="${g.id}" /></label>
     </div>

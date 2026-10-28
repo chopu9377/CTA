@@ -4,6 +4,7 @@ import { applyBonus, bonusMinutes } from "./bonus.js";
 import { autoApplies, autoTargetOn, autoLedger, weekCarries, weekQuota } from "./weekplan.js";
 import { layoutOn } from "./layout.js";
 import { applyPostpone } from "./postpone.js";
+import { minutesOn } from "./minutes.js";
 
 export function trackAt(data, dateStr) {
   let track = 2;
@@ -204,8 +205,8 @@ export function dayReport(data, ctx, dateStr, today) {
   }
 
   // 절반 표시: 다 채우진 못했어도 그날 목표(시간 환산)의 절반 이상을 한 날. 판정·이월·저축과는 무관한 표시용이다.
-  const planMin = rows.reduce((sum, r) => sum + r.target * r.goal.minutesPerUnit, 0);
-  const doneMin = rows.reduce((sum, r) => sum + Math.min(r.done + r.prepaid, r.target) * r.goal.minutesPerUnit, 0);
+  const planMin = rows.reduce((sum, r) => sum + r.target * minutesOn(r.goal, dateStr), 0);
+  const doneMin = rows.reduce((sum, r) => sum + Math.min(r.done + r.prepaid, r.target) * minutesOn(r.goal, dateStr), 0);
   const half = !kind && dateStr <= today && shortfalls.length > 0 && planMin > 0 && doneMin * 2 >= planMin;
 
   const undecided = dateStr < today && !kind && shortfalls.some((s) => s.canCarry) && decision === undefined;

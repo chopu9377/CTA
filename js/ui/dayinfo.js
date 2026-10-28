@@ -1,4 +1,5 @@
 import { formatKoreanDate } from "../dates.js";
+import { minutesOn } from "../minutes.js";
 import { dayReport, dayWeight } from "../stats.js";
 import { countUnit } from "../presets.js";
 import { escapeHtml, subjectColor, formatDuration } from "./shared.js";
@@ -22,7 +23,7 @@ export function dayInfoSheetHTML(data, ctx, date, today) {
   const rows = data.goals
     .map((goal) => ({ goal, done: ctx.sums.get(`${goal.id}|${date}`) || 0, target: targets.get(goal.id) || 0 }))
     .filter((r) => r.done > 0 || r.target > 0);
-  const minutes = rows.reduce((sum, r) => sum + r.done * r.goal.minutesPerUnit, 0);
+  const minutes = rows.reduce((sum, r) => sum + r.done * minutesOn(r.goal, date), 0);
   const status = report.examTrack
     ? `${report.examTrack}차 시험일`
     : report.forcedReview

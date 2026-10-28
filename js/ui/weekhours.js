@@ -3,6 +3,7 @@ import { targetsFor, computeTargets, effectiveKind } from "../stats.js";
 import { limitMinutes, maintenanceTargets } from "../plan.js";
 import { weekStartOf } from "../weekplan.js";
 import { escapeHtml, subjectColor } from "./shared.js";
+import { minutesOn } from "../minutes.js";
 
 // 주간 탭: 요일별 계획 시간·실제 공부 시간·공부 가능 시간. 이번 주 / 다음 주(지금 진도 기준 예상).
 // 저장 값 없이 그날 목표 × 1개당 소요 시간으로 계산한다.
@@ -12,10 +13,10 @@ const hm = (min) => {
   return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")}`;
 };
 
-function minutesOf(data, targets) {
+function minutesOf(data, targets, dateStr) {
   return Object.entries(targets).reduce((sum, [id, n]) => {
     const goal = data.goals.find((g) => g.id === id);
-    return sum + (goal ? n * goal.minutesPerUnit : 0);
+    return sum + (goal ? n * minutesOn(goal, dateStr) : 0);
   }, 0);
 }
 
@@ -44,8 +45,8 @@ function dayRow(data, ctx, d, today) {
       else delete targets[id];
     });
   }
-  const done = d <= today ? data.goals.reduce((s, g) => s + (ctx.sums.get(`${g.id}|${d}`) || 0) * g.minutesPerUnit, 0) : 0;
-  return { date: d, kind, targets: kind ? {} : targets, plan: kind ? 0 : minutesOf(data, targets), done, limit: kind ? 0 : limitMinutes(data, d) };
+  const done = d <= today ? data.goals.reduce((s, g) => s + (ctx.sums.get(`${g.id}|${d}`) || 0) * minutesOn(g, d), 0) : 0;
+  return { date: d, kind, targets: kind ? {} : targets, plan: kind ? 0 : minutesOf(data, targets, d), done, limit: kind ? 0 : limitMinutes(data, d) };
 }
 
 export function weekHoursRows(data, ctx, today, which = "this") {

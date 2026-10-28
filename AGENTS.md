@@ -143,6 +143,10 @@
   `REPLAN_TRACK_FIELDS`(시험일·활성 시작일·유지), `REPLAN_SETTINGS`, 과목 추가·삭제 — 은 먼저 확인 창(`ui/shared.js` `confirmReplan`)을 띄우고 취소하면 다시 그려 원래 값으로 돌린다.
   같은 트랙을 다시 누르면 아무것도 하지 않는다(v67). 휴식일 지정·넘기기·저축 쓰기는 묻지 않는다(그 자체가 의도된 조작).
 
+- **1개당 시간 기록(v70)**: 목표의 `minutesPerUnit`을 바꾸면 `minutesHistory[{ from, minutes }]`에 바꾼 날부터의 값을 남기고, 날짜별 시간 계산
+  (🌗 절반, 진행 배지, 보상 휴식 시간, 공부 시간 카드, 그날 기록 시트, 과부하)은 `minutes.js` `minutesOn(goal, 날짜)`로 그날 적용되던 값을 쓴다.
+  앞으로의 계획·배치·저축 상한은 현재 값. 0.5분 단위 입력 가능.
+
 ## 3. 화면 (탭 6개)
 
 1. **주간** — 트랙 전환 + D-day, 이번 달에 걸친 주간 격자(큰 네모=주, 7칸=일), 이번 주 쿼터
@@ -179,7 +183,7 @@
 startDate                 // 첫 주의 시작일(기본 2026-09-20). 주 = startDate 기준 7일
 trackSwitches[]           // { from, track } 언제부터 어느 트랙이 활성이었는지
 tracks[1|2]               // { examDate, examEstimated, activeFrom, maintain }
-goals[]                   // { id, track, subject, unit, weekdayTarget, weekendTarget, maintWeekdayTarget, maintWeekendTarget, minutesPerUnit, daysPerWeek(1~7), weekdays[](옛 버전 호환용), total, targetRounds, round, progress, archived, planMode("fixed"|"auto"|"fill"), autoFrom, replanFrom }
+goals[]                   // { id, track, subject, unit, minutesHistory?[{ from, minutes }](v70), weekdayTarget, weekendTarget, maintWeekdayTarget, maintWeekendTarget, minutesPerUnit, daysPerWeek(1~7), weekdays[](옛 버전 호환용), total, targetRounds, round, progress, archived, planMode("fixed"|"auto"|"fill"), autoFrom, replanFrom }
 layoutFrom                // 주간 랜덤 배치를 마지막으로 다시 섞은 날(계획 변경 시각). 그 주는 이날부터 남은 날만 다시 섞는다
 layoutAt                  // 그 재배치를 정한 날(내일부터 섞었다면 오늘). 이날 전까지의 실제 기록만 배치에 반영한다
 dayKindLayout             // 선택적 { today, kinds, from, at }: 같은 날 휴식/복습 변경을 모두 되돌릴 때 복구할 원래 배치 기준. 계획량 변경 시 폐기

@@ -1,4 +1,4 @@
-const CACHE_NAME = "cta-static-v69";
+const CACHE_NAME = "cta-static-v70";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -9,6 +9,7 @@ const APP_SHELL = [
   "./js/plan.js",
   "./js/bonus.js",
   "./js/postpone.js",
+  "./js/minutes.js",
   "./js/ui/bonus.js",
   "./js/ui/postpone.js",
   "./js/ui/tomorrow.js",

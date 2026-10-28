@@ -1,4 +1,5 @@
 import { addDays, formatKoreanDate } from "../dates.js";
+import { minutesOn } from "../minutes.js";
 import { computeTargets, effectiveKind, dayReport } from "../stats.js";
 import { limitMinutes, maintenanceGoals, maintenanceTargets } from "../plan.js";
 import { bonusMinutes } from "../bonus.js";
@@ -39,7 +40,7 @@ function bodyHTML(data, ctx, today, tomorrow, ui) {
   ];
   if (!rows.length) return `<div class="notice">${bonus ? "내일은 보상 휴식이에요 🎁" : "내일은 목표가 없어요"}</div>`;
 
-  const minutes = rows.reduce((sum, r) => sum + r.amount * r.goal.minutesPerUnit, 0);
+  const minutes = rows.reduce((sum, r) => sum + r.amount * minutesOn(r.goal, tomorrow), 0);
   const limit = limitMinutes(data, tomorrow);
   const nextWeek = weekStartOf(data, tomorrow) > weekStartOf(data, today);
   const shortToday = nextWeek ? 0 : autoShortToday(data, ctx, today);

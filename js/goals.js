@@ -1,4 +1,5 @@
 import { getData, persist, uid, ensureColor, newGoal, refreshToday, findGoal, markReplan, appToday } from "./store.js";
+import { recordMinutesChange } from "./minutes.js";
 
 // 이 필드가 바뀌면 이번 주 계획·랜덤 배치를 오늘부터 새로 나눈다
 export const PLAN_FIELDS = ["total", "targetRounds", "daysPerWeek", "planMode", "weekdayTarget", "weekendTarget", "minutesPerUnit", "maintWeekdayTarget", "maintWeekendTarget"];
@@ -29,6 +30,7 @@ export function updateGoal(goalId, patch) {
   const goal = findGoal(goalId);
   if (!goal) return { rolled: 0 };
   const oldName = goal.subject;
+  if ("minutesPerUnit" in patch) recordMinutesChange(goal, patch.minutesPerUnit, appToday());
   Object.assign(goal, patch);
   if (PLAN_FIELDS.some((k) => k in patch)) markReplan();
   if (patch.subject) {

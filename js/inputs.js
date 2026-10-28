@@ -59,6 +59,8 @@ export function bindInputHandlers({ ui, render, toast, closeSheet, announceRound
     if (field === "subject" || field === "unit") {
       value = value.trim();
       if (!value) return;
+    } else if (field === "minutesPerUnit") {
+      value = Math.max(1, Math.round((parseFloat(value) || 0) * 2) / 2); // 0.5분 단위(예: 17.5)
     } else {
       value = Math.max(0, parseInt(value, 10) || 0);
     }

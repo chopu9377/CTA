@@ -1,4 +1,5 @@
 import { addDays, diffDays } from "./dates.js";
+import { minutesOn } from "./minutes.js";
 import { trackAt, effectiveKind, isWeekendLike, targetsFor, workoutOn, dayWeight } from "./stats.js";
 import { seededRandom, spreadPick } from "./random.js";
 
@@ -55,7 +56,7 @@ export function dayLoad(data, dateStr, today) {
   const targets = { ...targetsFor(data, dateStr), ...maintenanceTargets(data, dateStr, today) };
   const minutes = Object.keys(targets).reduce((sum, goalId) => {
     const goal = data.goals.find((g) => g.id === goalId);
-    return sum + (goal ? targets[goalId] * goal.minutesPerUnit : 0);
+    return sum + (goal ? targets[goalId] * minutesOn(goal, dateStr) : 0);
   }, 0);
   return { minutes, limit: limitMinutes(data, dateStr), weekend: isWeekendLike(dateStr) };
 }

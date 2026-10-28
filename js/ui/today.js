@@ -7,6 +7,7 @@ import { escapeHtml, subjectColor, formatDuration } from "./shared.js";
 import { tomorrowCardHTML } from "./tomorrow.js";
 import { postponeLineHTML } from "./postpone.js";
 import { postponeIn } from "../postpone.js";
+import { minutesOn } from "../minutes.js";
 
 // 남은 이월: 고정 목표의 이월 + 자동 목표의 이번 주 부족분(주가 끝나면 다음 주 역산에 흡수되어 빠진다)
 function carryOf(data, ctx, goalId) {
@@ -118,7 +119,7 @@ function yesterdayLineHTML(data, today) {
 function dayNoticeHTML(data, today, report) {
   const load = dayLoad(data, today, today);
   // 앞날에 미리 풀어 채운 몫은 오늘 할 시간에서 뺀다
-  load.minutes -= report.rows.reduce((s, r) => s + Math.min(r.prepaid, r.target) * r.goal.minutesPerUnit, 0);
+  load.minutes -= report.rows.reduce((s, r) => s + Math.min(r.prepaid, r.target) * minutesOn(r.goal, today), 0);
   const type = load.weekend ? "주말" : "평일";
   const holiday = report.holiday ? ` · ${escapeHtml(report.holiday)}` : "";
   if (report.kind) {

@@ -207,6 +207,10 @@ function normalize(data) {
     if (g.weekendTarget === undefined) g.weekendTarget = g.dailyTarget || 0;
     delete g.dailyTarget;
     g.minutesPerUnit = g.minutesPerUnit || defaultMinutesPerUnit(g.unit);
+    if (Array.isArray(g.minutesHistory)) {
+      g.minutesHistory = g.minutesHistory.filter((x) => x && typeof x.from === "string" && x.minutes > 0).sort((a, b) => a.from.localeCompare(b.from));
+      if (!g.minutesHistory.length) delete g.minutesHistory;
+    } else delete g.minutesHistory;
     if (g.maintWeekdayTarget === undefined) g.maintWeekdayTarget = defaultMaintenance(g.unit).weekday;
     if (g.maintWeekendTarget === undefined) g.maintWeekendTarget = defaultMaintenance(g.unit).weekend;
     g.archived = !!g.archived;
