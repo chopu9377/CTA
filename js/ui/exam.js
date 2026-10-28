@@ -43,6 +43,17 @@ function chartSVG(records, subjects, hidden, showRef) {
   return `<svg viewBox="0 0 ${w} ${h}" width="100%" style="color: var(--text-primary)">${s}</svg>`;
 }
 
+// 큐넷처럼 소수 둘째 자리에서 버림(30.125 → 30.12)
+const avgOf = (r) => Math.floor((r.scores.reduce((s, n) => s + n, 0) / r.scores.length) * 100 + 1e-9) / 100;
+
+// 문항별 점수(선택): 과목마다 [1문항, 2문항, ...] — 성적표 화면 숫자 그대로
+function itemsHTML(r, subjects) {
+  if (!Array.isArray(r.items)) return "";
+  return `<div class="exam-items">${subjects
+    .map((n, i) => (Array.isArray(r.items[i]) ? `<span><b>${escapeHtml(n)}</b> ${r.items[i].join(" · ")}</span>` : ""))
+    .join("")}</div>`;
+}
+
 export function renderExam(data, ui, today) {
   const track = ui.examTrack;
   const subjects = EXAM_SUBJECTS[track];
@@ -80,7 +91,8 @@ export function renderExam(data, ui, today) {
     ${records.length
       ? `<div class="card"><h2 class="section-title">기록 목록</h2><ul class="list">${[...records].reverse()
           .map((r) => `<li class="list-item"><div><div class="list-item-title">${formatMD(r.date)} ${escapeHtml(r.label)}</div>
-            <div class="list-item-meta">${subjects.map((n, i) => `${escapeHtml(n)} ${r.scores[i]}`).join(" · ")}</div></div>
+            <div class="list-item-meta">${subjects.map((n, i) => `${escapeHtml(n)} ${r.scores[i]}`).join(" · ")} · 평균 ${avgOf(r)}</div>
+            ${itemsHTML(r, subjects)}${r.note ? `<p class="exam-note">${escapeHtml(r.note)}</p>` : ""}</div>
             <button class="btn-danger" data-action="delete-exam" data-track="${track}" data-id="${r.id}" type="button">삭제</button></li>`)
           .join("")}</ul></div>`
       : ""}
