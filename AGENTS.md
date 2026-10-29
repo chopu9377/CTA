@@ -134,6 +134,7 @@
 - **과부하 점검**: 목표마다 "1개당 소요 시간(분)"(문제 20분, 인강 60분 기본)을 두고, 오늘 목표 합계가
   그날 공부 가능 시간을 넘으면 오늘 탭에 경고, 설정에는 이번 주 랜덤 배치의 요일별 과목·예상 시간을 표시.
 - **주 N일**(오늘 탭 편집): 과목마다 요일 칩 대신 "주 N일" 스테퍼(1~7)를 둔다. 요일 패턴 프리셋은 랜덤 배치로 대체되어 없앴다.
+  **운동일 빼기(v71)**: 스테퍼 옆 [🥊 운동일 빼기]를 켠 과목은 운동일(설정 › 운동일)에 배치하지 않는다(`goal.skipWorkout`, `layout.js` `buildModels`가 운동일이 아닌 남은 날만 후보로 둔다). 주 N일은 그 안에서 채운다(남은 날이 모자라면 그만큼만). 바꾸면 확인 창 후 오늘부터 다시 섞는다.
   새로 시작하는 기본 목표의 주 N일은 예전 추천 조합 요일 개수(회계·세무회계 3일, 세법학 인강 5일, 세법학 문제 1일)를 따른다.
   옛 데이터는 켜 두었던 요일 개수를 이어받고, `weekdays`는 옛 버전 호환용으로만 남는다.
 - **공휴일**: `data/holidays.json`(정기 작업이 공공데이터포털 API에서 갱신)을 읽어 격자에 빨간 점으로
@@ -183,7 +184,7 @@
 startDate                 // 첫 주의 시작일(기본 2026-09-20). 주 = startDate 기준 7일
 trackSwitches[]           // { from, track } 언제부터 어느 트랙이 활성이었는지
 tracks[1|2]               // { examDate, examEstimated, activeFrom, maintain }
-goals[]                   // { id, track, subject, unit, minutesHistory?[{ from, minutes }](v70), weekdayTarget, weekendTarget, maintWeekdayTarget, maintWeekendTarget, minutesPerUnit, daysPerWeek(1~7), weekdays[](옛 버전 호환용), total, targetRounds, round, progress, archived, planMode("fixed"|"auto"|"fill"), autoFrom, replanFrom }
+goals[]                   // { id, track, subject, unit, minutesHistory?[{ from, minutes }](v70), weekdayTarget, weekendTarget, maintWeekdayTarget, maintWeekendTarget, minutesPerUnit, daysPerWeek(1~7), weekdays[](옛 버전 호환용), total, targetRounds, round, progress, archived, planMode("fixed"|"auto"|"fill"), autoFrom, replanFrom, skipWorkout(v71) }
 layoutFrom                // 주간 랜덤 배치를 마지막으로 다시 섞은 날(계획 변경 시각). 그 주는 이날부터 남은 날만 다시 섞는다
 layoutAt                  // 그 재배치를 정한 날(내일부터 섞었다면 오늘). 이날 전까지의 실제 기록만 배치에 반영한다
 dayKindLayout             // 선택적 { today, kinds, from, at }: 같은 날 휴식/복습 변경을 모두 되돌릴 때 복구할 원래 배치 기준. 계획량 변경 시 폐기

@@ -50,7 +50,8 @@ function goalEditHTML(goal, mode, compact = false) {
     : `<span class="days-label">주</span>
        <button type="button" class="step-btn" data-action="days-step" data-id="${goal.id}" data-step="-1" aria-label="하루 줄이기"${goal.daysPerWeek <= 1 ? " disabled" : ""}>−</button>
        <b class="days-value">${goal.daysPerWeek}일</b>
-       <button type="button" class="step-btn" data-action="days-step" data-id="${goal.id}" data-step="1" aria-label="하루 늘리기"${goal.daysPerWeek >= 7 ? " disabled" : ""}>+</button>`;
+       <button type="button" class="step-btn" data-action="days-step" data-id="${goal.id}" data-step="1" aria-label="하루 늘리기"${goal.daysPerWeek >= 7 ? " disabled" : ""}>+</button>
+       <button type="button" class="chip-btn${goal.skipWorkout ? " on" : ""}" data-action="toggle-skip-workout" data-id="${goal.id}" aria-pressed="${goal.skipWorkout}">🥊 운동일 빼기</button>`;
   return `<div class="goal-edit">
     <div class="goal-edit-main${compact ? " compact" : ""}">
       <input type="text" value="${escapeHtml(goal.subject)}" data-goal-field="subject" data-id="${goal.id}" aria-label="과목" list="subject-names" />

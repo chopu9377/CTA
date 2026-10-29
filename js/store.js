@@ -214,6 +214,7 @@ function normalize(data) {
     if (g.maintWeekdayTarget === undefined) g.maintWeekdayTarget = defaultMaintenance(g.unit).weekday;
     if (g.maintWeekendTarget === undefined) g.maintWeekendTarget = defaultMaintenance(g.unit).weekend;
     g.archived = !!g.archived;
+    g.skipWorkout = !!g.skipWorkout;
     g.planMode = g.planMode === "auto" || g.planMode === "fill" ? g.planMode : "fixed";
     g.autoFrom = g.planMode === "auto" && g.autoFrom ? g.autoFrom : null;
     g.replanFrom = g.planMode === "auto" && g.replanFrom ? g.replanFrom : null;

@@ -347,6 +347,14 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
       storage.updateGoal(goal.id, { daysPerWeek: next });
       render();
     },
+    "toggle-skip-workout"(btn) {
+      const goal = storage.getData().goals.find((g) => g.id === btn.dataset.id);
+      if (!goal) return;
+      const next = !goal.skipWorkout;
+      if (!confirmReplan(`${goal.subject} 운동일에 ${next ? "빼기" : "다시 넣기"}로 바꿀까요?`)) return;
+      storage.updateGoal(goal.id, { skipWorkout: next });
+      render();
+    },
     "flip-card"(btn) {
       if (btn.dataset.key === "all") btn.dataset.keys.split(",").forEach((k) => ui.revealed.add(k));
       else ui.revealed.add(btn.dataset.key);

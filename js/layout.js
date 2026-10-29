@@ -1,5 +1,5 @@
 import { addDays, diffDays, todayStr } from "./dates.js";
-import { effectiveKind, targetOn } from "./stats.js";
+import { effectiveKind, targetOn, workoutOn } from "./stats.js";
 import { limitMinutes, plannedTrackOn, maintenanceTargets, cumulativeOf } from "./plan.js";
 import { weekStartOf, isAutoGoal, autoWeekTotal, distribute, PLAN_RULES_V2_FROM } from "./weekplan.js";
 import { dataVersion } from "./version.js";
@@ -109,6 +109,10 @@ function buildModels(ctx) {
   const models = [];
   goals.forEach((goal) => {
     if (goal.planMode === "fill" || models.length >= 30) return;
+    // 운동일 빼기(v71): 그 과목은 운동일에 놓지 않는다(남은 날 중 운동일이 아닌 날만 후보)
+    const allowed = segment.map((d, i) => i).filter((i) => !(goal.skipWorkout && workoutOn(data, segment[i])));
+    const free = allowed.length;
+    if (!free) return;
     const n = Math.max(1, Math.min(7, goal.daysPerWeek || 7));
     const doneDays = prefix.filter((d) => (byDate.get(d)[goal.id] || 0) > 0);
     const usedDays = prefix.filter((d) => (byDate.get(d)[goal.id] || 0) > 0 || studied(d).has(goal.id)).length;
@@ -123,15 +127,15 @@ function buildModels(ctx) {
       if (total <= 0) return;
       // 주 중간에 다시 섞을 때 남은 양은 남은 기간 비율로 새로 구해지므로 요일 수도 남은 공부일 비율만큼(지난 날 수를 빼지 않는다)
       // v2: 이번 주에 이미 배치됐거나 실제로 한 날은 빼고 남은 날 수만(주 N일을 넘기지 않게)
-      const k = Math.min(m, Math.max(1, v2 ? n - usedDays : Math.round((n * m) / ctx.studyDaysInWeek)));
-      if (mode === "spread") sizes = [m];
-      else if (group) sizes = Array.from({ length: Math.min(m, total) }, (_, i) => i + 1);
+      const k = Math.min(free, Math.max(1, v2 ? n - usedDays : Math.round((n * m) / ctx.studyDaysInWeek)));
+      if (mode === "spread") sizes = [free];
+      else if (group) sizes = Array.from({ length: Math.min(free, total) }, (_, i) => i + 1);
       else sizes = [k];
     } else {
       if (!goal.weekdayTarget && !goal.weekendTarget) return;
       const k = n - doneDays.length;
       if (k <= 0) return;
-      sizes = [Math.min(k, m)];
+      sizes = [Math.min(k, free)];
     }
     let prevLast = null;
     for (let d = addDays(anchor, -1); d >= addDays(anchor, -7) && !prevLast; d = addDays(d, -1)) {
@@ -144,7 +148,7 @@ function buildModels(ctx) {
       return count;
     };
     const bit = 1 << models.length;
-    const options = sizes.flatMap((size) => combos(m, size)).map((idx) => {
+    const options = sizes.flatMap((size) => combos(free, size).map((c) => c.map((j) => allowed[j]))).map((idx) => {
       const amounts = auto ? distribute(total, idx.map((i) => ({ w: limits[i] }))) : idx.map((i) => targetOn(goal, segment[i]));
       const minutes = Array(m).fill(0);
       const bits = Array(m).fill(0);
