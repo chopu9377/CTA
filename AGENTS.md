@@ -165,7 +165,7 @@
    지금 진도 기준 "예상"이고, 오늘 못 채운 자동 과목이 있으면 이번 주 안에 더 풀면 자동으로 갚아진다고 알려 준다.
 3. **진도율** — [2차]/[1차] 선택 → 과목(목표)별 현재 회독차(목표 회독이 있으면 `2/3`), 현재 회독 진행률 링, 진행량/총 분량,
    목표 회독까지 남은 양, 누적량, 상태 뱃지와 최근 2주 목표·밀린 양 게이지(위 "진행 상태"). 진도 입력은 오늘 탭.
-4. **시험 기록** — 1차/2차 선택 → 시험 과목 4개 점수 입력(기록에 선택 필드 `items`(과목별 문항 점수)·`note`(총평)가 있으면 목록에 함께 표시, v69), 과목별 꺾은선 그래프(선 끝에 과목명·
+4. **시험 기록** — 1차/2차 선택 → 시험 과목 4개 점수 입력(기록에 선택 필드 `items`(과목별 문항 점수)·`itemTopics`(문항 단원, v73)·`note`(총평)가 있으면 목록에 함께 표시, v69), 과목별 꺾은선 그래프(선 끝에 과목명·
    점수, 과목 켜고 끄기, 과락 40 / 평균 60 기준선 토글). 1차: 회계학·세법학·재정학·행정소송법,
    2차: 회계학 1부·회계학 2부·세법학 1부·세법학 2부(큐넷 성적표 과목, v69 — 그 전엔 재무회계·원가·세무회계·세법학).
 5. **공부기록** — 시작일부터 시험일까지 월별 카드(달성률만 보이고, 탭하면 주간 격자가 펼쳐짐).
@@ -196,7 +196,7 @@ bonusRest{ date: { goalId: amount } }    // 보상 휴식: 그날 과목별로 �
 settlements{ date: carried|dropped }     // 미달분 이월/버림 결정
 carries[]                 // { id, goalId, fromDate, amount }  고정 목표의 이월분(상환은 entries에서 계산). 옛 버전의 redistribute 이월은 무시한다
                           // 자동 목표의 소급은 저장하지 않고 entries + dayTargets로 매번 계산(stats.buildContext → autoDebts)
-exams{ 1|2: [{ id, date, label, scores[4] }] }
+exams{ 1|2: [{ id, date, label, scores[4], items?[4][], itemTopics?[4][], note? }] }
 subjectColors{ 과목명: 슬롯번호(1~12) | "#rrggbb" }
 settings{ holidayAutoRest, weekdayHours, weekendHours, bufferDays, layoutMode("basic"|"deep"|"spread"), autoSpreadDays, workouts[{ from, days[요일 1~5], hours }] }
 meta{ lastBackupAt, updatedAt }   // updatedAt: 사용자가 마지막으로 바꾼 시각(동기화 판단용)

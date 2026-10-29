@@ -46,11 +46,12 @@ function chartSVG(records, subjects, hidden, showRef) {
 // 큐넷처럼 소수 둘째 자리에서 버림(30.125 → 30.12)
 const avgOf = (r) => Math.floor((r.scores.reduce((s, n) => s + n, 0) / r.scores.length) * 100 + 1e-9) / 100;
 
-// 문항별 점수(선택): 과목마다 [1문항, 2문항, ...] — 성적표 화면 숫자 그대로
+// 문항별 점수(선택): 과목마다 [1문항, 2문항, ...] — 성적표 화면 숫자 그대로. itemTopics(선택, v73)가 있으면 문항 단원을 앞에 붙인다("재무 18")
 function itemsHTML(r, subjects) {
   if (!Array.isArray(r.items)) return "";
+  const topic = (i, j) => (Array.isArray(r.itemTopics?.[i]) && r.itemTopics[i][j] ? `${escapeHtml(r.itemTopics[i][j])} ` : "");
   return `<div class="exam-items">${subjects
-    .map((n, i) => (Array.isArray(r.items[i]) ? `<span><b>${escapeHtml(n)}</b> ${r.items[i].join(" · ")}</span>` : ""))
+    .map((n, i) => (Array.isArray(r.items[i]) ? `<span><b>${escapeHtml(n)}</b> ${r.items[i].map((v, j) => `${topic(i, j)}${v}`).join(" · ")}</span>` : ""))
     .join("")}</div>`;
 }
 
