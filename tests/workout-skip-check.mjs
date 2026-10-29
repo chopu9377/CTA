@@ -1,9 +1,10 @@
-// 운동일 빼기(v71) 검증. 실행: node tests/workout-skip-check.mjs
+// 운동일 빼기(v71)·운동일 한 과목(v72) 검증. 실행: node tests/workout-skip-check.mjs
 // 운동일(화·목)을 뺀 과목은 여러 주 동안 화·목에 놓이지 않고, 고정 과목은 주 N일을 그대로 채우며, 자동 과목은 주간 양이 그대로다.
 import assert from "node:assert/strict";
 import { weekLayout } from "../js/layout.js";
 import { autoWeekTotal, isAutoGoal } from "../js/weekplan.js";
 import { addDays, todayStr, weekdayOf } from "../js/dates.js";
+import { bumpVersion } from "../js/version.js";
 
 const today = todayStr();
 const goal = (id, subject, unit, extra) => ({
@@ -55,5 +56,32 @@ check("빼지 않은 과목은 운동일에도 놓일 수 있음", () => {
   const any = weeks.some((ws) => daysOf(weekLayout(data, 2, ws, today), "a").some((d) => [2, 4].includes(weekdayOf(d))) ||
     daysOf(weekLayout(data, 2, ws, today), "d").some((d) => [2, 4].includes(weekdayOf(d))));
   assert.ok(any);
+});
+const later = Array.from({ length: 12 }, (_, w) => addDays("2026-11-01", w * 7));
+check("v72: 운동일(화·목)에는 과목이 하나만", () => {
+  later.forEach((ws) => {
+    const layout = weekLayout(data, 2, ws, today);
+    layout.byDate.forEach((t, d) => {
+      if (![2, 4].includes(weekdayOf(d))) return;
+      assert.ok(Object.values(t).filter((n) => n > 0).length <= 1, `${d} ${JSON.stringify(t)}`);
+    });
+  });
+});
+check("v72: 규칙 시작 전 주는 그대로(운동일 시간이 길면 두 과목 이상도 놓임)", () => {
+  data.settings.workouts = [{ from: "2026-09-20", days: [2, 4], hours: 4 }];
+  bumpVersion();
+  const multi = (list) => list.some((ws) => [...weekLayout(data, 2, ws, today).byDate].some(([d, t]) => [2, 4].includes(weekdayOf(d)) && Object.keys(t).length > 1));
+  assert.ok(multi(weeks.slice(0, 5)));
+  assert.ok(!multi(later));
+  data.settings.workouts = [{ from: "2026-09-20", days: [2, 4], hours: 1 }];
+  bumpVersion();
+});
+check("v72: 운동일에 놓인 과목은 1시간을 그 과목으로 채움(1개당 20분 → 3개)", () => {
+  later.forEach((ws) => {
+    weekLayout(data, 2, ws, today).byDate.forEach((t, d) => {
+      if (![2, 4].includes(weekdayOf(d))) return;
+      Object.values(t).forEach((n) => assert.equal(n, 3, `${d} ${JSON.stringify(t)}`));
+    });
+  });
 });
 console.log(`\n${checks}개 통과`);

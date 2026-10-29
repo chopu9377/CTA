@@ -25,8 +25,13 @@ export const LAYOUT_RULES = {
   // 진득: 묶음마다 하루 한 과목에서 벗어난 과목 수당(약 80분 어긋남만큼 — 시간 균형이 크게 깨지면 1·3과목 허용).
   // 실제 사용량 기준 1600 → 71%, 6400 → 93%가 딱 두 과목이었고 과부하는 늘지 않았다
   deepPenalty: 6400,
+  // 운동일(v72): 책을 많이 못 들고 가니 한 과목만. 둘째 과목부터 과목당 감점(3일 공백 규칙보다는 약하게)
+  workoutPenalty: 5e7,
   fillPerDay: 2
 };
+
+// 운동일 한 과목 규칙은 이날 이후 새로 짠 배치에만(그 전 배치는 업데이트로 바뀌지 않게)
+export const WORKOUT_ONE_FROM = "2026-10-29";
 
 // 그날 적용되는 하루 구성 모드. 시험 N일 전부터는 자동으로 물붓기.
 export function layoutModeOn(data, track, dateStr) {
@@ -100,6 +105,25 @@ function gapPenalty(dates, prevLast, weekEnd, emptyBetween) {
   return over * unit;
 }
 
+// 자동 과목의 한 주 양을 고른 요일에 나눈다(공부 가능 시간 비율). 운동일(v72)은 그 과목 하나만 놓이므로 운동일 시간을 그 과목으로 채우고
+// (1개당 시간으로 들어가는 만큼, 최소 1개. 다른 날마다 1개는 남긴다) 나머지를 다른 날에 비율대로 나눈다.
+function splitAuto(total, idx, limits, workoutIdx, minutesPerUnit) {
+  const workout = idx.filter((i) => workoutIdx.includes(i));
+  if (!workout.length) return distribute(total, idx.map((i) => ({ w: limits[i] })));
+  const others = idx.filter((i) => !workoutIdx.includes(i));
+  const byIdx = new Map();
+  let left = total;
+  workout.forEach((i) => {
+    const cap = Math.max(1, Math.floor(limits[i] / minutesPerUnit));
+    const n = Math.max(0, Math.min(cap, left - others.length));
+    byIdx.set(i, n);
+    left -= n;
+  });
+  if (others.length) distribute(left, others.map((i) => ({ w: limits[i] }))).forEach((n, j) => byIdx.set(others[j], n));
+  else if (left > 0) distribute(left, workout.map((i) => ({ w: limits[i] }))).forEach((n, j) => byIdx.set(workout[j], byIdx.get(workout[j]) + n));
+  return idx.map((i) => byIdx.get(i));
+}
+
 // 과목별 요일 후보와 후보마다의 요일별 분 수·과목 표시 비트·공백 감점을 미리 만든다.
 // 진득 모드의 묶음 과목(자동)은 며칠에 나눌지도 정해 두지 않고(1~남은 공부일 모두 후보) 묶음 감점이 고르게 한다.
 // 물붓기 모드의 자동 과목은 남은 공부일 전부에 나눈다.
@@ -149,7 +173,7 @@ function buildModels(ctx) {
     };
     const bit = 1 << models.length;
     const options = sizes.flatMap((size) => combos(free, size).map((c) => c.map((j) => allowed[j]))).map((idx) => {
-      const amounts = auto ? distribute(total, idx.map((i) => ({ w: limits[i] }))) : idx.map((i) => targetOn(goal, segment[i]));
+      const amounts = auto ? splitAuto(total, idx, limits, ctx.workoutIdx || [], goal.minutesPerUnit) : idx.map((i) => targetOn(goal, segment[i]));
       const minutes = Array(m).fill(0);
       const bits = Array(m).fill(0);
       const dates = [];
@@ -171,7 +195,9 @@ function makeScorer(ctx, models) {
   const m = segment.length;
   const sumLimit = limits.reduce((a, b) => a + b, 0) || 1;
   const adjacent = segment.map((d, i) => (i === 0 ? true : diffDays(segment[i - 1], d) === 1));
-  const { overlapLimit, overlapPenalty, repeatPenalty, deepPenalty } = LAYOUT_RULES;
+  const { overlapLimit, overlapPenalty, repeatPenalty, deepPenalty, workoutPenalty } = LAYOUT_RULES;
+  const workoutIdx = ctx.workoutIdx || [];
+  const oneBook = (masks) => workoutIdx.reduce((pen, i) => pen + Math.max(0, popcount(masks[i]) - 1), 0) * workoutPenalty;
   const groupKeys = Object.keys(DEEP_GROUPS).filter((key) => models.some((model) => model.group === key));
   // 진득: 묶음마다 매일 딱 한 과목
   const deep = (counts) => groupKeys.reduce((pen, key) => pen + counts[key].reduce((s, c) => s + Math.abs(c - 1), 0), 0) * deepPenalty;
@@ -212,11 +238,11 @@ function makeScorer(ctx, models) {
     const loads = s.loads.map((l, i) => l + o.minutes[i]);
     const masks = s.masks.map((b, i) => b | o.bits[i]);
     const counts = group ? { ...s.counts, [group]: s.counts[group].map((c, i) => c + (o.bits[i] ? 1 : 0)) } : s.counts;
-    return balance(loads) + overlap(masks) + deep(counts) + o.gap;
+    return balance(loads) + overlap(masks) + deep(counts) + oneBook(masks) + o.gap;
   };
   const score = (choice) => {
     const s = state(choice);
-    return balance(s.loads) + overlap(s.masks) + deep(s.counts) + s.gaps;
+    return balance(s.loads) + overlap(s.masks) + deep(s.counts) + oneBook(s.masks) + s.gaps;
   };
   return { state, withOption, score };
 }
@@ -312,6 +338,7 @@ function fillGoals(ctx, loads) {
       let left = goal.total > 0 ? Math.max(0, rounds * goal.total - (cumulativeOf(goal) - since)) : Infinity;
       segment.forEach((d, i) => {
         if (left <= 0) return;
+        if ((ctx.workoutIdx || []).includes(i) && Object.keys(byDate.get(d)).length) return; // 운동일은 한 과목만
         const amount = Math.min(LAYOUT_RULES.fillPerDay, Math.floor((limits[i] - loads[i]) / goal.minutesPerUnit), left);
         if (amount <= 0) return;
         byDate.get(d)[goal.id] = amount;
@@ -367,6 +394,7 @@ function buildLayout(data, track, weekStart, today) {
       targetsBefore,
       studyDaysInWeek: Math.max(1, weekDates(weekStart).filter((d) => !effectiveKind(data, d) && plannedTrackOn(data, d, today) === track).length),
       limits: segment.map((d) => limitMinutes(data, d)),
+      workoutIdx: anchor >= WORKOUT_ONE_FROM ? segment.map((d, i) => i).filter((i) => workoutOn(data, segment[i])) : [],
       base: segment.map((d) => maintenanceMinutes(data, d, today))
     };
     const models = buildModels(ctx);
