@@ -282,6 +282,7 @@ data.goals.filter((g) => isAutoGoal(data, g)).forEach((g) => {
 });
 check(overDays.length === 0, "v2: 주 중간 재배치에서 이미 한 날 빼기", overDays.join(", "));
 data.entries.push({ id: "v2-late", goalId: "a", date: mid, amount: 9, at: "t" });
+byId.get("a").progress += 9; // 앱의 기록 추가처럼 진도도 함께 올린다(주 시작 진도 = 누적 − 이번 주 기록이 그대로이게)
 bumpVersion();
 check(layoutKey(weekLayout(data, 2, ws3, today)) === layoutKey(midLayout), "v2: 재배치한 날의 기록이 늘어도 배치 불변");
 

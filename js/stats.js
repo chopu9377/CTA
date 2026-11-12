@@ -59,7 +59,7 @@ export function isWeekendLike(dateStr) {
 // 운동하는 평일(설정 › 운동일)이면 그날 적용되는 운동 계획({ from, days, hours })을, 아니면 null을 돌려준다.
 // 계획은 시작일과 함께 쌓아 두어 바꾸기 전 날의 계산은 그대로다. 주말·공휴일은 운동해도 원래 주말 시간을 쓴다.
 export function workoutOn(data, dateStr) {
-  if (isWeekendLike(dateStr)) return null;
+  if (isWeekendLike(dateStr) || dayHoursOn(data, dateStr) !== null) return null;
   const plan = currentWorkout(data, dateStr);
   return plan.days.includes(weekdayOf(dateStr)) ? plan : null;
 }
@@ -69,10 +69,19 @@ export function currentWorkout(data, dateStr) {
   return (data.settings.workouts || []).filter((p) => p.from <= dateStr).pop() || { days: [], hours: data.settings.weekdayHours / 2 };
 }
 
+// 날짜별로 따로 정한 공부 가능 시간(v74, settings.dayHours{ 날짜: 시간 }) — 병가·연차처럼 그날만 다른 날. 없으면 null.
+// 정해 둔 날은 운동일·주말 구분보다 우선한다(그날은 운동도 안 간다고 본다).
+export function dayHoursOn(data, dateStr) {
+  const h = data.settings.dayHours?.[dateStr];
+  return typeof h === "number" && h >= 0 ? h : null;
+}
+
 // 공부일 가중치(평일 = 1). 주말은 공부 가능 시간 비율만큼, 운동일은 (운동일 시간 / 평일 시간)만큼.
 export function dayWeight(data, dateStr) {
   const { weekdayHours, weekendHours } = data.settings;
   if (!(weekdayHours > 0 && weekendHours > 0)) return 1;
+  const special = dayHoursOn(data, dateStr);
+  if (special !== null) return special / weekdayHours;
   if (isWeekendLike(dateStr)) return weekendHours / weekdayHours;
   const workout = workoutOn(data, dateStr);
   return workout ? workout.hours / weekdayHours : 1;

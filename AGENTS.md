@@ -76,6 +76,7 @@
   **운동일(v59)**: 설정에서 고른 평일(월~금)은 공부 가능 시간을 따로(기본 평일의 절반) 잡는다(`stats.js` `workoutOn`·`dayWeight`, `plan.js` `limitMinutes`).
   역산 가중치·배치 시간 한도가 모두 그만큼 줄어 자동 과목 양이 다른 날로 간다(고정 과목 숫자는 그대로). **운동일 한 과목(v72)**: 책을 여러 권 못 들고 가니 운동일에는 과목을 하나만 둔다(`layout.js` `workoutPenalty` — 둘째 과목부터 감점, 3일 공백 규칙보다는 약함. 채우기도 안 넣음), 그 과목은 운동일 시간을 1개당 시간으로 채우고(최소 1개) 나머지를 다른 날에 나눈다(`splitAuto`). `WORKOUT_ONE_FROM`(2026-10-29) 이후 새로 짠 배치만. 주말·공휴일은 영향 없음. 계획은
   `settings.workouts[{ from, days, hours }]`로 시작일과 함께 쌓아 바꾸기 전 날 계산은 그대로다. 격자 칸에 작은 🥊.
+  **날짜별 시간(v74)**: `settings.dayHours{ 날짜: 시간 }`이 있으면 그날 공부 가능 시간과 가중치를 그 값으로 쓴다(`stats.js` `dayHoursOn`, 운동일·주말보다 우선, 그날은 운동일로 보지 않음). 병가·연차용, 지금은 데이터로만 입력.
 - **목표 회독 → 역산**: 목표마다 목표 회독수를 두면 `(목표 회독 × 총 분량 − 지금까지 푼 양)`을 **시험일 N일 전(기본 30일,
   마지막 기간은 모의고사·복습)까지** 끝내도록 자동 계획이 이번 주 필요량을 구한다. 평일:주말 비율은 공부 가능 시간 비율(기본 4h:7h ≈ 1:1.75).
   공부일수는 휴식·복습일을 뺀 날 × 주 N일/7. 설정의 [권장량 도출]이 무엇이 비었는지, 과목별 이번 주 배분·예상 완료일·상태,
@@ -198,7 +199,7 @@ carries[]                 // { id, goalId, fromDate, amount }  고정 목표의 
                           // 자동 목표의 소급은 저장하지 않고 entries + dayTargets로 매번 계산(stats.buildContext → autoDebts)
 exams{ 1|2: [{ id, date, label, scores[4], items?[4][], itemTopics?[4][], note? }] }
 subjectColors{ 과목명: 슬롯번호(1~12) | "#rrggbb" }
-settings{ holidayAutoRest, weekdayHours, weekendHours, bufferDays, layoutMode("basic"|"deep"|"spread"), autoSpreadDays, workouts[{ from, days[요일 1~5], hours }] }
+settings{ holidayAutoRest, weekdayHours, weekendHours, bufferDays, layoutMode("basic"|"deep"|"spread"), autoSpreadDays, workouts[{ from, days[요일 1~5], hours }], dayHours{ 날짜: 시간 }(v74) }
 meta{ lastBackupAt, updatedAt }   // updatedAt: 사용자가 마지막으로 바꾼 시각(동기화 판단용)
 ```
 

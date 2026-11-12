@@ -85,3 +85,23 @@ check("v72: 운동일에 놓인 과목은 1시간을 그 과목으로 채움(1�
   });
 });
 console.log(`\n${checks}개 통과`);
+// v74: 날짜별 공부 가능 시간
+{
+  const { limitMinutes } = await import("../js/plan.js");
+  const { dayWeight, workoutOn } = await import("../js/stats.js");
+  data.settings.dayHours = { "2026-11-12": 14 / 3, "2026-11-13": 7 };
+  bumpVersion();
+  check("v74: 날짜별 시간이 운동일(목)·평일(금)보다 우선", () => {
+    assert.equal(limitMinutes(data, "2026-11-12"), 280);
+    assert.equal(limitMinutes(data, "2026-11-13"), 420);
+    assert.equal(workoutOn(data, "2026-11-12"), null);
+    assert.equal(dayWeight(data, "2026-11-13"), 7 / 4);
+    assert.equal(limitMinutes(data, "2026-11-19"), 60);
+  });
+  check("v74: 날짜별 시간을 둔 운동일에는 운동일 빼기 과목도 놓일 수 있음", () => {
+    const t = weekLayout(data, 2, "2026-11-08", today).byDate.get("2026-11-12") || {};
+    assert.ok(Object.keys(t).length >= 2, JSON.stringify(t));
+  });
+  data.settings.dayHours = {};
+  bumpVersion();
+}

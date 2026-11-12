@@ -185,6 +185,7 @@ function normalize(data) {
   data.settings = { ...base.settings, ...(data.settings || {}) };
   if (!["basic", "deep", "spread"].includes(data.settings.layoutMode)) data.settings.layoutMode = "basic";
   if (!Array.isArray(data.settings.workouts)) data.settings.workouts = [];
+  if (!data.settings.dayHours || typeof data.settings.dayHours !== "object") data.settings.dayHours = {};
   data.meta = { lastBackupAt: null, updatedAt: null, ...(data.meta || {}) };
   // 랜덤 배치 이전 버전 데이터: 이번 주의 지난 날(옛 요일로 굳은 날)은 그대로 두고 오늘부터 랜덤 배치를 시작한다
   if (data.layoutFrom === undefined) {
