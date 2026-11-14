@@ -1,4 +1,4 @@
-export const DEFAULT_START_DATE = "2026-09-20";
+export const DEFAULT_START_DATE = "2026-09-14"; // 월요일(v76부터 한 주 = 월~일)
 export const DEFAULT_FIRST_TRACK_START = "2026-12-15";
 
 export const TRACK_LABEL = { 1: "1차", 2: "2차" };

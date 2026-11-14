@@ -1,4 +1,4 @@
-import { formatMD, WEEKDAY_LABELS } from "../dates.js";
+import { formatMD, WEEKDAY_LABELS, weekdayOf } from "../dates.js";
 import { escapeHtml } from "./shared.js";
 
 const TAPPABLE = ["future", "rest", "review", "today", "none", "bonus"];
@@ -62,7 +62,7 @@ export function weekHTML(week, { mini, today, currentIndex, pick = null }) {
   return `<div class="week${mini ? " mini" : ""}${week.complete ? " done" : ""}${week.index === currentIndex ? " current" : ""}">
     <div class="week-head"><b>${week.index + 1}주차 <span class="muted">${formatMD(week.start)}–${formatMD(week.end)}</span></b><span>${status}</span></div>
     <div class="days">
-      ${mini ? "" : WEEKDAY_LABELS.map((d) => `<div class="day-label">${d}</div>`).join("")}
+      ${mini ? "" : Array.from({ length: 7 }, (_, i) => WEEKDAY_LABELS[(weekdayOf(week.start) + i) % 7]).map((d) => `<div class="day-label">${d}</div>`).join("")}
       ${week.days.map((day) => cellHTML(day, { mini, today, pick })).join("")}
     </div>
   </div>`;

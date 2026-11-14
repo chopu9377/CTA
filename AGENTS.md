@@ -60,7 +60,7 @@
   날짜가 바뀌면 자동으로 꺼진다.
 - **내일로 넘기기(v62)**: 오늘 탭의 [➡️ 내일로 넘기기]로 오늘 못 할 양을 과목별로 골라 **같은 주의 다음 공부일**(휴식·복습일은 건너뜀)로 옮긴다.
   넘긴 만큼 오늘 목표가 줄어 남은 걸 다 하면 그냥 달성(진한 초록)이고, 받는 날 목표가 그만큼 늘어난다(오늘 탭에 "넘겨받음 N"). 주 안에서 옮기기만 해서 주간 양·계획은 그대로다.
-  **한 번만** — 넘겨받은 양은 다시 못 넘긴다(오늘 푼 양은 넘겨받은 몫부터 채운 것으로 본다). 받을 날이 같은 주에 없으면(토요일·남은 날이 다 휴식) 버튼이 안 보이고,
+  **한 번만** — 넘겨받은 양은 다시 못 넘긴다(오늘 푼 양은 넘겨받은 몫부터 채운 것으로 본다). 받을 날이 같은 주에 없으면(일요일·남은 날이 다 휴식) 버튼이 안 보이고,
   넘긴 뒤 남은 날을 다 휴식으로 바꾸면 넘기기가 취소되고 오늘 목표가 돌아온다. 저장은 `postpones{ 넘긴 날: { 목표id: 양 } }`뿐이고 받는 날은 매번 계산한다(`postpone.js`).
   배치를 다시 섞을 때 굳은 스냅샷에서 넘긴·넘겨받은 양을 되돌려 원래 배치로 보고(`layout.js` `frozenTargets`), 그날부터 계획을 다시 나누면(`markReplan`) 그날 이후 넘기기는 지운다.
 - **새벽 모드**: 자정~새벽 7시 사이에 앱을 열면 "오늘"이 실제 달력 날짜가 아니라 **어제 목표가 끝났는지**로
@@ -182,7 +182,7 @@
 ## 4. 데이터 모델 (schemaVersion 2, localStorage 키 `cta-data-v2`)
 
 ```
-startDate                 // 첫 주의 시작일(기본 2026-09-20). 주 = startDate 기준 7일
+startDate                 // 첫 주의 시작일(월요일, 기본 2026-09-14 — v76에서 일요일 9/20 → 월요일 9/14로 옮겨 한 주 = 월~일). 주 = startDate 기준 7일
 trackSwitches[]           // { from, track } 언제부터 어느 트랙이 활성이었는지
 tracks[1|2]               // { examDate, examEstimated, activeFrom, maintain }
 goals[]                   // { id, track, subject, unit, minutesHistory?[{ from, minutes }](v70), weekdayTarget, weekendTarget, maintWeekdayTarget, maintWeekendTarget, minutesPerUnit, daysPerWeek(1~7), weekdays[](옛 버전 호환용), total, targetRounds, round, progress, archived, planMode("fixed"|"auto"|"fill"), autoFrom, replanFrom, skipWorkout(v71) }
