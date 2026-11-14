@@ -133,8 +133,11 @@ bumpVersion();
 const after = weekLayout(data, 2, cw, today);
 let pastSame = true;
 for (let d = cw; d < today; d = addDays(d, 1)) if (sorted(before.byDate.get(d)) !== sorted(after.byDate.get(d))) pastSame = false;
-check(pastSame, "휴식 지정: 지난 날 목표 불변");
-check(sorted(before.byDate.get(today)) === sorted(after.byDate.get(today)), "휴식 지정(내일 이후): 오늘 과목 불변");
+// 토요일에는 "이번 주 안의 내일 이후 날"이 없어 이 상황 자체가 생기지 않는다(다음 주 휴식은 그 주 계산에만 들어간다)
+if (restInWeek) {
+  check(pastSame, "휴식 지정: 지난 날 목표 불변");
+  check(sorted(before.byDate.get(today)) === sorted(after.byDate.get(today)), "휴식 지정(내일 이후): 오늘 과목 불변");
+} else console.log("- 휴식 지정 두 항목: 오늘이 토요일이라 건너뜀");
 check(!restInWeek || !Object.keys(after.byDate.get(restDay) || {}).length, "휴식 지정: 휴식일 목표 없음");
 let remainOk = true;
 data.goals.filter((g) => isAutoGoal(data, g)).forEach((g) => {
