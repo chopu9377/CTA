@@ -221,7 +221,8 @@ export function dayReport(data, ctx, dateStr, today) {
   const undecided = dateStr < today && !kind && shortfalls.some((s) => s.canCarry) && decision === undefined;
   const forcedReview = forcedReviewLabel(data, dateStr);
   const examTrack = examTrackFor(data, dateStr);
-  return { date: dateStr, kind, status, half, rows, shortfalls, undecided, totalDone, bonus, holiday: holidayName(dateStr), forcedReview, examTrack, workout: !!workoutOn(data, dateStr) };
+  const restReason = kind === "rest" ? data.restReasons?.[dateStr] || null : null;
+  return { date: dateStr, kind, status, half, restReason, rows, shortfalls, undecided, totalDone, bonus, holiday: holidayName(dateStr), forcedReview, examTrack, workout: !!workoutOn(data, dateStr) };
 }
 
 const NEUTRAL = ["rest", "review", "none", "bonus"];

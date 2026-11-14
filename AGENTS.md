@@ -192,6 +192,7 @@ dayKindLayout             // 선택적 { today, kinds, from, at }: 같은 날 �
 entries[]                 // { id, goalId, date, amount }  푼 양(누적 입력 1건 = 1행)
 dayKinds{ date: rest|review }
 dayTargets{ date: { goalId: target } }   // 그날 목표 스냅샷(지난 날 판정이 목표 수정에 흔들리지 않게). 오늘 것은 앱을 열 때마다 한 번 새로 계산
+restReasons{ date: "sick" }              // 휴식 사유(v75): 칸에 🤒, 계산 영향 없음(데이터로만 입력)
 postpones{ date: { goalId: amount } }    // 내일로 넘기기: 그날 같은 주 다음 공부일로 넘긴 양(받는 날은 매번 계산)
 bonusRest{ date: { goalId: amount } }    // 보상 휴식: 그날 과목별로 줄이기로 한 양(옛 기록은 date: minutes 숫자 하나, 비율 차감). 휴식 저축은 여기 + entries로 계산
 settlements{ date: carried|dropped }     // 미달분 이월/버림 결정

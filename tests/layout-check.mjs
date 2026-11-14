@@ -123,9 +123,12 @@ const restDay = addDays(today, 2);
 const restInWeek = restDay < addDays(cw, 7);
 data.dayKinds[restDay] = "rest";
 // 내일 이후 날을 휴식으로 바꾸면 내일부터만 다시 섞고 양은 다시 계산하지 않는다(storage.cycleDayKind → markReplan(내일, { amounts: false }))
+// 앱(storage.changeDayKinds)은 이번 주 안의 변경일 때만 다시 섞는다 — 토요일에 다음 주 날짜를 바꾸면 이번 주 배치는 그대로
 const replanDay = addDays(today, 1);
-data.layoutFrom = replanDay;
-data.layoutAt = today;
+if (restInWeek) {
+  data.layoutFrom = replanDay;
+  data.layoutAt = today;
+}
 bumpVersion();
 const after = weekLayout(data, 2, cw, today);
 let pastSame = true;

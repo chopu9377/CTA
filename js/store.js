@@ -111,6 +111,7 @@ function emptyData() {
     dayTargets: {},
     bonusRest: {},
     postpones: {},
+    restReasons: {}, // 휴식 사유(v75): { 날짜: "sick" } — 칸에 🤒 표시만, 계산에는 영향 없음
     settlements: {},
     carries: [],
     exams: { 1: [], 2: [] },
@@ -169,6 +170,9 @@ function normalize(data) {
       .filter(Boolean)
   );
   // 내일로 넘기기: { 넘긴 날: { 목표id: 양 } }
+  data.restReasons = Object.fromEntries(
+    Object.entries(data.restReasons && typeof data.restReasons === "object" ? data.restReasons : {}).filter(([, v]) => typeof v === "string")
+  );
   data.postpones = Object.fromEntries(
     Object.entries(data.postpones && typeof data.postpones === "object" ? data.postpones : {})
       .map(([date, v]) => {

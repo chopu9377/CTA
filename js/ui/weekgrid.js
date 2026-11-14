@@ -18,6 +18,7 @@ export function legendHTML(open) {
     <span><i class="dot cell-bonus"></i>보상 휴식</span>
     <span><i class="dot cell-examday"></i>시험일(D-day)</span>
     <span>🥊 운동일(공부 가능 시간이 짧은 평일)</span>
+    <span>🤒 아파서 쉰 날</span>
   </div>`;
 }
 
@@ -28,8 +29,9 @@ function cellHTML(day, { mini, today, pick }) {
     const info = !mini && !pick && day.date < today ? ` data-action="day-info" data-date="${day.date}"` : "";
     return `<div class="cell cell-examday${info ? " tap" : ""}"${info} title="${day.examTrack}차 시험일">${inner}</div>`;
   }
-  const label = day.forcedReview ? `[${day.forcedReview}]` : day.status === "rest" ? "휴" : day.status === "review" ? "복" : day.status === "bonus" ? "🎁" : Number(day.date.slice(8));
-  const title = day.forcedReview ? ` title="8421모드: 시험 D-${day.forcedReview}, 전 과목 1회독 복습"` : day.holiday ? ` title="${escapeHtml(day.holiday)}"` : "";
+  const sick = day.status === "rest" && day.restReason === "sick";
+  const label = day.forcedReview ? `[${day.forcedReview}]` : sick ? "🤒" : day.status === "rest" ? "휴" : day.status === "review" ? "복" : day.status === "bonus" ? "🎁" : Number(day.date.slice(8));
+  const title = day.forcedReview ? ` title="8421모드: 시험 D-${day.forcedReview}, 전 과목 1회독 복습"` : sick ? ` title="아파서 쉰 날"` : day.holiday ? ` title="${escapeHtml(day.holiday)}"` : "";
   let attrs = "";
   let cls = day.forcedReview ? " forced" : "";
   if (!mini && !pick && day.date < today) {
