@@ -105,3 +105,20 @@ console.log(`\n${checks}개 통과`);
   data.settings.dayHours = {};
   bumpVersion();
 }
+// v77: 요일별 공부 가능 시간
+{
+  const { limitMinutes } = await import("../js/plan.js");
+  const { dayWeight, workoutOn } = await import("../js/stats.js");
+  data.settings.dowHours = [{ from: "2026-11-17", hours: { 1: 3, 2: 4, 3: 2, 4: 4, 5: 2 } }];
+  bumpVersion();
+  check("v77: 요일별 시간이 운동일·평일보다 우선, 시작일 전은 그대로", () => {
+    assert.equal(limitMinutes(data, "2026-11-17"), 240); // 화(운동일) 4h
+    assert.equal(workoutOn(data, "2026-11-17"), null);
+    assert.equal(limitMinutes(data, "2026-11-18"), 120); // 수 2h
+    assert.equal(dayWeight(data, "2026-11-16"), 1); // 시작 전 월요일은 원래 평일
+    assert.equal(limitMinutes(data, "2026-11-10"), 60); // 시작 전 화요일은 운동일 1h
+    assert.equal(limitMinutes(data, "2026-11-21"), 420); // 주말은 그대로
+  });
+  data.settings.dowHours = [];
+  bumpVersion();
+}
