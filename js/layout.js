@@ -1,5 +1,5 @@
 import { addDays, diffDays, todayStr } from "./dates.js";
-import { effectiveKind, targetOn, workoutOn } from "./stats.js";
+import { effectiveKind, targetOn, workoutOn, isWeekendLike } from "./stats.js";
 import { limitMinutes, plannedTrackOn, maintenanceTargets, cumulativeOf } from "./plan.js";
 import { weekStartOf, isAutoGoal, autoWeekTotal, distribute, PLAN_RULES_V2_FROM } from "./weekplan.js";
 import { dataVersion } from "./version.js";
@@ -25,6 +25,7 @@ export const LAYOUT_RULES = {
   // 진득: 묶음마다 하루 한 과목에서 벗어난 과목 수당(약 80분 어긋남만큼 — 시간 균형이 크게 깨지면 1·3과목 허용).
   // 실제 사용량 기준 1600 → 71%, 6400 → 93%가 딱 두 과목이었고 과부하는 늘지 않았다
   deepPenalty: 6400,
+  weekendSpread: 3, // 평일 진득·주말 분산(v85): 주말 하루에 묶음 과목을 이만큼 이상
   // 운동일(v72): 책을 많이 못 들고 가니 한 과목만. 둘째 과목부터 과목당 감점(3일 공백 규칙보다는 약하게)
   workoutPenalty: 5e7,
   fillPerDay: 2
@@ -141,7 +142,7 @@ function buildModels(ctx) {
     const doneDays = prefix.filter((d) => (byDate.get(d)[goal.id] || 0) > 0);
     const usedDays = prefix.filter((d) => (byDate.get(d)[goal.id] || 0) > 0 || studied(d).has(goal.id)).length;
     const auto = isAutoGoal(data, goal) && goal.autoFrom <= anchor;
-    const group = mode === "deep" ? deepGroupOf(goal.subject) : null;
+    const group = mode === "deep" || mode === "deepweek" ? deepGroupOf(goal.subject) : null;
     let total = 0;
     let sizes;
     if (auto) {
@@ -191,7 +192,7 @@ function buildModels(ctx) {
 }
 
 function makeScorer(ctx, models) {
-  const { segment, limits, base, prevMask, v2 } = ctx;
+  const { segment, limits, base, prevMask, v2, mode } = ctx;
   const m = segment.length;
   const sumLimit = limits.reduce((a, b) => a + b, 0) || 1;
   const adjacent = segment.map((d, i) => (i === 0 ? true : diffDays(segment[i - 1], d) === 1));
@@ -199,8 +200,23 @@ function makeScorer(ctx, models) {
   const workoutIdx = ctx.workoutIdx || [];
   const oneBook = (masks) => workoutIdx.reduce((pen, i) => pen + Math.max(0, popcount(masks[i]) - 1), 0) * workoutPenalty;
   const groupKeys = Object.keys(DEEP_GROUPS).filter((key) => models.some((model) => model.group === key));
-  // 진득: 묶음마다 매일 딱 한 과목
-  const deep = (counts) => groupKeys.reduce((pen, key) => pen + counts[key].reduce((s, c) => s + Math.abs(c - 1), 0), 0) * deepPenalty;
+  // 진득: 묶음마다 매일 딱 한 과목(운동일은 한 과목 규칙이 먼저라 뺀다). 평일 진득·주말 분산(v85): 진득은 평일만,
+  // 주말은 묶음마다 하나 이상 + 묶음 과목 합계 weekendSpread개 이상이 되게(모자란 만큼 감점)
+  const weekendMode = mode === "deepweek";
+  const isDeepDay = segment.map((d, i) => !workoutIdx.includes(i) && !(weekendMode && isWeekendLike(d)));
+  const isSpreadDay = segment.map((d, i) => weekendMode && isWeekendLike(d));
+  const deep = (counts) => {
+    let pen = 0;
+    for (let i = 0; i < m; i++) {
+      if (isDeepDay[i]) pen += groupKeys.reduce((s, key) => s + Math.abs(counts[key][i] - 1), 0);
+      else if (isSpreadDay[i]) {
+        const total = groupKeys.reduce((s, key) => s + counts[key][i], 0);
+        const missing = groupKeys.filter((key) => !counts[key][i]).length;
+        pen += missing + Math.max(0, LAYOUT_RULES.weekendSpread - total);
+      }
+    }
+    return pen * deepPenalty;
+  };
 
   const balance = (loads) => {
     const total = loads.reduce((a, b) => a + b, 0);

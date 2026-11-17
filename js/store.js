@@ -188,7 +188,7 @@ function normalize(data) {
     data.exams[t] = Array.isArray(data.exams[t]) ? data.exams[t] : [];
   });
   data.settings = { ...base.settings, ...(data.settings || {}) };
-  if (!["basic", "deep", "spread"].includes(data.settings.layoutMode)) data.settings.layoutMode = "basic";
+  if (!["basic", "deep", "deepweek", "spread"].includes(data.settings.layoutMode)) data.settings.layoutMode = "basic";
   if (!Array.isArray(data.settings.workouts)) data.settings.workouts = [];
   if (!data.settings.dayHours || typeof data.settings.dayHours !== "object") data.settings.dayHours = {};
   if (!Array.isArray(data.settings.dowHours)) data.settings.dowHours = [];
