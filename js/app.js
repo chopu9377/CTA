@@ -210,6 +210,7 @@ initSync({
   onApplied() {
     toast("GitHub에서 최신 데이터를 불러왔어요");
     render();
+    setTimeout(showSleepPopup, 800); // 수면 계획이 GitHub 데이터로 막 들어온 경우(처음 확인할 땐 기기의 옛 데이터였다)
   },
   onStatus(text) {
     const el = document.querySelector("[data-sync-status]");
