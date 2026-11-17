@@ -164,20 +164,15 @@ function resolveConflict(choice) {
 const { actions, announceRounds } = createActions({ ui, render, toast, overlay, showSettleSheet, closeSheet, resolveConflict });
 actions["mascot-cheer"] = cheer;
 
-// 수면 계획 팝업(v81): 그날 계획이 있으면 앱을 열 때·돌아올 때 하루 한 번(다른 창이 떠 있으면 건너뜀)
-const SLEEP_KEY = "cta-sleep-popup";
+// 수면 계획 팝업(v81, v82부터 매번): 그날 계획이 있으면 앱을 열 때·돌아올 때마다 띄운다(다른 창이 떠 있으면 건너뜀). 닫아도 다음에 열면 또 뜬다.
 function showSleepPopup() {
   if (overlay.innerHTML.trim()) return;
   const day = storage.appToday();
   const plan = storage.getData().sleepPlan?.[day];
   if (!plan) return;
-  let seen = null;
-  try { seen = localStorage.getItem(SLEEP_KEY); } catch (e) { /* 저장소를 못 쓰면 매번 띄운다 */ }
-  if (seen === day) return;
   overlay.innerHTML = sleepPopupHTML(day, plan);
 }
 actions["close-sleep"] = () => {
-  try { localStorage.setItem(SLEEP_KEY, storage.appToday()); } catch (e) { /* 무시 */ }
   overlay.innerHTML = "";
 };
 setTimeout(showSleepPopup, 1500);
