@@ -4,6 +4,7 @@ import { loadHolidays, holidaysLoaded } from "./holidays.js";
 import { renderWeek, renderToday, renderProgress, renderExam, renderHistory, renderSettings } from "./ui.js";
 import { renderSettleSheet } from "./ui/settle.js";
 import { conflictSheetHTML } from "./ui/syncui.js";
+import { sleepPopupHTML } from "./ui/sleep.js";
 import { mascotHTML, mascotPhase, pickCheer, bubbleHTML } from "./ui/mascot.js";
 import { createActions } from "./actions.js";
 import { bindInputHandlers } from "./inputs.js";
@@ -162,6 +163,27 @@ function resolveConflict(choice) {
 
 const { actions, announceRounds } = createActions({ ui, render, toast, overlay, showSettleSheet, closeSheet, resolveConflict });
 actions["mascot-cheer"] = cheer;
+
+// 수면 계획 팝업(v81): 그날 계획이 있으면 앱을 열 때·돌아올 때 하루 한 번(다른 창이 떠 있으면 건너뜀)
+const SLEEP_KEY = "cta-sleep-popup";
+function showSleepPopup() {
+  if (overlay.innerHTML.trim()) return;
+  const day = storage.appToday();
+  const plan = storage.getData().sleepPlan?.[day];
+  if (!plan) return;
+  let seen = null;
+  try { seen = localStorage.getItem(SLEEP_KEY); } catch (e) { /* 저장소를 못 쓰면 매번 띄운다 */ }
+  if (seen === day) return;
+  overlay.innerHTML = sleepPopupHTML(day, plan);
+}
+actions["close-sleep"] = () => {
+  try { localStorage.setItem(SLEEP_KEY, storage.appToday()); } catch (e) { /* 무시 */ }
+  overlay.innerHTML = "";
+};
+setTimeout(showSleepPopup, 1500);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") setTimeout(showSleepPopup, 1500);
+});
 bindInputHandlers({ ui, render, toast, closeSheet, announceRounds });
 
 document.addEventListener("click", (event) => {

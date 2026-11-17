@@ -2355,3 +2355,13 @@ textarea:focus {
   flex-shrink: 0;
   white-space: nowrap;
 }
+
+.sleep-line {
+  font-size: 18px;
+  line-height: 1.6;
+  margin: 8px 0 12px;
+}
+.sleep-line b {
+  font-size: 22px;
+  color: var(--accent);
+}

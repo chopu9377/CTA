@@ -173,6 +173,7 @@ function normalize(data) {
   data.restReasons = Object.fromEntries(
     Object.entries(data.restReasons && typeof data.restReasons === "object" ? data.restReasons : {}).filter(([, v]) => typeof v === "string")
   );
+  if (!data.sleepPlan || typeof data.sleepPlan !== "object") data.sleepPlan = {};
   data.postpones = Object.fromEntries(
     Object.entries(data.postpones && typeof data.postpones === "object" ? data.postpones : {})
       .map(([date, v]) => {
