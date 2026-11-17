@@ -118,7 +118,7 @@ export const DEFAULT_DAYS_PER_WEEK = 3;
 export const LAYOUT_MODES = [
   { key: "basic", label: "기본", desc: "과목마다 주 N일, 요일은 매주 랜덤" },
   { key: "deep", label: "진득", desc: "매일 회계(재무·원가) 하나 + 세무회계(법인·소득·부가) 하나를 묵직하게. 세법학 등 나머지는 주 N일 그대로" },
-  { key: "deepweek", label: "평일 진득·주말 분산", desc: "평일은 진득처럼 회계 하나 + 세무회계 하나, 주말은 묶음마다 하나 이상·모두 세 과목 이상으로 고르게" },
+  { key: "deepweek", label: "평일 진득·주말 분산", desc: "평일은 진득처럼 회계 하나 + 세무회계 하나, 주말은 재무·원가·법인·소득·부가를 하루에 다 조금씩" },
   { key: "spread", label: "물붓기", desc: "자동 과목을 모든 공부일에 조금씩(시험 직전 감 유지용). 고정·채우기 과목은 그대로" }
 ];
 export const DEFAULT_AUTO_SPREAD_DAYS = 60;

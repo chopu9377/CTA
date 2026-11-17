@@ -127,14 +127,14 @@ console.log(`\n${checks}개 통과`);
   const { deepGroupOf } = await import("../js/presets.js");
   data.settings.layoutMode = "deepweek";
   bumpVersion();
-  check("v85: 평일(운동일 제외)은 묶음마다 한 과목 이하, 주말은 묶음마다 하나 이상", () => {
+  check("v85: 평일(운동일 제외)은 묶음마다 한 과목 이하, 주말은 묶음 과목 전부", () => {
     later.slice(0, 6).forEach((ws) => {
       weekLayout(data, 2, ws, today).byDate.forEach((t, d) => {
         const ids = Object.keys(t).filter((id) => t[id] > 0);
         const groups = ids.map((id) => deepGroupOf(data.goals.find((g) => g.id === id).subject)).filter(Boolean);
         const dow = weekdayOf(d);
-        // 가상 데이터는 묶음 과목이 셋뿐(재무·법인·소득)이라 주말은 "묶음마다 하나 이상"만 본다(실데이터는 셋 이상 확인)
-        if (dow === 0 || dow === 6) assert.ok(groups.includes("acc") && groups.includes("tax"), `${d} ${JSON.stringify(t)}`);
+        // 주말은 묶음 과목 전부(가상 데이터는 재무·법인·소득 셋)
+        if (dow === 0 || dow === 6) assert.ok(groups.length >= 3, `${d} ${JSON.stringify(t)}`); // 묶음 과목(재무·법인·소득) 전부
         else if (![2, 4].includes(dow)) ["acc", "tax"].forEach((k) => assert.ok(groups.filter((g) => g === k).length <= 1, `${d} ${JSON.stringify(t)}`));
       });
     });

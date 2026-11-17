@@ -25,7 +25,7 @@ export const LAYOUT_RULES = {
   // 진득: 묶음마다 하루 한 과목에서 벗어난 과목 수당(약 80분 어긋남만큼 — 시간 균형이 크게 깨지면 1·3과목 허용).
   // 실제 사용량 기준 1600 → 71%, 6400 → 93%가 딱 두 과목이었고 과부하는 늘지 않았다
   deepPenalty: 6400,
-  weekendSpread: 3, // 평일 진득·주말 분산(v85): 주말 하루에 묶음 과목을 이만큼 이상
+  weekendTouchPenalty: 60000, // 평일 진득·주말 분산(v86): 주말에 빠진 묶음 과목 하나당 — 이틀 연속 같은 과목 감점(최대 약 1.5만)보다 크게
   // 운동일(v72): 책을 많이 못 들고 가니 한 과목만. 둘째 과목부터 과목당 감점(3일 공백 규칙보다는 약하게)
   workoutPenalty: 5e7,
   fillPerDay: 2
@@ -200,22 +200,19 @@ function makeScorer(ctx, models) {
   const workoutIdx = ctx.workoutIdx || [];
   const oneBook = (masks) => workoutIdx.reduce((pen, i) => pen + Math.max(0, popcount(masks[i]) - 1), 0) * workoutPenalty;
   const groupKeys = Object.keys(DEEP_GROUPS).filter((key) => models.some((model) => model.group === key));
-  // 진득: 묶음마다 매일 딱 한 과목(운동일은 한 과목 규칙이 먼저라 뺀다). 평일 진득·주말 분산(v85): 진득은 평일만,
-  // 주말은 묶음마다 하나 이상 + 묶음 과목 합계 weekendSpread개 이상이 되게(모자란 만큼 감점)
+  // 진득: 묶음마다 매일 딱 한 과목(운동일은 한 과목 규칙이 먼저라 뺀다). 평일 진득·주말 분산(v85·v86): 진득은 평일만,
+  // 주말은 묶음 과목을 전부 하루에 조금씩(빠진 과목마다 감점)
   const weekendMode = mode === "deepweek";
   const isDeepDay = segment.map((d, i) => !workoutIdx.includes(i) && !(weekendMode && isWeekendLike(d)));
   const isSpreadDay = segment.map((d, i) => weekendMode && isWeekendLike(d));
-  const deep = (counts) => {
+  const groupBits = models.reduce((b, model) => (model.group ? b | model.bit : b), 0);
+  const deep = (counts, masks) => {
     let pen = 0;
     for (let i = 0; i < m; i++) {
-      if (isDeepDay[i]) pen += groupKeys.reduce((s, key) => s + Math.abs(counts[key][i] - 1), 0);
-      else if (isSpreadDay[i]) {
-        const total = groupKeys.reduce((s, key) => s + counts[key][i], 0);
-        const missing = groupKeys.filter((key) => !counts[key][i]).length;
-        pen += missing + Math.max(0, LAYOUT_RULES.weekendSpread - total);
-      }
+      if (isDeepDay[i]) pen += groupKeys.reduce((s, key) => s + Math.abs(counts[key][i] - 1), 0) * deepPenalty;
+      else if (isSpreadDay[i]) pen += popcount(groupBits & ~masks[i]) * LAYOUT_RULES.weekendTouchPenalty;
     }
-    return pen * deepPenalty;
+    return pen;
   };
 
   const balance = (loads) => {
@@ -254,11 +251,11 @@ function makeScorer(ctx, models) {
     const loads = s.loads.map((l, i) => l + o.minutes[i]);
     const masks = s.masks.map((b, i) => b | o.bits[i]);
     const counts = group ? { ...s.counts, [group]: s.counts[group].map((c, i) => c + (o.bits[i] ? 1 : 0)) } : s.counts;
-    return balance(loads) + overlap(masks) + deep(counts) + oneBook(masks) + o.gap;
+    return balance(loads) + overlap(masks) + deep(counts, masks) + oneBook(masks) + o.gap;
   };
   const score = (choice) => {
     const s = state(choice);
-    return balance(s.loads) + overlap(s.masks) + deep(s.counts) + oneBook(s.masks) + s.gaps;
+    return balance(s.loads) + overlap(s.masks) + deep(s.counts, s.masks) + oneBook(s.masks) + s.gaps;
   };
   return { state, withOption, score };
 }
