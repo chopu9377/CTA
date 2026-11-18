@@ -169,6 +169,8 @@ export function renderWeeklyInput(data, ctx, today, ui) {
     if (!groups.has(row.goal.subject)) groups.set(row.goal.subject, []);
     groups.get(row.goal.subject).push(row);
   }
+  const overview = ui.view === "week";
+  let totalFraction = 0;
   let targets = 0;
   let completed = 0;
   const cards = Array.from(groups, ([subject, items]) => {
@@ -179,6 +181,12 @@ export function renderWeeklyInput(data, ctx, today, ui) {
     if (full) completed++;
     const color = escapeHtml(subjectColor(data, subject));
     const pct = full ? 100 : Math.floor(100 * fraction / (required.length || 1));
+    if (overview) {
+      if (!required.length) return "";
+      totalFraction += fraction / required.length;
+      return `<div class="week-meter"><div><strong>${escapeHtml(subject)}</strong><b>${pct}%</b></div>
+        <progress aria-label="${escapeHtml(subject)} 주간 달성률" value="${pct}" max="100" style="--meter-color:${color}"></progress></div>`;
+    }
     const inputs = items.map(({ goal, quota, done }) => {
       const unit = escapeHtml(countUnit(goal.unit));
       const active = selected && selected.goal.id === goal.id;
@@ -190,17 +198,20 @@ export function renderWeeklyInput(data, ctx, today, ui) {
       ${required.length ? ringHTML(color, pct) : ""}${inputs}</article>`;
   }).join("");
   const won = targets > 0 && targets === completed;
+  const overall = won ? 100 : Math.min(99, Math.floor(100 * totalFraction / (targets || 1)));
   const rewardKey = "cta-belt-" + track + "-" + start;
   const celebrate = won && !localStorage.getItem(rewardKey);
   if (celebrate) localStorage.setItem(rewardKey, "1");
   return `<section class="view${selected ? " picker-open" : ""}"><div class="card">
     <div class="orbit-banner${won ? " won" : ""}"><small>${track}차 · ${start} ~ ${addDays(start, 6)}</small>
-      <h2>${won ? "이번 주 챔피언" : "이번 주 과목별 목표"}</h2>
+      <h2>${won ? "이번 주 챔피언" : overview ? "이번 주 달성률" : "이번 주 과목별 목표"}</h2>
+      ${overview && targets ? `<strong class="week-meter-total">${overall}<small>%</small></strong>
+        <progress class="week-meter-main" aria-label="이번 주 달성률" value="${overall}" max="100"></progress>` : ""}
       <span role="status">${completed} / ${targets}과목 달성</span>
       ${won ? '<img class="belt" src="./icons/champion-belt.svg" alt="CTA 주간 챔피언 벨트">' : ""}</div>
     ${celebrate ? '<div class="orbit-victory" aria-hidden="true"><img class="belt" src="./icons/champion-belt.svg" alt=""><strong>주간 목표 달성!</strong></div>' : ""}
-    <div class="orbit-grid">${cards || '<p>설정에서 학습 목표를 확인하세요.</p>'}</div>
-    ${selected ? "" : undoLineHTML(data, today)}
+    <div class="${overview ? "week-meters" : "orbit-grid"}">${cards || '<p>이번 주에 설정된 목표가 없어요.</p>'}</div>
+    ${selected || overview ? "" : undoLineHTML(data, today)}
     <p class="hint">주간 보기 종료일 · ${ui.weeklyUntil}</p>
     <button class="btn btn-secondary" type="button" data-action="toggle-weekly">일별 보기로 돌아가기</button>
     </div>${selected ? pickerSheetHTML(ui.pick, selected.goal, data, today, false) : ""}</section>`;
