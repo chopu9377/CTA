@@ -3,7 +3,7 @@ import { weekQuotas, currentWeekIndex, trackAt, dayReport, effectiveKind, lightT
 import { dayLoad, maintenanceGoals, maintenanceTargets } from "../plan.js";
 import { weekStartOf, isAutoGoal, weekProgress, isLastStudyDay, weekCarries } from "../weekplan.js";
 import { UNIT_SUGGESTIONS, TRACK_LABEL, countUnit } from "../presets.js";
-import { escapeHtml, subjectColor, formatDuration } from "./shared.js";
+import { escapeHtml, subjectColor, formatDuration, ringHTML } from "./shared.js";
 import { tomorrowCardHTML } from "./tomorrow.js";
 import { postponeLineHTML } from "./postpone.js";
 import { postponeIn } from "../postpone.js";
@@ -164,18 +164,42 @@ export function renderWeeklyInput(data, ctx, today, ui) {
     goal, quota: 0, done: weekProgress(data, ctx, goal, today).done
   }))];
   const selected = ui.pickerOpen && rows.find(row => row.goal.id === ui.selectedGoalId);
-  const list = rows.map(({ goal, quota, done }) => {
-    const unit = escapeHtml(countUnit(goal.unit));
-    const remaining = quota ? `남은 양 ${Math.max(0, quota - done)}${unit}` : "자유 기록";
-    return `<button type="button" class="goal-row${selected && selected.goal.id === goal.id ? " selected" : ""}" data-action="select-goal" data-id="${escapeHtml(goal.id)}">
-      <span class="goal-name">${escapeHtml(goal.subject)} · ${escapeHtml(goal.unit)}</span>
-      <span>${done}${quota ? " / " + quota : ""}${unit}<small> · ${remaining}</small></span></button>`;
+  const groups = new Map();
+  for (const row of rows) {
+    if (!groups.has(row.goal.subject)) groups.set(row.goal.subject, []);
+    groups.get(row.goal.subject).push(row);
+  }
+  let targets = 0;
+  let completed = 0;
+  const cards = Array.from(groups, ([subject, items]) => {
+    const required = items.filter(row => row.quota > 0);
+    const fraction = required.reduce((sum, row) => sum + Math.min(1, row.done / row.quota), 0);
+    const full = required.length > 0 && required.every(row => row.done >= row.quota);
+    if (required.length) targets++;
+    if (full) completed++;
+    const color = escapeHtml(subjectColor(data, subject));
+    const pct = full ? 100 : Math.floor(100 * fraction / (required.length || 1));
+    const inputs = items.map(({ goal, quota, done }) => {
+      const unit = escapeHtml(countUnit(goal.unit));
+      const active = selected && selected.goal.id === goal.id;
+      return `<button class="goal-row orbit-input${active ? " selected" : ""}" type="button" data-action="select-goal" data-id="${escapeHtml(goal.id)}">
+        <span>${escapeHtml(goal.unit)} · ${done}${quota ? " / " + quota : ""}</span>
+        <small>${quota ? `남은 ${Math.max(0, quota - done)}${unit}` : "자유 기록"} ＋</small></button>`;
+    }).join("");
+    return `<article class="orbit-card"><h3>${escapeHtml(subject)}</h3>
+      ${required.length ? ringHTML(color, pct) : ""}${inputs}</article>`;
   }).join("");
+  const won = targets > 0 && targets === completed;
+  const rewardKey = "cta-belt-" + track + "-" + start;
+  const celebrate = won && !localStorage.getItem(rewardKey);
+  if (celebrate) localStorage.setItem(rewardKey, "1");
   return `<section class="view${selected ? " picker-open" : ""}"><div class="card">
-    <h2 class="section-title">${track}차 주간 목표</h2>
-    <p>${start} ~ ${addDays(start, 6)}</p>
-    <p class="hint">과목을 눌러 오늘 공부한 양을 기록하세요. 이번 주 안에서 자유롭게 나눠도 돼요.</p>
-    ${list || '<p>설정에서 학습 목표를 확인하세요.</p>'}
+    <div class="orbit-banner${won ? " won" : ""}"><small>${track}차 · ${start} ~ ${addDays(start, 6)}</small>
+      <h2>${won ? "이번 주 챔피언" : "이번 주 과목별 목표"}</h2>
+      <span role="status">${completed} / ${targets}과목 달성</span>
+      ${won ? '<div class="belt" aria-label="주간 챔피언 벨트"><b>★</b></div>' : ""}</div>
+    ${celebrate ? '<div class="orbit-victory" aria-hidden="true"><div class="belt"><b>★</b></div><strong>주간 목표 달성!</strong></div>' : ""}
+    <div class="orbit-grid">${cards || '<p>설정에서 학습 목표를 확인하세요.</p>'}</div>
     ${selected ? "" : undoLineHTML(data, today)}
     <p class="hint">주간 보기 종료일 · ${ui.weeklyUntil}</p>
     <button class="btn btn-secondary" type="button" data-action="toggle-weekly">일별 보기로 돌아가기</button>
