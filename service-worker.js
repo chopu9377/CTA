@@ -1,7 +1,8 @@
-const CACHE_NAME = "cta-static-v88";
+const CACHE_NAME = "cta-static-v89";
 const APP_SHELL = [
   "./",
   "./index.html",
+  "./icons/champion-belt.svg",
   "./css/style.css",
   "./js/app.js",
   "./js/storage.js",

@@ -197,8 +197,8 @@ export function renderWeeklyInput(data, ctx, today, ui) {
     <div class="orbit-banner${won ? " won" : ""}"><small>${track}차 · ${start} ~ ${addDays(start, 6)}</small>
       <h2>${won ? "이번 주 챔피언" : "이번 주 과목별 목표"}</h2>
       <span role="status">${completed} / ${targets}과목 달성</span>
-      ${won ? '<div class="belt" aria-label="주간 챔피언 벨트"><b>★</b></div>' : ""}</div>
-    ${celebrate ? '<div class="orbit-victory" aria-hidden="true"><div class="belt"><b>★</b></div><strong>주간 목표 달성!</strong></div>' : ""}
+      ${won ? '<img class="belt" src="./icons/champion-belt.svg" alt="CTA 주간 챔피언 벨트">' : ""}</div>
+    ${celebrate ? '<div class="orbit-victory" aria-hidden="true"><img class="belt" src="./icons/champion-belt.svg" alt=""><strong>주간 목표 달성!</strong></div>' : ""}
     <div class="orbit-grid">${cards || '<p>설정에서 학습 목표를 확인하세요.</p>'}</div>
     ${selected ? "" : undoLineHTML(data, today)}
     <p class="hint">주간 보기 종료일 · ${ui.weeklyUntil}</p>

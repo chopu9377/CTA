@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 250">
+  <defs>
+    <linearGradient id="rim" x2=".85" y2="1" gradientUnits="objectBoundingBox">
+      <stop stop-color="#6e491e"/><stop offset=".18" stop-color="#fff1b7"/><stop offset=".34" stop-color="#be8c49"/><stop offset=".49" stop-color="#fff6bf"/><stop offset=".62" stop-color="#916323"/><stop offset=".8" stop-color="#dfb15d"/><stop offset="1" stop-color="#64451f"/>
+    </linearGradient>
+    <linearGradient id="face" x2=".55" y2="1"><stop stop-color="#ffdfa0"/><stop offset=".4" stop-color="#ae7934"/><stop offset=".55" stop-color="#e1bb6a"/><stop offset="1" stop-color="#795420"/></linearGradient>
+    <linearGradient id="leather" x2="0" y2="1"><stop stop-color="#494544"/><stop offset=".18" stop-color="#191b1d"/><stop offset=".52" stop-color="#343336"/><stop offset="1" stop-color="#111214"/></linearGradient>
+    <pattern id="grain" width="6" height="6" patternUnits="userSpaceOnUse"><path d="m0 2 2-1m1 4 2-1" stroke="#ddd" stroke-width=".7" opacity=".18"/></pattern>
+    <pattern id="etch" width="8" height="8" patternUnits="userSpaceOnUse"><path d="m-2 6 8-8m-6 12 12-12m-4 12 4-4" stroke="#422c12" stroke-width=".8" opacity=".45"/></pattern>
+    <path id="strap" d="M12 83 Q66 76 110 65 L202 46 Q242 12 290 13 H350 Q398 12 438 46 L530 65 Q574 76 628 83 Q639 123 628 167 Q574 174 530 185 L438 204 Q398 238 350 237 H290 Q242 238 202 204 L110 185 Q66 174 12 167 Q1 123 12 83Z"/>
+    <path id="plate" d="M259 22H381L434 67V174L380 225H260L206 174V67Z"/>
+    <g id="wing">
+      <path d="m89 83 81-26 25 9v116l-25 11-81-26-10-17v-50Z" fill="url(#rim)" stroke="#291c13" stroke-width="4"/>
+      <path d="m95 89 73-23 18 6v105l-18 7-73-24-7-12v-46Z" fill="#292829" stroke="#fae0a0" stroke-width="2"/>
+      <path d="m107 98 52-17 15 6v72l-15 8-52-17-7-12v-28Z" fill="url(#face)"/>
+      <path d="m116 105 39-11 11 5v52l-11 5-39-11-7-10v-20Z" fill="url(#etch)" stroke="#63441e"/>
+      <path d="m135 103 5 14 15 1-12 10 4 15-12-9-12 7 4-15-10-9 14 1Z" fill="url(#rim)" stroke="#674520" stroke-width="2"/>
+      <g fill="#a91e29" stroke="#ffe9b0" stroke-width="2"><circle cx="97" cy="95" r="4"/><circle cx="97" cy="154" r="4"/></g>
+      <g fill="#171819" stroke="#89827a" stroke-width="2"><circle cx="35" cy="108" r="4"/><circle cx="35" cy="141" r="4"/><circle cx="57" cy="105" r="4"/><circle cx="57" cy="144" r="4"/></g>
+    </g>
+  </defs>
+  <use href="#strap" fill="url(#leather)" stroke="#100f10" stroke-width="5"/>
+  <use href="#strap" fill="url(#grain)"/>
+  <use href="#strap" transform="translate(11 9) scale(.966 .928)" fill="none" stroke="#99846e" stroke-dasharray="4 4" opacity=".8"/>
+  <use href="#wing"/><use href="#wing" transform="translate(640) scale(-1 1)"/>
+  <use href="#plate" fill="url(#rim)" stroke="#32251a" stroke-width="5"/>
+  <g transform="translate(320 124)"><use href="#plate" transform="scale(.93) translate(-320 -124)" fill="#282729" stroke="#fff0bb" stroke-width="2"/>
+  <use href="#plate" transform="scale(.87) translate(-320 -124)" fill="url(#face)" stroke="#4b351a" stroke-width="3"/>
+  <use href="#plate" transform="scale(.81) translate(-320 -124)" fill="url(#etch)" stroke="#f8dfa2" stroke-width="2"/></g>
+  <path d="m226 95 42-18h104l42 18v53l-42 17H268l-42-17Z" fill="#222123" stroke="url(#rim)" stroke-width="4"/>
+  <g text-anchor="middle" font-family="Arial, sans-serif" font-weight="900">
+    <text x="320" y="67" font-size="13" letter-spacing="3" fill="#332518">WEEKLY</text>
+    <text x="320" y="144" font-size="67" font-style="italic" letter-spacing="-4" fill="url(#rim)" stroke="#fff0ad" stroke-width=".7">CTA</text>
+    <text x="320" y="187" font-size="14" letter-spacing="2" fill="#302315">CHAMPION</text>
+  </g>
+  <path d="m320 193 6 7-6 7-6-7Z" fill="#8e1d24" stroke="#ffdda1"/>
+</svg>
