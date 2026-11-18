@@ -1,5 +1,5 @@
 import * as storage from "./storage.js";
-import { monthKey, shiftMonth, formatKoreanDate } from "./dates.js";
+import { addDays, monthKey, shiftMonth, formatKoreanDate } from "./dates.js";
 import { trackAt, buildContext, dayReport, historyEnd, computeTargets, lightTarget } from "./stats.js";
 import { bonusSavings, bonusBlockReason, bonusMaxFor, bonusMinutes } from "./bonus.js";
 import { bonusSheetHTML, bonusCancelSheetHTML } from "./ui/bonus.js";
@@ -71,6 +71,14 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
   }
 
   const actions = {
+    "toggle-weekly"() {
+      const today = storage.appToday();
+      ui.weeklyUntil = ui.weeklyUntil >= today ? "" : addDays(today, 6);
+      localStorage.setItem("cta-weekly-until", ui.weeklyUntil);
+      ui.pickerOpen = false;
+      ui.editing = false;
+      render();
+    },
     "set-track"(btn) {
       const track = Number(btn.dataset.track);
       const data = storage.getData();
@@ -252,7 +260,7 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
       ui.pickerAnim = !ui.pickerOpen;
       ui.pickerOpen = !same;
       ui.revealSelected = ui.pickerOpen;
-      if (ui.pickerOpen) ui.pick = suggestedPick(btn.dataset.id);
+      if (ui.pickerOpen) ui.pick = ui.weeklyUntil >= storage.appToday() ? 1 : suggestedPick(btn.dataset.id);
       render();
     },
     "close-picker"() {

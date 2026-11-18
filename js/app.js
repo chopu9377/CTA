@@ -2,6 +2,7 @@ import * as storage from "./storage.js";
 import { buildContext, pendingSettlements } from "./stats.js";
 import { loadHolidays, holidaysLoaded } from "./holidays.js";
 import { renderWeek, renderToday, renderProgress, renderExam, renderHistory, renderSettings } from "./ui.js";
+import { renderWeeklyInput } from "./ui/today.js";
 import { renderSettleSheet } from "./ui/settle.js";
 import { conflictSheetHTML } from "./ui/syncui.js";
 import { sleepPopupHTML } from "./ui/sleep.js";
@@ -20,6 +21,7 @@ const PICKER_ITEM_HEIGHT = 44;
 
 const ui = {
   view: "week",
+  weeklyUntil: localStorage.getItem("cta-weekly-until") || "",
   examTrack: 2,
   progressTrack: 2,
   showRef: true,
@@ -59,7 +61,9 @@ function render() {
   const ctx = buildContext(data, today);
   ui.light = storage.isLightDay(today);
 
-  if (ui.view === "week") root.innerHTML = renderWeek(data, ctx, today, ui);
+  const weekly = ui.weeklyUntil >= today;
+  if (weekly && (ui.view === "week" || ui.view === "today")) root.innerHTML = renderWeeklyInput(data, ctx, today, ui);
+  else if (ui.view === "week") root.innerHTML = renderWeek(data, ctx, today, ui);
   else if (ui.view === "today") root.innerHTML = renderToday(data, ctx, today, ui, dawn);
   else if (ui.view === "progress") root.innerHTML = renderProgress(data, ui, today);
   else if (ui.view === "exam") root.innerHTML = renderExam(data, ui, today);
@@ -71,7 +75,8 @@ function render() {
   if (picker) picker.scrollTop = ui.pick * PICKER_ITEM_HEIGHT;
   if (ui.revealSelected) revealSelectedRow();
   showAppVersion();
-  updateMascot(data, ctx, today);
+  mascotEl.style.display = weekly ? "none" : "";
+  if (!weekly) updateMascot(data, ctx, today);
 }
 
 // 탭을 열 때(switchView가 mascotPhase를 비운다)와 오늘 상태가 바뀔 때(절반 넘김 등) 새로 한마디 한다.
@@ -133,6 +138,7 @@ function switchView(view) {
 
 function showSettleSheet({ silent } = {}) {
   const data = storage.getData();
+  if (silent && ui.weeklyUntil >= storage.appToday()) return;
   const days = pendingSettlements(data, buildContext(data), storage.appToday());
   if (!days.length) {
     if (!silent) toast("정할 미달분이 없어요");

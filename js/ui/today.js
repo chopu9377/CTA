@@ -1,7 +1,7 @@
 import { formatKoreanDate, addDays } from "../dates.js";
-import { trackAt, dayReport, effectiveKind, lightTarget } from "../stats.js";
+import { weekQuotas, currentWeekIndex, trackAt, dayReport, effectiveKind, lightTarget } from "../stats.js";
 import { dayLoad, maintenanceGoals, maintenanceTargets } from "../plan.js";
-import { isAutoGoal, weekProgress, isLastStudyDay, weekCarries } from "../weekplan.js";
+import { weekStartOf, isAutoGoal, weekProgress, isLastStudyDay, weekCarries } from "../weekplan.js";
 import { UNIT_SUGGESTIONS, TRACK_LABEL, countUnit } from "../presets.js";
 import { escapeHtml, subjectColor, formatDuration } from "./shared.js";
 import { tomorrowCardHTML } from "./tomorrow.js";
@@ -154,6 +154,32 @@ function maintSectionHTML(data, ctx, today, maintGoals, maintTargets, selected) 
     ${maintGoals
       .map((g) => goalRowHTML(data, ctx, { goal: g, target: maintTargets[g.id] || 0, done: ctx.sums.get(`${g.id}|${today}`) || 0 }, selected && g.id === selected.id, "유지"))
       .join("")}`;
+}
+
+export function renderWeeklyInput(data, ctx, today, ui) {
+  const track = trackAt(data, today);
+  const { rings } = weekQuotas(data, ctx, currentWeekIndex(data, today), track);
+  const start = weekStartOf(data, today);
+  const rows = [...rings, ...maintenanceGoals(data, today, today).map(goal => ({
+    goal, quota: 0, done: weekProgress(data, ctx, goal, today).done
+  }))];
+  const selected = ui.pickerOpen && rows.find(row => row.goal.id === ui.selectedGoalId);
+  const list = rows.map(({ goal, quota, done }) => {
+    const unit = escapeHtml(countUnit(goal.unit));
+    const remaining = quota ? `남은 양 ${Math.max(0, quota - done)}${unit}` : "자유 기록";
+    return `<button type="button" class="goal-row${selected && selected.goal.id === goal.id ? " selected" : ""}" data-action="select-goal" data-id="${escapeHtml(goal.id)}">
+      <span class="goal-name">${escapeHtml(goal.subject)} · ${escapeHtml(goal.unit)}</span>
+      <span>${done}${quota ? " / " + quota : ""}${unit}<small> · ${remaining}</small></span></button>`;
+  }).join("");
+  return `<section class="view${selected ? " picker-open" : ""}"><div class="card">
+    <h2 class="section-title">${track}차 주간 목표</h2>
+    <p>${start} ~ ${addDays(start, 6)}</p>
+    <p class="hint">과목을 눌러 오늘 공부한 양을 기록하세요. 이번 주 안에서 자유롭게 나눠도 돼요.</p>
+    ${list || '<p>설정에서 학습 목표를 확인하세요.</p>'}
+    ${selected ? "" : undoLineHTML(data, today)}
+    <p class="hint">주간 보기 종료일 · ${ui.weeklyUntil}</p>
+    <button class="btn btn-secondary" type="button" data-action="toggle-weekly">일별 보기로 돌아가기</button>
+    </div>${selected ? pickerSheetHTML(ui.pick, selected.goal, data, today, false) : ""}</section>`;
 }
 
 export function renderToday(data, ctx, today, ui, dawn = null) {
