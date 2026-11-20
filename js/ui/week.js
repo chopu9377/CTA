@@ -101,7 +101,6 @@ export function renderWeek(data, ctx, today, ui) {
   const streak = halfStreak(data, ctx, today);
   return `<section class="view">
     ${trackBarHTML(data, track, today)}
-    <button class="btn btn-secondary" type="button" data-action="toggle-weekly">7일간 주간 목표로 보기</button>
     ${noticesHTML(data, ctx, track, today)}
     ${shipCardHTML(data, ctx, today, ui)}
     <div class="card">

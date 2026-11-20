@@ -1,4 +1,4 @@
-import { formatKoreanDate, addDays } from "../dates.js";
+import { formatKoreanDate, addDays, diffDays } from "../dates.js";
 import { weekQuotas, currentWeekIndex, trackAt, dayReport, effectiveKind, lightTarget } from "../stats.js";
 import { dayLoad, maintenanceGoals, maintenanceTargets } from "../plan.js";
 import { weekStartOf, isAutoGoal, weekProgress, isLastStudyDay, weekCarries } from "../weekplan.js";
@@ -156,14 +156,29 @@ function maintSectionHTML(data, ctx, today, maintGoals, maintTargets, selected) 
       .join("")}`;
 }
 
+// 주간 목표 화면(v87 Codex, v91 다듬음 — 일간 화면 대신 이것만 보인다). 주간 탭 = 전체·과목별 달성률, 오늘 탭 = 과목별 입력.
+function weeklyRing(color, pct) {
+  const r = 24;
+  const c = 2 * Math.PI * r;
+  const arc = pct > 0 ? `<circle cx="30" cy="30" r="${r}" fill="none" stroke="${color}" stroke-width="6" stroke-linecap="round" stroke-dasharray="${(c * Math.min(pct, 100) / 100).toFixed(2)} ${c.toFixed(2)}" transform="rotate(-90 30 30)" />` : "";
+  const label = pct >= 100 ? "✓" : `${pct}%`;
+  return `<svg class="wk-ring" viewBox="0 0 60 60" width="60" height="60" aria-hidden="true">
+    <circle cx="30" cy="30" r="${r}" fill="none" stroke="var(--gridline)" stroke-width="6" />${arc}
+    <text x="30" y="35" text-anchor="middle" font-size="${pct >= 100 ? 20 : 14}" font-weight="700" fill="var(--text-primary)">${label}</text></svg>`;
+}
+
+const shortDate = (d) => formatKoreanDate(d).replace(/^(\d+)\/(\d+) /, "$1/$2 ");
+
 export function renderWeeklyInput(data, ctx, today, ui) {
   const track = trackAt(data, today);
   const { rings } = weekQuotas(data, ctx, currentWeekIndex(data, today), track);
   const start = weekStartOf(data, today);
-  const rows = [...rings, ...maintenanceGoals(data, today, today).map(goal => ({
+  const end = addDays(start, 6);
+  const daysLeft = Math.max(1, diffDays(today, end) + 1);
+  const rows = [...rings, ...maintenanceGoals(data, today, today).map((goal) => ({
     goal, quota: 0, done: weekProgress(data, ctx, goal, today).done
   }))];
-  const selected = ui.pickerOpen && rows.find(row => row.goal.id === ui.selectedGoalId);
+  const selected = ui.pickerOpen && rows.find((row) => row.goal.id === ui.selectedGoalId);
   const groups = new Map();
   for (const row of rows) {
     if (!groups.has(row.goal.subject)) groups.set(row.goal.subject, []);
@@ -174,46 +189,56 @@ export function renderWeeklyInput(data, ctx, today, ui) {
   let targets = 0;
   let completed = 0;
   const cards = Array.from(groups, ([subject, items]) => {
-    const required = items.filter(row => row.quota > 0);
+    const required = items.filter((row) => row.quota > 0);
     const fraction = required.reduce((sum, row) => sum + Math.min(1, row.done / row.quota), 0);
-    const full = required.length > 0 && required.every(row => row.done >= row.quota);
-    if (required.length) targets++;
+    const full = required.length > 0 && required.every((row) => row.done >= row.quota);
+    if (required.length) { targets++; totalFraction += fraction / required.length; }
     if (full) completed++;
     const color = escapeHtml(subjectColor(data, subject));
-    const pct = full ? 100 : Math.floor(100 * fraction / (required.length || 1));
+    const pct = full ? 100 : Math.min(99, Math.floor(100 * fraction / (required.length || 1)));
     if (overview) {
       if (!required.length) return "";
-      totalFraction += fraction / required.length;
-      return `<div class="week-meter"><div><strong>${escapeHtml(subject)}</strong><b>${pct}%</b></div>
-        <progress aria-label="${escapeHtml(subject)} 주간 달성률" value="${pct}" max="100" style="--meter-color:${color}"></progress></div>`;
+      const detail = required.map((row) => `${escapeHtml(required.length > 1 ? row.goal.unit.replace(/\(.*\)/, "") + " " : "")}${row.done}/${row.quota}`).join(" · ");
+      return `<div class="wk-meter${full ? " full" : ""}">
+        <div class="wk-meter-head"><span class="wk-name"><i class="swatch" style="background:${color}"></i>${escapeHtml(subject)}</span>
+          <span class="wk-num">${detail}<b>${full ? "✓" : pct + "%"}</b></span></div>
+        <div class="wk-bar" role="progressbar" aria-label="${escapeHtml(subject)} 주간 달성률" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><i style="width:${pct}%;background:${color}"></i></div>
+      </div>`;
     }
     const inputs = items.map(({ goal, quota, done }) => {
-      const unit = escapeHtml(countUnit(goal.unit));
       const active = selected && selected.goal.id === goal.id;
-      return `<button class="goal-row orbit-input${active ? " selected" : ""}" type="button" data-action="select-goal" data-id="${escapeHtml(goal.id)}">
-        <span>${escapeHtml(goal.unit)} · ${done}${quota ? " / " + quota : ""}</span>
-        <small>${quota ? `남은 ${Math.max(0, quota - done)}${unit}` : "자유 기록"} ＋</small></button>`;
+      const left = Math.max(0, quota - done);
+      return `<button class="wk-input${active ? " selected" : ""}${quota && !left ? " done" : ""}" type="button" data-action="select-goal" data-id="${escapeHtml(goal.id)}">
+        <span class="wk-unit">${escapeHtml(goal.unit)}</span>
+        <span class="wk-count"><span><b>${done}</b>${quota ? ` / ${quota}` : ""}</span><small>${quota ? (left ? `남은 ${left}` : "완료 ✓") : "자유 기록"}</small></span>
+        <span class="wk-plus" aria-hidden="true">＋</span></button>`;
     }).join("");
-    return `<article class="orbit-card"><h3>${escapeHtml(subject)}</h3>
-      ${required.length ? ringHTML(color, pct) : ""}${inputs}</article>`;
+    return `<article class="wk-card${full ? " full" : ""}">
+      ${required.length ? weeklyRing(color, pct) : `<span class="wk-ring-blank" style="background:${color}"></span>`}
+      <div class="wk-card-body"><h3>${escapeHtml(subject)}</h3>${inputs}</div></article>`;
   }).join("");
   const won = targets > 0 && targets === completed;
   const overall = won ? 100 : Math.min(99, Math.floor(100 * totalFraction / (targets || 1)));
   const rewardKey = "cta-belt-" + track + "-" + start;
-  const celebrate = won && !localStorage.getItem(rewardKey);
-  if (celebrate) localStorage.setItem(rewardKey, "1");
-  return `<section class="view${selected ? " picker-open" : ""}"><div class="card">
-    <div class="orbit-banner${won ? " won" : ""}"><small>${track}차 · ${start} ~ ${addDays(start, 6)}</small>
-      <h2>${won ? "이번 주 챔피언" : overview ? "이번 주 달성률" : "이번 주 과목별 목표"}</h2>
-      ${overview && targets ? `<strong class="week-meter-total">${overall}<small>%</small></strong>
-        <progress class="week-meter-main" aria-label="이번 주 달성률" value="${overall}" max="100"></progress>` : ""}
-      <span role="status">${completed} / ${targets}과목 달성</span>
-      ${won ? '<img class="belt" src="./icons/champion-belt.svg" alt="CTA 주간 챔피언 벨트">' : ""}</div>
+  let celebrate = false;
+  if (won) {
+    try { celebrate = !localStorage.getItem(rewardKey); if (celebrate) localStorage.setItem(rewardKey, "1"); } catch (e) { celebrate = false; }
+  }
+  const info = data.tracks[track];
+  const dday = info.examDate ? (() => { const d = diffDays(today, info.examDate); return d > 0 ? `D-${d}` : d === 0 ? "D-DAY" : `D+${-d}`; })() : "";
+  const banner = `<div class="wk-banner${won ? " won" : ""}">
+      <div class="wk-banner-top"><span>${TRACK_LABEL[track]} · ${shortDate(start)} ~ ${shortDate(end)}</span>${dday ? `<span class="wk-dday">${dday}</span>` : ""}</div>
+      ${overview
+        ? `<div class="wk-total"><strong>${overall}<small>%</small></strong><span>${won ? "이번 주 챔피언 🏆" : "이번 주 달성률"}</span></div>
+           <div class="wk-bar wk-bar-main"><i style="width:${overall}%"></i></div>`
+        : `<h2>${won ? "이번 주 챔피언 🏆" : "이번 주 과목별 목표"}</h2>`}
+      <div class="wk-banner-foot"><span role="status">${completed} / ${targets}과목 달성</span><span>${won ? "다음 주도 이렇게!" : `이번 주 ${daysLeft}일 남음`}</span></div>
+      ${won ? '<img class="belt" src="./icons/champion-belt.svg" alt="CTA 주간 챔피언 벨트">' : ""}</div>`;
+  return `<section class="view${selected ? " picker-open" : ""}"><div class="card wk">
+    ${banner}
     ${celebrate ? '<div class="orbit-victory" aria-hidden="true"><img class="belt" src="./icons/champion-belt.svg" alt=""><strong>주간 목표 달성!</strong></div>' : ""}
-    <div class="${overview ? "week-meters" : "orbit-grid"}">${cards || '<p>이번 주에 설정된 목표가 없어요.</p>'}</div>
-    ${selected || overview ? "" : undoLineHTML(data, today)}
-    <p class="hint">주간 보기 종료일 · ${ui.weeklyUntil}</p>
-    <button class="btn btn-secondary" type="button" data-action="toggle-weekly">일별 보기로 돌아가기</button>
+    <div class="${overview ? "wk-meters" : "wk-list"}">${cards || '<p class="hint">이번 주에 설정된 목표가 없어요.</p>'}</div>
+    ${overview ? '<p class="hint">기록은 오늘 탭에서 과목을 눌러 넣어요. 한 주 안에서 언제 풀어도 괜찮아요.</p>' : selected ? "" : undoLineHTML(data, today)}
     </div>${selected ? pickerSheetHTML(ui.pick, selected.goal, data, today, false) : ""}</section>`;
 }
 

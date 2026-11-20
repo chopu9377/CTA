@@ -4,3 +4,4 @@ CTA의 기능 명세는 [AGENTS.md](AGENTS.md), 개발 규칙은 [RULES.md](RULE
 v88 주간 링과 완료 벨트의 산식과 조건은 AGENTS.md 마지막 항목을 참조한다.
 v89 벨트 원본은 icons/champion-belt.svg이며 카드와 축하 화면이 공유한다.
 v90에서 주간·오늘 탭의 역할을 분리했다. 게이지 산식은 AGENTS.md 끝부분에 기록했다.
+v91부터 주간 화면만 보인다. 일간 화면은 js/app.js의 WEEKLY_ONLY를 false로 바꾸면 돌아온다.
