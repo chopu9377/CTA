@@ -1,7 +1,7 @@
 import { dayReport, halfStreak, trackAt, daysUntil } from "../stats.js";
 import { escapeHtml } from "./shared.js";
 
-const ALWAYS = ["자, 오늘도 화이팅!", "절반만 해도 합격이다이", "한국세무사회 회원이 되는 게 쉬운 줄 알았더냐?"];
+const ALWAYS = ["성사재천이니 자강불식하라..", "자, 오늘도 화이팅!", "절반만 해도 합격이다이", "한국세무사회 회원이 되는 게 쉬운 줄 알았더냐?"];
 
 const BY_PHASE = {
   start: [
@@ -23,6 +23,30 @@ const BY_PHASE = {
   rest: ["오늘은 쉬는 날. 쉬는 것도 실력이다이", "푹 쉬어. 내일의 네가 풀 거다", "회복도 훈련이다. 오늘은 아이싱"],
   free: ["오늘은 목표 없는 날. 놀아도 합법", "심심하면 한 문제쯤은... 아니다, 쉬어"]
 };
+
+// 주간 화면(v91~)용 문구: 하루 목표 대신 이번 주 달성률로 고른다
+const BY_WEEK = {
+  start: ["이번 주 1라운드. 한 문제로 시작하자", "아무 과목이나 하나만 열어 보자", "시작이 반이다. 진짜로 반이다이", "앉기만 해도 절반은 한 거다", "땡! 이번 주 1라운드다. 가드 올려"],
+  going: ["좋아, 이번 주 시동 걸렸다", "오늘 못 해도 이번 주 안에만 하면 된다이", "하나 풀었으면 둘도 푼다이", "잽 야무지게 들어갔구요?", "천일의 연습을 단, 만일의 연습을 련… 이를 단련이라 한다!!"],
+  half: ["이번 주 절반 넘었다! 나머지는 덤이다이", "원투쓱빡!! 이번 주 거의 다 왔다!!", "크로스 카운터 꽂혔다! 상대 다리 풀렸다이", "마운트 잡았다. 이제 파운딩만 남았다"],
+  done: ["이번 주 목표 테이크다운!! 🏆", "이번 주 벨트는 네 거다 🏆", "이러다 진짜 세무사 되겠는데?", "다 했네? 독한 것...", "이번 주 끝! 남은 날은 놀아도 된다이"]
+};
+
+// 주간 화면에서 마스코트 상태: 오늘 쉬는 날이면 rest, 아니면 이번 주 달성률(model.overall)로
+export function weeklyMascotPhase(data, ctx, today, model) {
+  if (dayReport(data, ctx, today, today).kind) return "rest";
+  if (!model.targets) return "free";
+  if (model.won) return "done";
+  if (model.overall >= 50) return "half";
+  return model.rows.some((row) => row.done > 0) ? "going" : "start";
+}
+
+export function pickWeeklyCheer(phase, previous) {
+  const pool = [...(BY_WEEK[phase] || BY_PHASE[phase])];
+  if (phase === "start" || phase === "going") pool.push("성사재천이니 자강불식하라..", "절반만 해도 합격이다이", "한국세무사회 회원이 되는 게 쉬운 줄 알았더냐?");
+  const choices = pool.filter((text) => text !== previous);
+  return choices[Math.floor(Math.random() * choices.length)];
+}
 
 // 오늘이 어떤 상태인지(문구 묶음을 고르는 기준). 상태가 바뀌면 app.js가 새 문구를 띄운다.
 export function mascotPhase(data, ctx, today) {

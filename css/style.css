@@ -2409,3 +2409,24 @@ textarea:focus {
 .orbit-victory .belt { width: min(88vw, 520px); }
 @keyframes orbit-award { 0% {opacity:0;transform:scale(.92)} 16%,78% {opacity:1;transform:scale(1)} 100% {opacity:0;visibility:hidden} }
 @media (prefers-reduced-motion: reduce) { .orbit-victory { display: none; } }
+/* 주간 탭(v92): 전체 링 히어로 + 요일별 공부 시간 막대 */
+.wk-hero { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 18px; align-items: center; }
+.wk-hero.won { background: color-mix(in oklab, #d39b2a 14%, var(--surface-1)); }
+.wk-hero .wk-ring text { font-size: 15px; }
+.wk-hero-text { display: grid; gap: 4px; min-width: 0; }
+.wk-hero-text strong { font-size: 20px; }
+.wk-hero-text span { font-size: 14px; color: var(--text-secondary); }
+.wk-hero-text .wk-hero-range { font-size: 12px; color: var(--text-muted); }
+.wk-hero-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.wk-hero-chips em { font-style: normal; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 99px; background: var(--page); color: var(--text-secondary); }
+.wk-hero-chips em.dday { color: var(--accent); background: color-mix(in oklab, var(--accent) 14%, transparent); }
+.wk-hero .belt { grid-column: 1 / -1; width: min(240px, 100%); margin: 0 auto; }
+.wk-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; align-items: end; margin: 8px 0 4px; }
+.wk-day { display: grid; justify-items: center; gap: 6px; }
+.wk-day-val { font-size: 11px; color: var(--text-secondary); font-variant-numeric: tabular-nums; min-height: 14px; }
+.wk-day-bar { width: 100%; max-width: 30px; height: 120px; border-radius: 8px; background: color-mix(in oklab, var(--gridline) 55%, transparent); display: flex; flex-direction: column-reverse; overflow: hidden; }
+.wk-day-bar i { display: block; width: 100%; }
+.wk-day-bar i + i { border-bottom: 2px solid var(--surface-1); }
+.wk-day.future .wk-day-bar { background: none; border: 1.5px dashed var(--gridline); }
+.wk-day-label { font-size: 13px; color: var(--text-secondary); }
+.wk-day.today .wk-day-label { color: var(--accent); font-weight: 700; }

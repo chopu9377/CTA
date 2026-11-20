@@ -157,54 +157,126 @@ function maintSectionHTML(data, ctx, today, maintGoals, maintTargets, selected) 
 }
 
 // 주간 목표 화면(v87 Codex, v91 다듬음 — 일간 화면 대신 이것만 보인다). 주간 탭 = 전체·과목별 달성률, 오늘 탭 = 과목별 입력.
-function weeklyRing(color, pct) {
+function weeklyRing(color, pct, size = 60) {
   const r = 24;
   const c = 2 * Math.PI * r;
   const arc = pct > 0 ? `<circle cx="30" cy="30" r="${r}" fill="none" stroke="${color}" stroke-width="6" stroke-linecap="round" stroke-dasharray="${(c * Math.min(pct, 100) / 100).toFixed(2)} ${c.toFixed(2)}" transform="rotate(-90 30 30)" />` : "";
   const label = pct >= 100 ? "✓" : `${pct}%`;
-  return `<svg class="wk-ring" viewBox="0 0 60 60" width="60" height="60" aria-hidden="true">
+  return `<svg class="wk-ring" viewBox="0 0 60 60" width="${size}" height="${size}" aria-hidden="true">
     <circle cx="30" cy="30" r="${r}" fill="none" stroke="var(--gridline)" stroke-width="6" />${arc}
     <text x="30" y="35" text-anchor="middle" font-size="${pct >= 100 ? 20 : 14}" font-weight="700" fill="var(--text-primary)">${label}</text></svg>`;
 }
 
-const shortDate = (d) => formatKoreanDate(d).replace(/^(\d+)\/(\d+) /, "$1/$2 ");
+const shortDate = (d) => formatKoreanDate(d);
+const hoursText = (min) => (min >= 60 ? `${Math.round(min / 6) / 10}h` : min > 0 ? `${Math.round(min)}m` : "");
 
-export function renderWeeklyInput(data, ctx, today, ui) {
+// 주간 화면 공통 계산: 과목별로 묶은 목표, 과목 달성률(양수 목표 균등 평균), 전체 달성률(과목 평균, 완주 전 최대 99%)
+export function weeklyModel(data, ctx, today) {
   const track = trackAt(data, today);
   const { rings } = weekQuotas(data, ctx, currentWeekIndex(data, today), track);
   const start = weekStartOf(data, today);
   const end = addDays(start, 6);
-  const daysLeft = Math.max(1, diffDays(today, end) + 1);
   const rows = [...rings, ...maintenanceGoals(data, today, today).map((goal) => ({
     goal, quota: 0, done: weekProgress(data, ctx, goal, today).done
   }))];
-  const selected = ui.pickerOpen && rows.find((row) => row.goal.id === ui.selectedGoalId);
-  const groups = new Map();
+  const map = new Map();
   for (const row of rows) {
-    if (!groups.has(row.goal.subject)) groups.set(row.goal.subject, []);
-    groups.get(row.goal.subject).push(row);
+    if (!map.has(row.goal.subject)) map.set(row.goal.subject, []);
+    map.get(row.goal.subject).push(row);
   }
-  const overview = ui.view === "week";
   let totalFraction = 0;
   let targets = 0;
   let completed = 0;
-  const cards = Array.from(groups, ([subject, items]) => {
+  const groups = Array.from(map, ([subject, items]) => {
     const required = items.filter((row) => row.quota > 0);
     const fraction = required.reduce((sum, row) => sum + Math.min(1, row.done / row.quota), 0);
     const full = required.length > 0 && required.every((row) => row.done >= row.quota);
     if (required.length) { targets++; totalFraction += fraction / required.length; }
     if (full) completed++;
-    const color = escapeHtml(subjectColor(data, subject));
     const pct = full ? 100 : Math.min(99, Math.floor(100 * fraction / (required.length || 1)));
-    if (overview) {
-      if (!required.length) return "";
-      const detail = required.map((row) => `${escapeHtml(required.length > 1 ? row.goal.unit.replace(/\(.*\)/, "") + " " : "")}${row.done}/${row.quota}`).join(" · ");
-      return `<div class="wk-meter${full ? " full" : ""}">
-        <div class="wk-meter-head"><span class="wk-name"><i class="swatch" style="background:${color}"></i>${escapeHtml(subject)}</span>
-          <span class="wk-num">${detail}<b>${full ? "✓" : pct + "%"}</b></span></div>
-        <div class="wk-bar" role="progressbar" aria-label="${escapeHtml(subject)} 주간 달성률" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><i style="width:${pct}%;background:${color}"></i></div>
-      </div>`;
+    return { subject, items, required, full, pct, color: escapeHtml(subjectColor(data, subject)) };
+  });
+  const won = targets > 0 && targets === completed;
+  const overall = won ? 100 : Math.min(99, Math.floor(100 * totalFraction / (targets || 1)));
+  const info = data.tracks[track];
+  const d = info.examDate ? diffDays(today, info.examDate) : null;
+  const dday = d === null ? "" : d > 0 ? `D-${d}` : d === 0 ? "D-DAY" : `D+${-d}`;
+  return { track, start, end, rows, groups, won, overall, targets, completed, dday, daysLeft: Math.max(1, diffDays(today, end) + 1) };
+}
+
+function beltCelebration(m) {
+  if (!m.won) return "";
+  const key = "cta-belt-" + m.track + "-" + m.start;
+  try {
+    if (localStorage.getItem(key)) return "";
+    localStorage.setItem(key, "1");
+  } catch (e) { return ""; }
+  return '<div class="orbit-victory" aria-hidden="true"><img class="belt" src="./icons/champion-belt.svg" alt=""><strong>주간 목표 달성!</strong></div>';
+}
+
+// 주간 탭(v92): 전체 링 + 요일별 공부 시간(목표 없이 기록만) + 과목별 막대
+function renderWeeklyOverview(data, ctx, today, m) {
+  const goals = m.rows.map((row) => row.goal);
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const date = addDays(m.start, i);
+    const parts = new Map();
+    for (const goal of goals) {
+      const n = ctx.sums.get(`${goal.id}|${date}`) || 0;
+      const min = n * (minutesOn(goal, date) || 0);
+      if (min > 0) parts.set(goal.subject, (parts.get(goal.subject) || 0) + min);
     }
+    const total = [...parts.values()].reduce((a, b) => a + b, 0);
+    return { date, parts, total };
+  });
+  const weekMin = days.reduce((a, d) => a + d.total, 0);
+  const peak = Math.max(240, ...days.map((d) => d.total));
+  const bars = days.map(({ date, parts, total }) => {
+    const label = formatKoreanDate(date).match(/\((.)\)/)[1];
+    const future = date > today;
+    const stack = [...parts].map(([subject, min]) => `<i style="height:${(100 * min / peak).toFixed(1)}%;background:${escapeHtml(subjectColor(data, subject))}"></i>`).join("");
+    return `<div class="wk-day${date === today ? " today" : ""}${future ? " future" : ""}">
+      <span class="wk-day-val">${hoursText(total)}</span>
+      <div class="wk-day-bar">${stack}</div>
+      <span class="wk-day-label">${label}</span></div>`;
+  }).join("");
+  const meters = m.groups.filter((g) => g.required.length).map((g) => {
+    const detail = g.required.map((row) => `${escapeHtml(g.required.length > 1 ? row.goal.unit.replace(/\(.*\)/, "") + " " : "")}${row.done}/${row.quota}`).join(" · ");
+    return `<div class="wk-meter${g.full ? " full" : ""}">
+      <div class="wk-meter-head"><span class="wk-name"><i class="swatch" style="background:${g.color}"></i>${escapeHtml(g.subject)}</span>
+        <span class="wk-num">${detail}<b>${g.full ? "✓" : g.pct + "%"}</b></span></div>
+      <div class="wk-bar" role="progressbar" aria-label="${escapeHtml(g.subject)} 주간 달성률" aria-valuenow="${g.pct}" aria-valuemin="0" aria-valuemax="100"><i style="width:${g.pct}%;background:${g.color}"></i></div>
+    </div>`;
+  }).join("");
+  return `<section class="view">
+    <div class="card wk-hero${m.won ? " won" : ""}">
+      <div class="wk-hero-ring">${weeklyRing(m.won ? "#d39b2a" : "var(--accent)", m.overall, 112)}</div>
+      <div class="wk-hero-text">
+        <span class="wk-hero-range">${TRACK_LABEL[m.track]} · ${shortDate(m.start)} ~ ${shortDate(m.end)}</span>
+        <strong>${m.won ? "이번 주 챔피언 🏆" : "이번 주 달성률"}</strong>
+        <span>${m.completed} / ${m.targets}과목 달성</span>
+        <span class="wk-hero-chips">${m.won ? "" : `<em>${m.daysLeft}일 남음</em>`}${m.dday ? `<em class="dday">${m.dday}</em>` : ""}</span>
+      </div>
+      ${m.won ? '<img class="belt" src="./icons/champion-belt.svg" alt="CTA 주간 챔피언 벨트">' : ""}
+    </div>
+    ${beltCelebration(m)}
+    <div class="card">
+      <div class="section-header-row"><h2 class="section-title">이번 주 공부 시간</h2><span class="chip">${weekMin ? formatDuration(weekMin) : "아직 기록 없음"}</span></div>
+      <div class="wk-days">${bars}</div>
+      <p class="hint">하루 목표는 없어요. 한 날만큼 쌓일 뿐이에요.</p>
+    </div>
+    <div class="card">
+      <h2 class="section-title">과목별</h2>
+      <div class="wk-meters">${meters || '<p class="hint">이번 주에 설정된 목표가 없어요.</p>'}</div>
+      <p class="hint">기록은 오늘 탭에서 과목을 눌러 넣어요.</p>
+    </div>
+  </section>`;
+}
+
+export function renderWeeklyInput(data, ctx, today, ui) {
+  const m = weeklyModel(data, ctx, today);
+  if (ui.view === "week") return renderWeeklyOverview(data, ctx, today, m);
+  const selected = ui.pickerOpen && m.rows.find((row) => row.goal.id === ui.selectedGoalId);
+  const cards = m.groups.map(({ subject, items, required, full, pct, color }) => {
     const inputs = items.map(({ goal, quota, done }) => {
       const active = selected && selected.goal.id === goal.id;
       const left = Math.max(0, quota - done);
@@ -217,28 +289,16 @@ export function renderWeeklyInput(data, ctx, today, ui) {
       ${required.length ? weeklyRing(color, pct) : `<span class="wk-ring-blank" style="background:${color}"></span>`}
       <div class="wk-card-body"><h3>${escapeHtml(subject)}</h3>${inputs}</div></article>`;
   }).join("");
-  const won = targets > 0 && targets === completed;
-  const overall = won ? 100 : Math.min(99, Math.floor(100 * totalFraction / (targets || 1)));
-  const rewardKey = "cta-belt-" + track + "-" + start;
-  let celebrate = false;
-  if (won) {
-    try { celebrate = !localStorage.getItem(rewardKey); if (celebrate) localStorage.setItem(rewardKey, "1"); } catch (e) { celebrate = false; }
-  }
-  const info = data.tracks[track];
-  const dday = info.examDate ? (() => { const d = diffDays(today, info.examDate); return d > 0 ? `D-${d}` : d === 0 ? "D-DAY" : `D+${-d}`; })() : "";
-  const banner = `<div class="wk-banner${won ? " won" : ""}">
-      <div class="wk-banner-top"><span>${TRACK_LABEL[track]} · ${shortDate(start)} ~ ${shortDate(end)}</span>${dday ? `<span class="wk-dday">${dday}</span>` : ""}</div>
-      ${overview
-        ? `<div class="wk-total"><strong>${overall}<small>%</small></strong><span>${won ? "이번 주 챔피언 🏆" : "이번 주 달성률"}</span></div>
-           <div class="wk-bar wk-bar-main"><i style="width:${overall}%"></i></div>`
-        : `<h2>${won ? "이번 주 챔피언 🏆" : "이번 주 과목별 목표"}</h2>`}
-      <div class="wk-banner-foot"><span role="status">${completed} / ${targets}과목 달성</span><span>${won ? "다음 주도 이렇게!" : `이번 주 ${daysLeft}일 남음`}</span></div>
-      ${won ? '<img class="belt" src="./icons/champion-belt.svg" alt="CTA 주간 챔피언 벨트">' : ""}</div>`;
+  const banner = `<div class="wk-banner${m.won ? " won" : ""}">
+      <div class="wk-banner-top"><span>${TRACK_LABEL[m.track]} · ${shortDate(m.start)} ~ ${shortDate(m.end)}</span>${m.dday ? `<span class="wk-dday">${m.dday}</span>` : ""}</div>
+      <h2>${m.won ? "이번 주 챔피언 🏆" : "이번 주 과목별 목표"}</h2>
+      <div class="wk-banner-foot"><span role="status">${m.completed} / ${m.targets}과목 달성</span><span>${m.won ? "다음 주도 이렇게!" : `이번 주 ${m.daysLeft}일 남음`}</span></div>
+      ${m.won ? '<img class="belt" src="./icons/champion-belt.svg" alt="CTA 주간 챔피언 벨트">' : ""}</div>`;
   return `<section class="view${selected ? " picker-open" : ""}"><div class="card wk">
     ${banner}
-    ${celebrate ? '<div class="orbit-victory" aria-hidden="true"><img class="belt" src="./icons/champion-belt.svg" alt=""><strong>주간 목표 달성!</strong></div>' : ""}
-    <div class="${overview ? "wk-meters" : "wk-list"}">${cards || '<p class="hint">이번 주에 설정된 목표가 없어요.</p>'}</div>
-    ${overview ? '<p class="hint">기록은 오늘 탭에서 과목을 눌러 넣어요. 한 주 안에서 언제 풀어도 괜찮아요.</p>' : selected ? "" : undoLineHTML(data, today)}
+    ${beltCelebration(m)}
+    <div class="wk-list">${cards || '<p class="hint">이번 주에 설정된 목표가 없어요.</p>'}</div>
+    ${selected ? "" : undoLineHTML(data, today)}
     </div>${selected ? pickerSheetHTML(ui.pick, selected.goal, data, today, false) : ""}</section>`;
 }
 

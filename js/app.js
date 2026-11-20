@@ -2,11 +2,11 @@ import * as storage from "./storage.js";
 import { buildContext, pendingSettlements } from "./stats.js";
 import { loadHolidays, holidaysLoaded } from "./holidays.js";
 import { renderWeek, renderToday, renderProgress, renderExam, renderHistory, renderSettings } from "./ui.js";
-import { renderWeeklyInput } from "./ui/today.js";
+import { renderWeeklyInput, weeklyModel } from "./ui/today.js";
 import { renderSettleSheet } from "./ui/settle.js";
 import { conflictSheetHTML } from "./ui/syncui.js";
 import { sleepPopupHTML } from "./ui/sleep.js";
-import { mascotHTML, mascotPhase, pickCheer, bubbleHTML } from "./ui/mascot.js";
+import { mascotHTML, mascotPhase, pickCheer, bubbleHTML, weeklyMascotPhase, pickWeeklyCheer } from "./ui/mascot.js";
 import { createActions } from "./actions.js";
 import { bindInputHandlers } from "./inputs.js";
 import { initSync, getSyncInfo } from "./sync.js";
@@ -77,18 +77,19 @@ function render() {
   if (picker) picker.scrollTop = ui.pick * PICKER_ITEM_HEIGHT;
   if (ui.revealSelected) revealSelectedRow();
   showAppVersion();
-  mascotEl.style.display = weekly ? "none" : "";
-  if (!weekly) updateMascot(data, ctx, today);
+  updateMascot(data, ctx, today);
 }
 
 // 탭을 열 때(switchView가 mascotPhase를 비운다)와 오늘 상태가 바뀔 때(절반 넘김 등) 새로 한마디 한다.
 function updateMascot(data, ctx, today, force = false) {
-  const phase = mascotPhase(data, ctx, today);
+  // v92: 주간 화면이면 이번 주 달성률로 상태·문구를 고른다(하루 목표 압박 없이)
+  const weekly = ui.weeklyUntil >= today;
+  const phase = weekly ? weeklyMascotPhase(data, ctx, today, weeklyModel(data, ctx, today)) : mascotPhase(data, ctx, today);
   if (!force && phase === ui.mascotPhase) return;
   // 기록을 넣다가 절반·완료를 찍은 순간에만 폴짝 뛴다(탭을 열 때·눌렀을 때는 말만 한다)
   if (!force && ui.mascotPhase && (phase === "half" || phase === "done")) jumpMascot();
   ui.mascotPhase = phase;
-  ui.mascotText = pickCheer(data, ctx, today, phase, ui.mascotText);
+  ui.mascotText = weekly ? pickWeeklyCheer(phase, ui.mascotText) : pickCheer(data, ctx, today, phase, ui.mascotText);
   mascotEl.querySelector("[data-mascot-bubble]").innerHTML = bubbleHTML(ui.mascotText);
 }
 

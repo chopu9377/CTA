@@ -718,3 +718,9 @@ icons/champion-belt.svg를 주간 완료 카드와 축하 화면에서 공유하
 사용자 요청으로 일간 화면을 숨기고 주간 목표 화면만 쓴다. js/app.js의 WEEKLY_ONLY=true가 weeklyUntil을 9999-12-31로 고정한다(false로 바꾸면 v90 이전처럼 일간 화면과 전환 버튼 복귀). 주간 탭 전환 버튼과 종료일 안내를 뺐다. renderWeeklyInput 마크업과 CSS를 .wk-* 로 새로 짰다: 테마 토큰 배너(날짜·D-day·남은 날), 과목별 미터(복수 단위는 단위별 수치), 오늘 탭 1열 카드·자체 링(퍼센트 글자 text-primary)·입력 줄 정렬. 산식·벨트·축하 화면은 그대로.
 
 기존 tests/*.mjs 6종 통과. 390px 다크·라이트 스크린샷으로 주간·오늘 탭, 입력 시트 열림, 전환 버튼 없음 확인.
+
+## 2026-11-20 · 주간 탭 새 디자인과 마스코트 복귀 (v92)
+
+사용자 요청: 주간 탭은 Codex 디자인을 따르지 않아도 됨(오늘 탭은 유지), 마스코트 복귀, 문구 "성사재천이니 자강불식하라.." 추가. today.js에 weeklyModel(공통 계산)을 빼고 주간 탭은 renderWeeklyOverview(히어로 링 · 요일별 공부 시간 = 입력 수량×minutesOn, 과목 색 누적 막대 · 과목별 미터)로 새로 그렸다. 마스코트는 주간 화면에서 weeklyMascotPhase(오늘 휴식이면 rest, 아니면 주간 달성률: 0 기록 start · 50% 미만 going · 50% 이상 half · 완주 done)와 BY_WEEK 문구를 쓴다. 문구는 ALWAYS와 주간 start·going 풀에 넣었다.
+
+기존 tests/*.mjs 6종 통과. 390px 다크·라이트 스크린샷, 입력 시트, 가로 넘침 없음(scrollWidth 390)을 확인했다.
