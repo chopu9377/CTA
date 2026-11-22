@@ -18,12 +18,12 @@ const mascotEl = document.getElementById("mascot-root");
 mascotEl.innerHTML = mascotHTML();
 const tabButtons = document.querySelectorAll(".tab-btn");
 const PICKER_ITEM_HEIGHT = 44;
-const WEEKLY_ONLY = true;
+// v93: 주간 화면은 11/22(일)까지, 11/23(월)부터 다시 일간 화면. 주간 코드는 백업으로 남긴다.
+const WEEKLY_UNTIL = "2026-11-22";
 
 const ui = {
   view: "week",
-  // v91: 일간 화면은 코드에만 남기고(백업) 주간 목표 화면만 보인다. 되돌리려면 WEEKLY_ONLY를 false로.
-  weeklyUntil: WEEKLY_ONLY ? "9999-12-31" : localStorage.getItem("cta-weekly-until") || "",
+  weeklyUntil: WEEKLY_UNTIL,
   examTrack: 2,
   progressTrack: 2,
   showRef: true,

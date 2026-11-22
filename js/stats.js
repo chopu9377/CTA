@@ -194,7 +194,8 @@ export function dayReport(data, ctx, dateStr, today) {
     return { goalId: r.goal.id, amount: r.target - r.done - r.prepaid, auto, canCarry: !auto };
   });
   const totalDone = ctx.byDate.get(dateStr) || 0;
-  const decision = data.settlements[dateStr];
+  // 주간 목표 실험 기간(11/18~22, v87~v92)에는 하루 미달을 묻지 않았다 → 따로 정하지 않은 날은 이월 안 함으로 본다
+  const decision = data.settlements[dateStr] ?? (dateStr >= "2026-11-18" && dateStr <= "2026-11-22" ? "dropped" : undefined);
   const bonus = bonusMinutes(data, dateStr);
   const fullBonus = bonus > 0 && !rows.length;
 

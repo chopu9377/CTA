@@ -724,3 +724,7 @@ icons/champion-belt.svg를 주간 완료 카드와 축하 화면에서 공유하
 사용자 요청: 주간 탭은 Codex 디자인을 따르지 않아도 됨(오늘 탭은 유지), 마스코트 복귀, 문구 "성사재천이니 자강불식하라.." 추가. today.js에 weeklyModel(공통 계산)을 빼고 주간 탭은 renderWeeklyOverview(히어로 링 · 요일별 공부 시간 = 입력 수량×minutesOn, 과목 색 누적 막대 · 과목별 미터)로 새로 그렸다. 마스코트는 주간 화면에서 weeklyMascotPhase(오늘 휴식이면 rest, 아니면 주간 달성률: 0 기록 start · 50% 미만 going · 50% 이상 half · 완주 done)와 BY_WEEK 문구를 쓴다. 문구는 ALWAYS와 주간 start·going 풀에 넣었다.
 
 기존 tests/*.mjs 6종 통과. 390px 다크·라이트 스크린샷, 입력 시트, 가로 넘침 없음(scrollWidth 390)을 확인했다.
+
+## 2026-11-22 · 일간 화면 복귀 예약 (v93)
+
+사용자 판단: "일일 목표가 낫겠다". 이번 주가 오늘로 끝나 주 경계에서 바꾼다. js/app.js WEEKLY_UNTIL="2026-11-22"(이후 일간·일간 마스코트). stats.js dayReport는 11/18~22 중 결정이 없는 날을 dropped로 본다(정산 시트가 실험 기간 미달을 묻지 않게, 데이터는 그대로). Node로 11/23 기준 다음 주 일간 배치(deepweek)와 pendingSettlements 0건 확인. 기존 tests 6종 통과.
