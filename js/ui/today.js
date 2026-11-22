@@ -214,11 +214,10 @@ function beltCelebration(m) {
   return '<div class="orbit-victory" aria-hidden="true"><img class="belt" src="./icons/champion-belt.svg" alt=""><strong>주간 목표 달성!</strong></div>';
 }
 
-// 주간 탭(v92): 전체 링 + 요일별 공부 시간(목표 없이 기록만) + 과목별 막대
-function renderWeeklyOverview(data, ctx, today, m) {
-  const goals = m.rows.map((row) => row.goal);
+// 요일별 실제 공부 시간 막대(v92 주간 탭, v94부터 일간 주간 탭에도). 입력 수량 × 1개당 시간, 과목 색으로 쌓는다.
+export function weekStudyBarsHTML(data, ctx, today, start, goals, hint) {
   const days = Array.from({ length: 7 }, (_, i) => {
-    const date = addDays(m.start, i);
+    const date = addDays(start, i);
     const parts = new Map();
     for (const goal of goals) {
       const n = ctx.sums.get(`${goal.id}|${date}`) || 0;
@@ -239,6 +238,15 @@ function renderWeeklyOverview(data, ctx, today, m) {
       <div class="wk-day-bar">${stack}</div>
       <span class="wk-day-label">${label}</span></div>`;
   }).join("");
+  return `<div class="card">
+      <div class="section-header-row"><h2 class="section-title">이번 주 공부 시간</h2><span class="chip">${weekMin ? formatDuration(weekMin) : "아직 기록 없음"}</span></div>
+      <div class="wk-days">${bars}</div>
+      <p class="hint">${hint}</p>
+    </div>`;
+}
+
+// 주간 탭(v92): 전체 링 + 요일별 공부 시간(목표 없이 기록만) + 과목별 막대
+function renderWeeklyOverview(data, ctx, today, m) {
   const meters = m.groups.filter((g) => g.required.length).map((g) => {
     const detail = g.required.map((row) => `${escapeHtml(g.required.length > 1 ? row.goal.unit.replace(/\(.*\)/, "") + " " : "")}${row.done}/${row.quota}`).join(" · ");
     return `<div class="wk-meter${g.full ? " full" : ""}">
@@ -259,11 +267,7 @@ function renderWeeklyOverview(data, ctx, today, m) {
       ${m.won ? '<img class="belt" src="./icons/champion-belt.svg" alt="CTA 주간 챔피언 벨트">' : ""}
     </div>
     ${beltCelebration(m)}
-    <div class="card">
-      <div class="section-header-row"><h2 class="section-title">이번 주 공부 시간</h2><span class="chip">${weekMin ? formatDuration(weekMin) : "아직 기록 없음"}</span></div>
-      <div class="wk-days">${bars}</div>
-      <p class="hint">하루 목표는 없어요. 한 날만큼 쌓일 뿐이에요.</p>
-    </div>
+    ${weekStudyBarsHTML(data, ctx, today, m.start, m.rows.map((row) => row.goal), "하루 목표는 없어요. 한 날만큼 쌓일 뿐이에요.")}
     <div class="card">
       <h2 class="section-title">과목별</h2>
       <div class="wk-meters">${meters || '<p class="hint">이번 주에 설정된 목표가 없어요.</p>'}</div>

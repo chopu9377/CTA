@@ -728,3 +728,7 @@ icons/champion-belt.svg를 주간 완료 카드와 축하 화면에서 공유하
 ## 2026-11-22 · 일간 화면 복귀 예약 (v93)
 
 사용자 판단: "일일 목표가 낫겠다". 이번 주가 오늘로 끝나 주 경계에서 바꾼다. js/app.js WEEKLY_UNTIL="2026-11-22"(이후 일간·일간 마스코트). stats.js dayReport는 11/18~22 중 결정이 없는 날을 dropped로 본다(정산 시트가 실험 기간 미달을 묻지 않게, 데이터는 그대로). Node로 11/23 기준 다음 주 일간 배치(deepweek)와 pendingSettlements 0건 확인. 기존 tests 6종 통과.
+
+## 2026-11-22 · 요일별 공부 시간 막대 살리기 (v94)
+
+사용자: 주간 탭의 요일별 막대가 보기 좋으니 살리자. today.js에 weekStudyBarsHTML(start, goals, hint)로 빼고 주간 화면과 일간 renderWeek(쿼터 카드 위, 현재 트랙 목표)에서 같이 쓴다. tests 6종 통과, 11/23로 시계를 맞춘 브라우저에서 일간 주간 탭 표시·오류 없음 확인.
