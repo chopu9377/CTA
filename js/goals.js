@@ -71,11 +71,12 @@ export function archiveGoal(goalId) {
   persist();
 }
 
-export function addEntry(goalId, amount, date = appToday()) {
+export function addEntry(goalId, amount, date = appToday(), sec = 0) {
   const data = getData();
   const goal = findGoal(goalId);
   if (!goal || !(amount > 0)) return null;
   const entry = { id: uid(), goalId, date, amount, at: new Date().toISOString() };
+  if (sec > 0) entry.sec = Math.round(sec); // 스톱워치로 잰 시간(초, v97)
   data.entries.push(entry);
   goal.progress += amount;
   const rolled = rollRounds(goal);

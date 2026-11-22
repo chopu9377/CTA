@@ -4,6 +4,7 @@ import { buildContext } from "../stats.js";
 import { formatMD } from "../dates.js";
 import { goalStatus, fixedTimeline, DEBT_ALERT_PCT } from "../progressstatus.js";
 import { escapeHtml, ringHTML, subjectColor } from "./shared.js";
+import { measuredPace } from "../minutes.js";
 
 const BADGE = {
   behind: { cls: "behind", text: "🐢 밀림 주의" },
@@ -71,6 +72,7 @@ function goalItemHTML(data, ctx, goal, today) {
         <div class="prog-round"><b>${goal.round}</b>${target}회독차 ${badgeHTML(status)}</div>
         <div class="prog-detail">${detail}</div>
         ${recentHTML(status)}
+        ${(() => { const mp = measuredPace(data, goal.id, today); return mp ? `<div class="prog-measured">⏱ 최근 2주 실측 1${unit} <b>${mp.perUnit.toFixed(1)}분</b> · ${mp.count}${unit} ${Math.round(mp.minutes)}분 (설정 ${goal.minutesPerUnit}분)</div>` : ""; })()}
         ${statusBoxHTML(status, unit, today)}
       </div>
     </div>

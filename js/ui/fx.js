@@ -60,7 +60,8 @@ export function hitFx(info) {
     <strong class="fx-amount" style="color:${info.color}">+${info.amount}</strong>
     <span class="fx-subject">${escapeHtml(info.subject)} 💥</span>
     ${combo >= 2 ? `<span class="fx-combo">${combo} COMBO</span>` : ""}
-    ${pull ? `<span class="fx-pull">${pull}</span>` : ""}`;
+    ${pull ? `<span class="fx-pull">${pull}</span>` : ""}
+    ${info.ms ? `<span class="fx-pull">⏱ ${Math.round(info.ms / 60000)}분 · 1개당 <b>${(info.ms / 60000 / info.amount).toFixed(1)}분</b></span>` : ""}`;
   host.appendChild(hit);
   if (!reduced()) burst(hit.querySelector(".fx-burst"), info.color);
   setTimeout(() => hit.remove(), 2600);

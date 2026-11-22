@@ -11,6 +11,7 @@ import { maintenanceGoals } from "./plan.js";
 import { countUnit } from "./presets.js";
 import * as sync from "./sync.js";
 import { hitFx } from "./ui/fx.js";
+import * as sw from "./stopwatch.js";
 import { todayPull } from "./weekplan.js";
 
 const SYNC_RESULT_TEXT = {
@@ -335,7 +336,12 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
       };
       const before = dayState();
       const amount = ui.pick;
-      const result = storage.addEntry(goalId, amount);
+      // v97 스톱워치: 이 과목 시계에 잰 시간이 있으면 입력에 붙이고 시계는 0부터 다시(1분 미만은 붙이지 않음)
+      let ms = sw.take(goalId);
+      if (ms < 60000) ms = 0;
+      if (ms && ms / amount > 40 * 60000 &&
+        !confirm(`1개당 평균 ${Math.round(ms / amount / 60000)}분으로 기록돼요(${sw.clock(ms)}).\n중간에 쉰 시간이 섞였다면 [취소]를 눌러 시간은 빼고 수량만 기록해요.`)) ms = 0;
+      const result = storage.addEntry(goalId, amount, undefined, ms / 1000);
       if (!result) return;
       const data = storage.getData();
       const goal = data.goals.find((g) => g.id === goalId);
@@ -345,7 +351,7 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
       let pull = null;
       try { pull = todayPull(data, buildContext(data, today), goal, today); } catch (e) { pull = null; }
       hitFx({
-        amount, unit: countUnit(goal.unit), subject: goal.subject, color: subjectColor(data, goal.subject), pull,
+        amount, unit: countUnit(goal.unit), subject: goal.subject, color: subjectColor(data, goal.subject), pull, ms,
         milestone: after === "full" && before !== "full" ? "ko" : after === "half" && before === "low" ? "down" : null
       });
       render();
@@ -357,7 +363,36 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
         return;
       }
       const goal = storage.getData().goals.find((g) => g.id === removed.goalId);
-      toast(`${goal ? goal.subject : "입력"} −${removed.amount}${goal ? countUnit(goal.unit) : ""} 취소했어요`);
+      if (removed.sec > 0) sw.giveBack(removed.goalId, removed.sec * 1000);
+      toast(`${goal ? goal.subject : "입력"} −${removed.amount}${goal ? countUnit(goal.unit) : ""} 취소했어요${removed.sec > 0 ? ` · ⏱ ${sw.clock(removed.sec * 1000)}는 시계로 돌려놨어요` : ""}`);
+      render();
+    },
+    "sw-start"(btn) {
+      const cur = sw.state();
+      const goal = storage.getData().goals.find((g) => g.id === btn.dataset.id);
+      if (cur && cur.goalId !== btn.dataset.id && cur.ms >= 60000) {
+        const other = storage.getData().goals.find((g) => g.id === cur.goalId);
+        if (!confirm(`${other ? other.subject : "다른 과목"} 시계에 ${sw.clock(cur.ms)}가 남아 있어요.\n기록하지 않고 버리고 ${goal ? goal.subject : ""} 시계를 시작할까요?`)) return;
+      }
+      sw.start(btn.dataset.id);
+      render();
+    },
+    "sw-pause"() { sw.pause(); render(); },
+    "sw-resume"() { sw.resume(); render(); },
+    "sw-stop"() {
+      const cur = sw.state();
+      if (cur && cur.ms >= 60000 && !confirm(`${sw.clock(cur.ms)} 잰 시간을 기록하지 않고 끝낼까요?\n기록하려면 [취소] 후 문제 수를 추가하세요.`)) return;
+      sw.stop();
+      render();
+    },
+    "sw-open"() {
+      const cur = sw.state();
+      if (!cur) return;
+      ui.view = "today";
+      ui.selectedGoalId = cur.goalId;
+      ui.pickerOpen = true;
+      ui.pickerAnim = true;
+      ui.revealSelected = true;
       render();
     },
     "toggle-edit"() {

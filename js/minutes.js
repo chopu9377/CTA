@@ -19,3 +19,20 @@ export function recordMinutesChange(goal, next, today) {
     : [{ from: "0000-00-00", minutes: goal.minutesPerUnit }];
   goal.minutesHistory = [...base.filter((x) => x.from < today), { from: today, minutes: next }];
 }
+
+// 입력 하나의 공부 시간(분): 스톱워치로 잰 시간(sec)이 있으면 그것, 없으면 수량 × 그날 1개당 시간(v97)
+export function entryMinutes(goal, entry) {
+  if (entry.sec > 0) return entry.sec / 60;
+  return goal ? entry.amount * (minutesOn(goal, entry.date) || 0) : 0;
+}
+
+// 최근 실측: 스톱워치 시간이 붙은 입력만 모아 1개당 평균 분(최근 days일)
+export function measuredPace(data, goalId, today, days = 14) {
+  const from = new Date(Date.parse(today) - days * 86400000).toISOString().slice(0, 10);
+  let sec = 0;
+  let n = 0;
+  data.entries.forEach((e) => {
+    if (e.goalId === goalId && e.sec > 0 && e.date > from && e.date <= today) { sec += e.sec; n += e.amount; }
+  });
+  return n ? { perUnit: sec / 60 / n, count: n, minutes: sec / 60 } : null;
+}

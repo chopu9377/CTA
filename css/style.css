@@ -2460,3 +2460,17 @@ textarea:focus {
 .cum-legend i { width: 18px; height: 0; border-top: 2px solid var(--accent); }
 .cum-legend i.dash { border-top: 2px dashed var(--text-muted); }
 .chip b.ahead { color: var(--accent); }
+/* 스톱워치(v97) */
+.sw-row { display: flex; align-items: center; gap: 10px; margin: 4px 0 10px; flex-wrap: wrap; }
+.sw-row .sw-start { padding: 8px 14px; }
+.sw-hint { font-size: 12px; color: var(--text-muted); flex: 1 1 140px; }
+.sw-row.on { background: var(--page); border: 1px solid var(--gridline); border-radius: 14px; padding: 8px 10px; }
+.sw-time { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -0.5px; min-width: 84px; color: var(--text-primary); }
+.sw-row.running .sw-time, .sw-bar.running [data-sw-time] { color: var(--accent); }
+.sw-btn { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--gridline); background: var(--surface-1); color: var(--text-primary); font-size: 16px; display: grid; place-items: center; cursor: pointer; }
+.sw-btn.play { background: var(--accent); color: #fff; border-color: transparent; }
+.sw-bar { position: fixed; left: 12px; right: 12px; bottom: calc(58px + env(safe-area-inset-bottom)); z-index: 40; display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 14px; border-radius: 99px; background: var(--surface-1); border: 1px solid var(--gridline); box-shadow: 0 6px 20px #0004; }
+.sw-name { flex: 1; min-width: 0; text-align: left; background: none; border: 0; color: var(--text-primary); font: inherit; font-weight: 700; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sw-name [data-sw-time] { font-variant-numeric: tabular-nums; margin-left: 6px; }
+.sw-bar .sw-btn { width: 36px; height: 36px; }
+.prog-measured { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }

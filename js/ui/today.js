@@ -7,7 +7,8 @@ import { escapeHtml, subjectColor, formatDuration, ringHTML } from "./shared.js"
 import { tomorrowCardHTML } from "./tomorrow.js";
 import { postponeLineHTML } from "./postpone.js";
 import { postponeIn } from "../postpone.js";
-import { minutesOn } from "../minutes.js";
+import { minutesOn, entryMinutes } from "../minutes.js";
+import * as sw from "../stopwatch.js";
 
 // 남은 이월: 고정 목표의 이월 + 자동 목표의 이번 주 부족분(주가 끝나면 다음 주 역산에 흡수되어 빠진다)
 function carryOf(data, ctx, goalId) {
@@ -74,6 +75,22 @@ function undoInfoHTML(data, today) {
 }
 
 // 과목을 탭하면 탭바 위로 올라오는 입력 시트. 목록이 길어도 스크롤 없이 고르고 바로 추가할 수 있다.
+// 입력 시트의 스톱워치 줄(v97): 이 과목 시계가 없으면 ▶ 시작, 있으면 시간 + ⏸/▶ + ⏹
+function stopwatchRowHTML(goal) {
+  const cur = sw.state();
+  if (!cur || cur.goalId !== goal.id) {
+    return `<div class="sw-row"><button class="btn btn-secondary sw-start" data-action="sw-start" data-id="${escapeHtml(goal.id)}" type="button">▶ 스톱워치 시작</button>
+      <span class="sw-hint">풀고 나서 추가하면 시간이 같이 기록돼요</span></div>`;
+  }
+  return `<div class="sw-row on${cur.running ? " running" : ""}">
+    <span class="sw-time" data-sw-time>${sw.clock(cur.ms)}</span>
+    ${cur.running
+      ? '<button class="sw-btn" data-action="sw-pause" type="button" aria-label="일시정지">⏸</button>'
+      : '<button class="sw-btn play" data-action="sw-resume" type="button" aria-label="재생">▶</button>'}
+    <button class="sw-btn" data-action="sw-stop" type="button" aria-label="중단">⏹</button>
+    <span class="sw-hint">추가하면 이 시간이 붙고 0부터 다시 재요</span></div>`;
+}
+
 function pickerSheetHTML(pick, goal, data, today, animate) {
   const count = data.entries.filter((e) => e.date === today).length;
   return `<div class="picker-sheet${animate ? " sheet-in" : ""}">
@@ -84,6 +101,7 @@ function pickerSheetHTML(pick, goal, data, today, animate) {
     <div class="picker"><div class="picker-scroll" id="picker" data-pick="${pick}">
       ${Array.from({ length: 11 }, (_, i) => `<div class="picker-item">${i}</div>`).join("")}
     </div></div>
+    ${stopwatchRowHTML(goal)}
     <div class="form-inline picker-actions">
       <button class="btn btn-primary" data-action="add-entry" data-unit="${escapeHtml(countUnit(goal.unit))}" type="button">+ ${pick}${escapeHtml(countUnit(goal.unit))} 추가</button>
       <button class="btn btn-secondary" data-action="undo-entry" type="button">되돌리기${count ? ` (${count})` : ""}</button>
@@ -219,9 +237,11 @@ export function weekStudyBarsHTML(data, ctx, today, start, goals, hint) {
   const days = Array.from({ length: 7 }, (_, i) => {
     const date = addDays(start, i);
     const parts = new Map();
-    for (const goal of goals) {
-      const n = ctx.sums.get(`${goal.id}|${date}`) || 0;
-      const min = n * (minutesOn(goal, date) || 0);
+    const ids = new Map(goals.map((g) => [g.id, g]));
+    for (const e of data.entries) {
+      const goal = e.date === date && ids.get(e.goalId);
+      if (!goal) continue;
+      const min = entryMinutes(goal, e); // v97: 스톱워치 실측이 있으면 그 시간
       if (min > 0) parts.set(goal.subject, (parts.get(goal.subject) || 0) + min);
     }
     const total = [...parts.values()].reduce((a, b) => a + b, 0);

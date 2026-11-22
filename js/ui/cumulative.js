@@ -2,16 +2,19 @@
 // 오늘 계획은 한 만큼만 센다(아직 남은 오늘 몫을 "뒤처짐"으로 보지 않는다). 휴식·복습일 계획은 0.
 import { addDays, formatKoreanDate } from "../dates.js";
 import { dayReport } from "../stats.js";
-import { minutesOn } from "../minutes.js";
+import { minutesOn, entryMinutes } from "../minutes.js";
 
 export function cumulativeRows(data, ctx, today) {
   const rows = [];
   let actual = 0;
   let plan = 0;
+  const goalById = new Map(data.goals.map((g) => [g.id, g]));
+  const byDate = new Map();
+  data.entries.forEach((e) => { if (!byDate.has(e.date)) byDate.set(e.date, []); byDate.get(e.date).push(e); });
   for (let d = data.startDate; d <= today; d = addDays(d, 1)) {
     const r = dayReport(data, ctx, d, today);
     const p = r.kind ? 0 : r.rows.reduce((s, x) => s + x.target * minutesOn(x.goal, d), 0);
-    const done = data.goals.reduce((s, g) => s + (ctx.sums.get(`${g.id}|${d}`) || 0) * (minutesOn(g, d) || 0), 0);
+    const done = (byDate.get(d) || []).reduce((s, e) => s + entryMinutes(goalById.get(e.goalId), e), 0); // v97 실측 우선
     actual += done;
     plan += d === today ? Math.min(p, done) : p;
     if (actual || plan) rows.push({ date: d, actual, plan }); // 기록 시작 전 빈 날은 뺀다

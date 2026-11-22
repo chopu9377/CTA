@@ -3,6 +3,8 @@ import { buildContext, pendingSettlements } from "./stats.js";
 import { loadHolidays, holidaysLoaded } from "./holidays.js";
 import { renderWeek, renderToday, renderProgress, renderExam, renderHistory, renderSettings } from "./ui.js";
 import { renderWeeklyInput, weeklyModel } from "./ui/today.js";
+import * as sw from "./stopwatch.js";
+import { escapeHtml } from "./ui/shared.js";
 import { renderSettleSheet } from "./ui/settle.js";
 import { conflictSheetHTML } from "./ui/syncui.js";
 import { sleepPopupHTML } from "./ui/sleep.js";
@@ -78,7 +80,27 @@ function render() {
   if (ui.revealSelected) revealSelectedRow();
   showAppVersion();
   updateMascot(data, ctx, today);
+  renderStopwatchBar(data);
 }
+
+// 떠 있는 스톱워치 막대(v97): 시계가 있으면 모든 탭 아래쪽에. 이름을 누르면 그 과목 입력 시트로.
+const swRoot = document.getElementById("sw-root");
+function renderStopwatchBar(data) {
+  const cur = sw.state();
+  const goal = cur && data.goals.find((g) => g.id === cur.goalId);
+  if (!cur || !goal || (ui.view === "today" && ui.pickerOpen)) { swRoot.innerHTML = ""; return; }
+  swRoot.innerHTML = `<div class="sw-bar${cur.running ? " running" : ""}">
+    <button class="sw-name" data-action="sw-open" type="button">⏱ ${escapeHtml(goal.subject)} <span data-sw-time>${sw.clock(cur.ms)}</span></button>
+    ${cur.running
+      ? '<button class="sw-btn" data-action="sw-pause" type="button" aria-label="일시정지">⏸</button>'
+      : '<button class="sw-btn play" data-action="sw-resume" type="button" aria-label="재생">▶</button>'}
+    <button class="sw-btn" data-action="sw-stop" type="button" aria-label="중단">⏹</button></div>`;
+}
+setInterval(() => {
+  const cur = sw.state();
+  if (!cur || !cur.running) return;
+  document.querySelectorAll("[data-sw-time]").forEach((el) => { el.textContent = sw.clock(cur.ms); });
+}, 1000);
 
 // 탭을 열 때(switchView가 mascotPhase를 비운다)와 오늘 상태가 바뀔 때(절반 넘김 등) 새로 한마디 한다.
 function updateMascot(data, ctx, today, force = false) {

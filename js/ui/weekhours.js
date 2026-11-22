@@ -3,7 +3,7 @@ import { targetsFor, computeTargets, effectiveKind } from "../stats.js";
 import { limitMinutes, maintenanceTargets } from "../plan.js";
 import { weekStartOf } from "../weekplan.js";
 import { escapeHtml, subjectColor } from "./shared.js";
-import { minutesOn } from "../minutes.js";
+import { minutesOn, entryMinutes } from "../minutes.js";
 
 // 주간 탭: 요일별 계획 시간·실제 공부 시간·공부 가능 시간. 이번 주 / 다음 주(지금 진도 기준 예상).
 // 저장 값 없이 그날 목표 × 1개당 소요 시간으로 계산한다.
@@ -45,7 +45,8 @@ function dayRow(data, ctx, d, today) {
       else delete targets[id];
     });
   }
-  const done = d <= today ? data.goals.reduce((s, g) => s + (ctx.sums.get(`${g.id}|${d}`) || 0) * minutesOn(g, d), 0) : 0;
+  const goalById = new Map(data.goals.map((g) => [g.id, g]));
+  const done = d <= today ? data.entries.filter((e) => e.date === d).reduce((s, e) => s + entryMinutes(goalById.get(e.goalId), e), 0) : 0; // v97 실측 우선
   return { date: d, kind, targets: kind ? {} : targets, plan: kind ? 0 : minutesOf(data, targets, d), done, limit: kind ? 0 : limitMinutes(data, d) };
 }
 
