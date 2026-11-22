@@ -87,8 +87,9 @@ function stopwatchRowHTML(goal) {
     ${cur.running
       ? '<button class="sw-btn" data-action="sw-pause" type="button" aria-label="일시정지">⏸</button>'
       : '<button class="sw-btn play" data-action="sw-resume" type="button" aria-label="재생">▶</button>'}
+    <button class="sw-btn" data-action="sw-pip" type="button" aria-label="작은 창으로 띄우기">⧉</button>
     <button class="sw-btn" data-action="sw-stop" type="button" aria-label="중단">⏹</button>
-    <span class="sw-hint">추가하면 이 시간이 붙고 0부터 다시 재요</span></div>`;
+    <span class="sw-hint">추가하면 이 시간이 붙고 0부터 다시 재요 · ⧉ 작은 창(시험)</span></div>`;
 }
 
 function pickerSheetHTML(pick, goal, data, today, animate) {

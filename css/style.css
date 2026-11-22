@@ -2474,3 +2474,4 @@ textarea:focus {
 .sw-name [data-sw-time] { font-variant-numeric: tabular-nums; margin-left: 6px; }
 .sw-bar .sw-btn { width: 36px; height: 36px; }
 .prog-measured { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+.pip-video { position: fixed; right: 0; bottom: 0; width: 2px; height: 2px; opacity: 0.01; pointer-events: none; }

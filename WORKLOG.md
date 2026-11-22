@@ -750,3 +750,9 @@ tests 6종 통과, 11/23 브라우저에서 "재무회계 이번 주 6/18 · 12�
 사용자: 문제마다 시간이 6~20분으로 달라 10분 고정 환산이 부정확하다. 성과는 문제 수, 과정은 시간으로 재자. 재생·정지·중단 버튼. js/stopwatch.js(기기 localStorage cta-stopwatch {goalId, acc, runFrom}, 시각으로 계산해 앱을 닫아도 유지). add-entry가 같은 과목 시계의 시간을 take해 entry.sec(초)로 저장한다. 1분 미만은 버리고, 1개당 40분 초과는 쉰 시간이 섞였는지 묻는다. 되돌리기는 sec를 시계에 돌려준다. 다른 과목 시계에 1분 이상 남았는데 새로 시작하거나 ⏹하면 버릴지 묻는다. minutes.js entryMinutes(sec 우선, 없으면 수량 × minutesOn) → weekStudyBarsHTML·cumulativeRows·weekhours dayRow. measuredPace(최근 14일) → 진도율 탭 한 줄. fx에 "⏱ N분 · 1개당 M분". 목표·판정·계획의 minutesPerUnit은 바꾸지 않았다(2주 실측 뒤 사람이 판단).
 
 tests 6종 통과. 11/23 브라우저: 시작 → 31분 경과 → 일시정지 → 다른 탭 막대 → 막대에서 시트 열기 → 재생 → +3 추가(sec 1862, 시계 0) → 되돌리기(시계에 31:02 복귀) → 진도율 탭, 오류 없음.
+
+## 2026-11-22 · 스톱워치 작은 창 시험 (v98)
+
+사용자: 시간을 위젯처럼 계속 띄울 수 있나. 웹앱은 잠금화면 실시간 표시·홈 위젯이 불가해 두 안을 올렸다(① 집중 화면 + 화면 꺼짐 방지, ② PiP). 사용자가 ②를 먼저 시험하고 안 되면 ①로 가기로 했다. js/ui/pip.js: 480×180 캔버스에 과목·시계를 250ms마다 그려 captureStream(4) → 숨긴 video → requestPictureInPicture, 없으면 webkitSetPresentationMode. 탭 한 번 안에서 요청해야 해서 시계가 있으면 미리 prepare한다. PiP 창의 재생/일시정지 이벤트를 스톱워치 pause/resume에 연결했고 ⏹하면 창을 닫는다. 과목 색은 var(--series-N)을 getComputedStyle로 풀어 쓴다.
+
+tests 6종 통과. 데스크톱 Chromium에서 video readyState 4, PiP 진입, 프레임에 "재무회계 0:02" 확인. 아이폰 홈 화면 앱(백그라운드에서 그리기가 계속되는지)은 사용자 확인 대기.

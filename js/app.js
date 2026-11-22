@@ -4,6 +4,8 @@ import { loadHolidays, holidaysLoaded } from "./holidays.js";
 import { renderWeek, renderToday, renderProgress, renderExam, renderHistory, renderSettings } from "./ui.js";
 import { renderWeeklyInput, weeklyModel } from "./ui/today.js";
 import * as sw from "./stopwatch.js";
+import * as pip from "./ui/pip.js";
+import { subjectColor } from "./ui/shared.js";
 import { escapeHtml } from "./ui/shared.js";
 import { renderSettleSheet } from "./ui/settle.js";
 import { conflictSheetHTML } from "./ui/syncui.js";
@@ -88,14 +90,23 @@ const swRoot = document.getElementById("sw-root");
 function renderStopwatchBar(data) {
   const cur = sw.state();
   const goal = cur && data.goals.find((g) => g.id === cur.goalId);
+  if (cur && goal) pip.prepare(goal.subject, resolveColor(subjectColor(data, goal.subject)));
+  if (!cur) pip.close();
   if (!cur || !goal || (ui.view === "today" && ui.pickerOpen)) { swRoot.innerHTML = ""; return; }
   swRoot.innerHTML = `<div class="sw-bar${cur.running ? " running" : ""}">
     <button class="sw-name" data-action="sw-open" type="button">⏱ ${escapeHtml(goal.subject)} <span data-sw-time>${sw.clock(cur.ms)}</span></button>
     ${cur.running
       ? '<button class="sw-btn" data-action="sw-pause" type="button" aria-label="일시정지">⏸</button>'
       : '<button class="sw-btn play" data-action="sw-resume" type="button" aria-label="재생">▶</button>'}
+    <button class="sw-btn" data-action="sw-pip" type="button" aria-label="작은 창으로 띄우기">⧉</button>
     <button class="sw-btn" data-action="sw-stop" type="button" aria-label="중단">⏹</button></div>`;
 }
+// PiP 캔버스는 CSS 변수를 못 쓰므로 var(--series-N)을 실제 색 값으로 바꾼다
+function resolveColor(color) {
+  const m = /^var\((--[\w-]+)\)$/.exec(color);
+  return m ? getComputedStyle(document.documentElement).getPropertyValue(m[1]).trim() || "#2a78d6" : color;
+}
+document.addEventListener("cta-sw-changed", () => render());
 setInterval(() => {
   const cur = sw.state();
   if (!cur || !cur.running) return;
