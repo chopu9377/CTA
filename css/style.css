@@ -2430,3 +2430,33 @@ textarea:focus {
 .wk-day.future .wk-day-bar { background: none; border: 1.5px dashed var(--gridline); }
 .wk-day-label { font-size: 13px; color: var(--text-secondary); }
 .wk-day.today .wk-day-label { color: var(--accent); font-weight: 700; }
+/* 입력 타격감(v95) */
+.fx-layer { position: fixed; inset: 0; pointer-events: none; z-index: 9000; }
+.fx-hit { position: absolute; left: 50%; top: 34%; transform: translate(-50%, -50%); display: grid; justify-items: center; gap: 4px; text-align: center; animation: fx-pop 2.6s cubic-bezier(.2,.9,.3,1.2) both; width: min(300px, calc(100vw - 48px)); padding: 18px 14px 14px; border-radius: 22px; background: color-mix(in oklab, var(--surface-1) 92%, transparent); border: 1px solid var(--gridline); box-shadow: 0 12px 40px #0006; backdrop-filter: blur(6px); }
+.fx-hit.still { animation: fx-fade 2.6s both; }
+.fx-burst { position: absolute; left: 50%; top: 32px; width: 0; height: 0; }
+.fx-spark { position: absolute; width: 8px; height: 8px; border-radius: 50%; animation: fx-spark .7s ease-out both; }
+.fx-amount { font-size: 60px; font-weight: 800; line-height: 1; letter-spacing: -2px; }
+.fx-subject { font-size: 17px; font-weight: 700; color: var(--text-primary); }
+.fx-combo { font-size: 14px; font-weight: 800; letter-spacing: 1px; color: #fff; background: #e0533a; padding: 3px 10px; border-radius: 99px; transform: rotate(-4deg); animation: fx-combo .5s .1s both; }
+.fx-pull { margin-top: 6px; font-size: 13px; color: var(--text-secondary); }
+.fx-pull b { color: var(--accent); }
+.fx-milestone { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; background: radial-gradient(ellipse at center, #0009, transparent 70%); animation: fx-ko 2.6s both; }
+.fx-milestone strong { font-size: 84px; font-weight: 900; font-style: italic; letter-spacing: -2px; color: #ffd34d; text-shadow: 4px 4px 0 #b3261e, 0 0 30px #ffb300aa; }
+.fx-milestone.down strong { font-size: 64px; color: #fff; text-shadow: 3px 3px 0 var(--accent); }
+.fx-milestone span { font-size: 18px; font-weight: 700; color: #fff; text-shadow: 0 2px 8px #000; }
+.fx-milestone.still { animation: fx-fade 2.4s both; }
+@keyframes fx-pop { 0% { opacity: 0; transform: translate(-50%, -30%) scale(.4); } 12% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); } 22% { transform: translate(-50%, -50%) scale(1); } 80% { opacity: 1; transform: translate(-50%, -56%); } 100% { opacity: 0; transform: translate(-50%, -64%); } }
+@keyframes fx-spark { from { transform: translate(-4px, -4px) scale(1); opacity: 1; } to { transform: translate(calc(var(--dx) - 4px), calc(var(--dy) - 4px)) scale(.3); opacity: 0; } }
+@keyframes fx-combo { from { transform: rotate(-4deg) scale(2); opacity: 0; } to { transform: rotate(-4deg) scale(1); opacity: 1; } }
+@keyframes fx-ko { 0% { opacity: 0; transform: scale(2.4); } 10% { opacity: 1; transform: scale(.94); } 16% { transform: scale(1.04) rotate(-2deg); } 22% { transform: scale(1); } 80% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes fx-fade { 0%, 100% { opacity: 0; } 10%, 80% { opacity: 1; } }
+/* 누적 공부 시간(v95) */
+.cum-chart { position: relative; touch-action: pan-y; margin-top: 6px; }
+.cum-chart svg { display: block; width: 100%; height: auto; }
+.cum-tip { position: absolute; top: -4px; transform: translateX(-50%); background: var(--surface-1); border: 1px solid var(--gridline); border-radius: 10px; padding: 4px 10px; font-size: 12px; color: var(--text-primary); white-space: nowrap; box-shadow: 0 4px 12px #0003; pointer-events: none; }
+.cum-legend { display: flex; gap: 16px; font-size: 13px; color: var(--text-secondary); margin-top: 6px; }
+.cum-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.cum-legend i { width: 18px; height: 0; border-top: 2px solid var(--accent); }
+.cum-legend i.dash { border-top: 2px dashed var(--text-muted); }
+.chip b.ahead { color: var(--accent); }

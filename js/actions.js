@@ -6,10 +6,12 @@ import { bonusSheetHTML, bonusCancelSheetHTML } from "./ui/bonus.js";
 import { dayInfoSheetHTML, restSheetHTML } from "./ui/dayinfo.js";
 import { postponeSheetHTML, todayPostponeLimits } from "./ui/postpone.js";
 import { postponeOut } from "./postpone.js";
-import { formatDuration, confirmReplan } from "./ui/shared.js";
+import { formatDuration, confirmReplan, subjectColor } from "./ui/shared.js";
 import { maintenanceGoals } from "./plan.js";
 import { countUnit } from "./presets.js";
 import * as sync from "./sync.js";
+import { hitFx } from "./ui/fx.js";
+import { todayPull } from "./weekplan.js";
 
 const SYNC_RESULT_TEXT = {
   pushed: "GitHub에 올렸어요",
@@ -325,11 +327,27 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
         toast("0은 추가할 게 없어요");
         return;
       }
-      const result = storage.addEntry(goalId, ui.pick);
+      const today = storage.appToday();
+      const dayState = () => {
+        const data = storage.getData();
+        const r = dayReport(data, buildContext(data, today), today, today);
+        return r.kind || !r.rows.length ? "none" : r.status === "full" ? "full" : r.half ? "half" : "low";
+      };
+      const before = dayState();
+      const amount = ui.pick;
+      const result = storage.addEntry(goalId, amount);
       if (!result) return;
-      const goal = storage.getData().goals.find((g) => g.id === goalId);
+      const data = storage.getData();
+      const goal = data.goals.find((g) => g.id === goalId);
       if (result.rolled) announceRounds(goalId, result.rolled);
-      else toast(`${goal.subject} +${ui.pick}${countUnit(goal.unit)}`);
+      const after = dayState();
+      // v95 타격감: 숫자·불꽃·콤보 + 오늘 기록으로 당긴 완료 예정일, 절반(DOWN!)·완료(K.O.!) 순간 연출
+      let pull = null;
+      try { pull = todayPull(data, goal, today); } catch (e) { pull = null; }
+      hitFx({
+        amount, unit: countUnit(goal.unit), subject: goal.subject, color: subjectColor(data, goal.subject), pull,
+        milestone: after === "full" && before !== "full" ? "ko" : after === "half" && before === "low" ? "down" : null
+      });
       render();
     },
     "undo-entry"() {

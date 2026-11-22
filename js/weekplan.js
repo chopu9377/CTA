@@ -280,7 +280,7 @@ export function absorbedShortfalls(data, ctx, today) {
 }
 
 // 최근 실제 기록으로 본 페이스와 그 속도가 계속될 때의 완료 예정일
-function actualPace(data, goal, today, upcoming) {
+function actualPace(data, goal, today, upcoming, leftOverride = null) {
   if (upcoming) return { state: "upcoming" };
   const { windowDays, minObservedDays, horizonDays } = STATUS_RULES;
   const earliest = addDays(today, -windowDays);
@@ -298,7 +298,7 @@ function actualPace(data, goal, today, upcoming) {
   if (weight <= 0) return { state: "insufficient", observed };
 
   const rate = entriesOf(data, goal.id, windowStart, today) / weight;
-  let left = workLeft(goal);
+  let left = leftOverride ?? workLeft(goal);
   let projected = null;
   for (let i = 1; i <= horizonDays && left > 0; i++) {
     const d = addDays(today, i);
@@ -311,6 +311,19 @@ function actualPace(data, goal, today, upcoming) {
     if (left <= 0) projected = d;
   }
   return { state: "ok", rate, projected, observed, windowStart };
+}
+
+// 입력 직후 "오늘 기록이 완료 예정일을 며칠 당겼나"(v95). 페이스는 진도율 탭과 같은 최근 4주(오늘 제외)라 하루 안에서 고정이고,
+// 남은 양만 오늘 푼 만큼 줄여 비교한다 → 오늘 푼 양이 그대로 당긴 날짜가 된다(과장 없음).
+export function todayPull(data, goal, today) {
+  const left = workLeft(goal);
+  if (left === null) return null;
+  const done = entriesOf(data, goal.id, today, addDays(today, 1));
+  const now = actualPace(data, goal, today, false);
+  if (now.state !== "ok") return { left };
+  const before = actualPace(data, goal, today, false, left + done);
+  const days = now.projected && before.projected ? diffDays(now.projected, before.projected) : 0;
+  return { left, projected: now.projected, days };
 }
 
 function judge({ finished, covered, noDays, impossible, actual, plannedFinish, endDate }) {

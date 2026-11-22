@@ -8,6 +8,7 @@ import { bonusSavings, bonusBlockReason, bonusMaxFor } from "../bonus.js";
 import { shipCardHTML } from "./bonus.js";
 import { weekHoursHTML } from "./weekhours.js";
 import { weekStudyBarsHTML } from "./today.js";
+import { cumulativeHTML } from "./cumulative.js";
 import { weekStartOf } from "../weekplan.js";
 
 function ddayText(info, today) {
@@ -116,6 +117,7 @@ export function renderWeek(data, ctx, today, ui) {
     </div>
     ${weekStudyBarsHTML(data, ctx, today, weekStartOf(data, today), data.goals.filter((g) => g.track === track), "기록한 양 × 1개당 시간으로 계산해요. 과목 색으로 쌓여요.")}
     ${quotaHTML(data, ctx, track, currentWeekIndex(data, today))}
+    ${cumulativeHTML(data, ctx, today)}
     ${weekHoursHTML(data, ctx, today, ui)}
   </section>`;
 }

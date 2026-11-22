@@ -1,0 +1,68 @@
+// 입력 타격감(v95): 기록을 넣는 순간 숫자·불꽃·콤보가 터지고, 오늘 기록으로 완료 예정일을 며칠 당겼는지 한 줄로 보여 준다.
+// 절반을 넘기면 DOWN!, 그날 목표를 다 채우면 K.O.! 화면. 저장 데이터에는 아무것도 쓰지 않는다(표시 전용).
+import { escapeHtml } from "./shared.js";
+import { formatKoreanDate } from "../dates.js";
+
+const reduced = () => window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+let layer = null;
+let comboTimer = null;
+let combo = 0;
+
+function ensureLayer() {
+  if (layer && document.body.contains(layer)) return layer;
+  layer = document.createElement("div");
+  layer.className = "fx-layer";
+  layer.setAttribute("aria-hidden", "true");
+  document.body.appendChild(layer);
+  return layer;
+}
+
+function burst(host, color) {
+  const n = 14;
+  for (let i = 0; i < n; i++) {
+    const p = document.createElement("i");
+    const angle = (Math.PI * 2 * i) / n + Math.random() * 0.4;
+    const dist = 60 + Math.random() * 50;
+    p.className = "fx-spark";
+    p.style.background = color;
+    p.style.setProperty("--dx", `${Math.cos(angle) * dist}px`);
+    p.style.setProperty("--dy", `${Math.sin(angle) * dist}px`);
+    host.appendChild(p);
+  }
+}
+
+// info: { amount, unit, subject, color, pull: {projected, days} | null, milestone: "down" | "ko" | null }
+export function hitFx(info) {
+  const host = ensureLayer();
+  combo = comboTimer ? combo + 1 : 1;
+  clearTimeout(comboTimer);
+  comboTimer = setTimeout(() => { comboTimer = null; combo = 0; }, 90 * 1000);
+  try { navigator.vibrate && navigator.vibrate(info.milestone ? [30, 40, 60] : 25); } catch (e) { /* 진동 없는 기기 */ }
+
+  const pull = info.pull && info.pull.projected
+    ? `${escapeHtml(info.subject)} 완료 예정 ${formatKoreanDate(info.pull.projected).replace(/ \(.\)$/, "")}${info.pull.days > 0 ? ` · 오늘 <b>${info.pull.days}일</b> 당김 ⏩` : ""}`
+    : info.pull && info.pull.left !== undefined ? `${escapeHtml(info.subject)} 남은 ${info.pull.left}${escapeHtml(info.unit)}` : "";
+
+  host.querySelectorAll(".fx-hit").forEach((el) => el.remove());
+  const hit = document.createElement("div");
+  hit.className = `fx-hit${reduced() ? " still" : ""}`;
+  hit.innerHTML = `<div class="fx-burst"></div>
+    <strong class="fx-amount" style="color:${info.color}">+${info.amount}</strong>
+    <span class="fx-subject">${escapeHtml(info.subject)} 💥</span>
+    ${combo >= 2 ? `<span class="fx-combo">${combo} COMBO</span>` : ""}
+    ${pull ? `<span class="fx-pull">${pull}</span>` : ""}`;
+  host.appendChild(hit);
+  if (!reduced()) burst(hit.querySelector(".fx-burst"), info.color);
+  setTimeout(() => hit.remove(), 2600);
+
+  if (info.milestone) {
+    const big = document.createElement("div");
+    big.className = `fx-milestone ${info.milestone}${reduced() ? " still" : ""}`;
+    host.querySelectorAll(".fx-milestone").forEach((el) => el.remove());
+    big.innerHTML = info.milestone === "ko"
+      ? `<strong>K.O.!</strong><span>오늘 목표 완료 🏆</span>`
+      : `<strong>DOWN!</strong><span>절반 넘었다 🌗</span>`;
+    setTimeout(() => host.appendChild(big), 350);
+    setTimeout(() => big.remove(), info.milestone === "ko" ? 2600 : 1900);
+  }
+}
