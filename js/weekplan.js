@@ -313,17 +313,22 @@ function actualPace(data, goal, today, upcoming, leftOverride = null) {
   return { state: "ok", rate, projected, observed, windowStart };
 }
 
-// 입력 직후 "오늘 기록이 완료 예정일을 며칠 당겼나"(v95). 페이스는 진도율 탭과 같은 최근 4주(오늘 제외)라 하루 안에서 고정이고,
-// 남은 양만 오늘 푼 만큼 줄여 비교한다 → 오늘 푼 양이 그대로 당긴 날짜가 된다(과장 없음).
-export function todayPull(data, goal, today) {
+// 입력 직후 한 줄(v95, v96 수정). 자동·채우기 과목은 앱이 매주 시험일 기준으로 다시 나누므로 "지금 속도면 언제 끝나나" 날짜는
+// 과장된다(1차 기간 99일을 건너뛰며 작은 차이가 몇 주로 튄다 — progressstatus.js도 같은 이유로 날짜 대신 밀린 양을 쓴다).
+// → 자동 과목은 이번 주 목표 진행, 고정 과목만 최근 4주 페이스(오늘 제외, 고정)로 오늘 당긴 날짜를 보여 준다.
+export function todayPull(data, ctx, goal, today) {
   const left = workLeft(goal);
+  if (weekCarries(data, goal)) {
+    const { quota, done } = weekProgress(data, ctx, goal, today);
+    return { kind: "week", quota, done, left };
+  }
   if (left === null) return null;
   const done = entriesOf(data, goal.id, today, addDays(today, 1));
   const now = actualPace(data, goal, today, false);
-  if (now.state !== "ok") return { left };
+  if (now.state !== "ok") return { kind: "left", left };
   const before = actualPace(data, goal, today, false, left + done);
   const days = now.projected && before.projected ? diffDays(now.projected, before.projected) : 0;
-  return { left, projected: now.projected, days };
+  return { kind: "date", left, projected: now.projected, days };
 }
 
 function judge({ finished, covered, noDays, impossible, actual, plannedFinish, endDate }) {

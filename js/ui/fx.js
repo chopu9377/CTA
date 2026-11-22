@@ -39,9 +39,19 @@ export function hitFx(info) {
   comboTimer = setTimeout(() => { comboTimer = null; combo = 0; }, 90 * 1000);
   try { navigator.vibrate && navigator.vibrate(info.milestone ? [30, 40, 60] : 25); } catch (e) { /* 진동 없는 기기 */ }
 
-  const pull = info.pull && info.pull.projected
-    ? `${escapeHtml(info.subject)} 완료 예정 ${formatKoreanDate(info.pull.projected).replace(/ \(.\)$/, "")}${info.pull.days > 0 ? ` · 오늘 <b>${info.pull.days}일</b> 당김 ⏩` : ""}`
-    : info.pull && info.pull.left !== undefined ? `${escapeHtml(info.subject)} 남은 ${info.pull.left}${escapeHtml(info.unit)}` : "";
+  const p = info.pull;
+  const name = escapeHtml(info.subject);
+  const unit = escapeHtml(info.unit);
+  let pull = "";
+  if (p && p.kind === "week" && p.quota > 0) {
+    pull = p.done >= p.quota
+      ? `${name} 이번 주 목표 <b>달성 ✓</b> (${p.done}/${p.quota})`
+      : `${name} 이번 주 <b>${p.done}</b>/${p.quota} · ${p.quota - p.done}${unit} 남음`;
+  } else if (p && p.kind === "date" && p.projected) {
+    pull = `${name} 완료 예정 ${formatKoreanDate(p.projected).replace(/ \(.\)$/, "")}${p.days > 0 ? ` · 오늘 <b>${p.days}일</b> 당김 ⏩` : ""}`;
+  } else if (p && p.left !== null && p.left !== undefined) {
+    pull = `${name} 목표 회독까지 ${p.left}${unit} 남음`;
+  }
 
   host.querySelectorAll(".fx-hit").forEach((el) => el.remove());
   const hit = document.createElement("div");

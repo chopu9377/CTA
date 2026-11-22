@@ -343,7 +343,7 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
       const after = dayState();
       // v95 타격감: 숫자·불꽃·콤보 + 오늘 기록으로 당긴 완료 예정일, 절반(DOWN!)·완료(K.O.!) 순간 연출
       let pull = null;
-      try { pull = todayPull(data, goal, today); } catch (e) { pull = null; }
+      try { pull = todayPull(data, buildContext(data, today), goal, today); } catch (e) { pull = null; }
       hitFx({
         amount, unit: countUnit(goal.unit), subject: goal.subject, color: subjectColor(data, goal.subject), pull,
         milestone: after === "full" && before !== "full" ? "ko" : after === "half" && before === "low" ? "down" : null
