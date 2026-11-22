@@ -2474,4 +2474,15 @@ textarea:focus {
 .sw-name [data-sw-time] { font-variant-numeric: tabular-nums; margin-left: 6px; }
 .sw-bar .sw-btn { width: 36px; height: 36px; }
 .prog-measured { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
-.pip-video { position: fixed; right: 0; bottom: 0; width: 2px; height: 2px; opacity: 0.01; pointer-events: none; }
+/* 집중 화면(v99) */
+.sw-focus { position: fixed; inset: 0; z-index: 8000; background: var(--page); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 24px 16px calc(24px + env(safe-area-inset-bottom)); }
+.sw-focus-close { position: absolute; top: calc(14px + env(safe-area-inset-top)); right: 16px; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--gridline); background: var(--surface-1); color: var(--text-primary); font-size: 18px; }
+.sw-focus-subject { font-size: 22px; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 10px; }
+.sw-focus-subject .swatch { width: 14px; height: 14px; }
+.sw-focus-time { font-size: clamp(72px, 24vw, 160px); font-weight: 800; letter-spacing: -3px; font-variant-numeric: tabular-nums; line-height: 1; color: var(--text-primary); }
+.sw-focus.running .sw-focus-time { color: var(--accent); }
+.sw-focus-state { font-size: 14px; color: var(--text-muted); text-align: center; max-width: 320px; }
+.sw-focus-btns { display: flex; gap: 20px; margin-top: 6px; }
+.sw-btn.big { width: 72px; height: 72px; font-size: 26px; }
+.sw-focus-log { margin-top: 12px; min-width: 220px; }
+@media (orientation: landscape) and (max-height: 500px) { .sw-focus { gap: 8px; } .sw-focus-time { font-size: 26vh; } .sw-btn.big { width: 56px; height: 56px; } }

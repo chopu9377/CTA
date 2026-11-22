@@ -12,7 +12,6 @@ import { countUnit } from "./presets.js";
 import * as sync from "./sync.js";
 import { hitFx } from "./ui/fx.js";
 import * as sw from "./stopwatch.js";
-import * as pip from "./ui/pip.js";
 import { todayPull } from "./weekplan.js";
 
 const SYNC_RESULT_TEXT = {
@@ -378,10 +377,10 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
       sw.start(btn.dataset.id);
       render();
     },
-    async "sw-pip"() {
-      const r = await pip.toggle();
-      if (r === "on") toast("작은 창으로 띄웠어요. 다른 앱으로 가도 시간이 보여요");
-      else if (r !== "off") toast(r);
+    "sw-focus"() {
+      ui.focusOpen = !ui.focusOpen;
+      if (ui.focusOpen) ui.pickerOpen = false;
+      render();
     },
     "sw-pause"() { sw.pause(); render(); },
     "sw-resume"() { sw.resume(); render(); },
@@ -389,13 +388,14 @@ export function createActions({ ui, render, toast, overlay, showSettleSheet, clo
       const cur = sw.state();
       if (cur && cur.ms >= 60000 && !confirm(`${sw.clock(cur.ms)} 잰 시간을 기록하지 않고 끝낼까요?\n기록하려면 [취소] 후 문제 수를 추가하세요.`)) return;
       sw.stop();
-      pip.close();
+      ui.focusOpen = false;
       render();
     },
     "sw-open"() {
       const cur = sw.state();
       if (!cur) return;
       ui.view = "today";
+      ui.focusOpen = false;
       ui.selectedGoalId = cur.goalId;
       ui.pickerOpen = true;
       ui.pickerAnim = true;

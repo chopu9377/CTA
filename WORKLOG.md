@@ -756,3 +756,9 @@ tests 6종 통과. 11/23 브라우저: 시작 → 31분 경과 → 일시정지 
 사용자: 시간을 위젯처럼 계속 띄울 수 있나. 웹앱은 잠금화면 실시간 표시·홈 위젯이 불가해 두 안을 올렸다(① 집중 화면 + 화면 꺼짐 방지, ② PiP). 사용자가 ②를 먼저 시험하고 안 되면 ①로 가기로 했다. js/ui/pip.js: 480×180 캔버스에 과목·시계를 250ms마다 그려 captureStream(4) → 숨긴 video → requestPictureInPicture, 없으면 webkitSetPresentationMode. 탭 한 번 안에서 요청해야 해서 시계가 있으면 미리 prepare한다. PiP 창의 재생/일시정지 이벤트를 스톱워치 pause/resume에 연결했고 ⏹하면 창을 닫는다. 과목 색은 var(--series-N)을 getComputedStyle로 풀어 쓴다.
 
 tests 6종 통과. 데스크톱 Chromium에서 video readyState 4, PiP 진입, 프레임에 "재무회계 0:02" 확인. 아이폰 홈 화면 앱(백그라운드에서 그리기가 계속되는지)은 사용자 확인 대기.
+
+## 2026-11-22 · 집중 화면으로 대체 (v99)
+
+v98 PiP가 사용자 아이폰에서 오류가 나서 약속대로 1안을 적용했다. ui/pip.js를 삭제하고 ⧉를 ⛶(sw-focus)로 바꿨다. app.js renderStopwatchBar가 ui.focusOpen이면 #sw-root에 전체 화면(과목·큰 시계·⏸/▶·⏹·기록하기)을 그린다. navigator.wakeLock.request("screen")를 걸고 앱으로 돌아오면 다시 건다. 실패하면 자동 잠금을 끄라는 안내를 띄운다. ⏹이나 기록하기를 누르면 닫힌다.
+
+tests 6종 통과. 390px 다크·라이트에서 집중 화면, 일시정지, 기록하기 → 입력 시트 확인, 오류 없음(헤드리스는 Wake Lock 미지원이라 안내 문구가 표시됨).

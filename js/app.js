@@ -4,7 +4,6 @@ import { loadHolidays, holidaysLoaded } from "./holidays.js";
 import { renderWeek, renderToday, renderProgress, renderExam, renderHistory, renderSettings } from "./ui.js";
 import { renderWeeklyInput, weeklyModel } from "./ui/today.js";
 import * as sw from "./stopwatch.js";
-import * as pip from "./ui/pip.js";
 import { subjectColor } from "./ui/shared.js";
 import { escapeHtml } from "./ui/shared.js";
 import { renderSettleSheet } from "./ui/settle.js";
@@ -90,23 +89,54 @@ const swRoot = document.getElementById("sw-root");
 function renderStopwatchBar(data) {
   const cur = sw.state();
   const goal = cur && data.goals.find((g) => g.id === cur.goalId);
-  if (cur && goal) pip.prepare(goal.subject, resolveColor(subjectColor(data, goal.subject)));
-  if (!cur) pip.close();
+  if (!cur || !goal) ui.focusOpen = false;
+  focusWake(!!ui.focusOpen);
+  if (ui.focusOpen) {
+    // 집중 화면(v98): 큰 시계 + 화면 꺼짐 방지. 책상에 세워 두는 탁상시계용.
+    swRoot.innerHTML = `<div class="sw-focus${cur.running ? " running" : ""}" role="dialog" aria-label="집중 화면">
+      <button class="sw-focus-close" data-action="sw-focus" type="button" aria-label="집중 화면 닫기">✕</button>
+      <div class="sw-focus-subject"><i class="swatch" style="background:${subjectColor(data, goal.subject)}"></i>${escapeHtml(goal.subject)}</div>
+      <div class="sw-focus-time" data-sw-time>${sw.clock(cur.ms)}</div>
+      <div class="sw-focus-state">${cur.running ? "재는 중" : "일시정지"}${wakeNote}</div>
+      <div class="sw-focus-btns">
+        ${cur.running
+          ? '<button class="sw-btn big" data-action="sw-pause" type="button" aria-label="일시정지">⏸</button>'
+          : '<button class="sw-btn big play" data-action="sw-resume" type="button" aria-label="재생">▶</button>'}
+        <button class="sw-btn big" data-action="sw-stop" type="button" aria-label="중단">⏹</button>
+      </div>
+      <button class="btn btn-primary sw-focus-log" data-action="sw-open" type="button">문제 수 기록하기</button>
+    </div>`;
+    return;
+  }
   if (!cur || !goal || (ui.view === "today" && ui.pickerOpen)) { swRoot.innerHTML = ""; return; }
   swRoot.innerHTML = `<div class="sw-bar${cur.running ? " running" : ""}">
     <button class="sw-name" data-action="sw-open" type="button">⏱ ${escapeHtml(goal.subject)} <span data-sw-time>${sw.clock(cur.ms)}</span></button>
     ${cur.running
       ? '<button class="sw-btn" data-action="sw-pause" type="button" aria-label="일시정지">⏸</button>'
       : '<button class="sw-btn play" data-action="sw-resume" type="button" aria-label="재생">▶</button>'}
-    <button class="sw-btn" data-action="sw-pip" type="button" aria-label="작은 창으로 띄우기">⧉</button>
+    <button class="sw-btn" data-action="sw-focus" type="button" aria-label="집중 화면">⛶</button>
     <button class="sw-btn" data-action="sw-stop" type="button" aria-label="중단">⏹</button></div>`;
 }
-// PiP 캔버스는 CSS 변수를 못 쓰므로 var(--series-N)을 실제 색 값으로 바꾼다
-function resolveColor(color) {
-  const m = /^var\((--[\w-]+)\)$/.exec(color);
-  return m ? getComputedStyle(document.documentElement).getPropertyValue(m[1]).trim() || "#2a78d6" : color;
+
+// 화면 꺼짐 방지(Wake Lock). 앱을 나갔다 오면 풀리므로 다시 건다. 안 되는 기기면 안내만.
+let wakeLock = null;
+let wakeNote = "";
+async function focusWake(on) {
+  if (!on) {
+    if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
+    return;
+  }
+  if (wakeLock || document.visibilityState !== "visible") return;
+  try {
+    if (!navigator.wakeLock) throw new Error("unsupported");
+    wakeLock = await navigator.wakeLock.request("screen");
+    wakeLock.addEventListener("release", () => { wakeLock = null; });
+    if (wakeNote) { wakeNote = ""; render(); }
+  } catch (e) {
+    if (!wakeNote) { wakeNote = " · 이 기기는 화면 꺼짐 방지가 안 돼요(설정 > 자동 잠금을 잠시 '안 함'으로)"; render(); }
+  }
 }
-document.addEventListener("cta-sw-changed", () => render());
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && ui.focusOpen) focusWake(true); });
 setInterval(() => {
   const cur = sw.state();
   if (!cur || !cur.running) return;
