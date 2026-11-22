@@ -186,7 +186,8 @@ function showAppVersion() {
   const el = document.querySelector("[data-app-version]");
   if (!el || !window.caches) return;
   caches.keys().then((keys) => {
-    const name = keys.filter((k) => k.startsWith("cta-static-")).sort().pop();
+    const num = (k) => Number(k.replace("cta-static-v", "")) || 0;
+    const name = keys.filter((k) => k.startsWith("cta-static-")).sort((a, b) => num(a) - num(b)).pop(); // v100부터 숫자 순
     if (name) el.textContent = ` · ${name.replace("cta-static-", "")}`;
   });
 }
@@ -248,6 +249,54 @@ actions["close-sleep"] = () => {
   overlay.innerHTML = "";
 };
 setTimeout(showSleepPopup, 1500);
+
+// 자리 비움 감지(v100): 스톱워치가 도는 중 앱을 떠난 시각을 기기에 적어 두고, 1시간 넘게 지나 돌아오면 그 시간도 공부였는지 묻는다.
+// 앱이 완전히 꺼졌다 다시 열려도 기록이 남아 있어 물어본다. [쉰 시간 빼기] = 떠난 순간까지만 남기고 일시정지.
+const AWAY_KEY = "cta-sw-away";
+const AWAY_MIN = 60;
+function markAway() {
+  const cur = sw.state();
+  if (!cur || !cur.running) return;
+  try { if (!localStorage.getItem(AWAY_KEY)) localStorage.setItem(AWAY_KEY, String(Date.now())); } catch (e) { /* 저장 불가 */ }
+}
+function checkAway(tries = 0) {
+  let at = 0;
+  try { at = Number(localStorage.getItem(AWAY_KEY)) || 0; } catch (e) { at = 0; }
+  const cur = sw.state();
+  if (!at || !cur || !cur.running || Date.now() - at < AWAY_MIN * 60000) {
+    try { localStorage.removeItem(AWAY_KEY); } catch (e) { /* 무시 */ }
+    return;
+  }
+  if (overlay.innerHTML.trim()) { if (tries < 10) setTimeout(() => checkAway(tries + 1), 3000); return; }
+  try { localStorage.removeItem(AWAY_KEY); } catch (e) { /* 무시 */ }
+  const goal = storage.getData().goals.find((g) => g.id === cur.goalId);
+  const gone = sw.clock(Date.now() - at).split(":");
+  const goneText = gone.length === 3 ? `${gone[0]}시간 ${Number(gone[1])}분` : `${Number(gone[0])}분`;
+  ui.awayAt = at;
+  overlay.innerHTML = `<div class="sheet-backdrop"><div class="sheet">
+    <h3 class="sheet-title">⏱ 자리 비움 확인</h3>
+    <p>${escapeHtml(goal ? goal.subject : "")} 스톱워치가 도는 중에 <b>${goneText}</b> 동안 앱을 안 보셨어요.<br>그동안도 공부였나요?</p>
+    <div class="form-inline">
+      <button class="btn btn-secondary" data-action="away-keep" type="button">공부였음</button>
+      <button class="btn btn-primary" data-action="away-cut" type="button">쉰 시간 빼기</button>
+    </div>
+    <p class="hint">빼면 앱을 떠난 순간까지만 남기고 일시정지해요. 다시 풀 때 ▶를 누르세요.</p>
+  </div></div>`;
+}
+actions["away-keep"] = () => { overlay.innerHTML = ""; };
+actions["away-cut"] = () => {
+  if (ui.awayAt) sw.cutAt(ui.awayAt);
+  ui.awayAt = null;
+  overlay.innerHTML = "";
+  toast("쉰 시간을 뺐어요. 시계는 일시정지 상태예요");
+  render();
+};
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") markAway();
+  else checkAway();
+});
+window.addEventListener("pagehide", markAway);
+setTimeout(checkAway, 800);
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") setTimeout(showSleepPopup, 1500);
 });

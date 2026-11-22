@@ -2469,7 +2469,7 @@ textarea:focus {
 .sw-row.running .sw-time, .sw-bar.running [data-sw-time] { color: var(--accent); }
 .sw-btn { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--gridline); background: var(--surface-1); color: var(--text-primary); font-size: 16px; display: grid; place-items: center; cursor: pointer; }
 .sw-btn.play { background: var(--accent); color: #fff; border-color: transparent; }
-.sw-bar { position: fixed; left: 12px; right: 12px; bottom: calc(58px + env(safe-area-inset-bottom)); z-index: 40; display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 14px; border-radius: 99px; background: var(--surface-1); border: 1px solid var(--gridline); box-shadow: 0 6px 20px #0004; }
+.sw-bar { position: fixed; left: 12px; right: 12px; bottom: calc(58px + env(safe-area-inset-bottom)); z-index: 25; display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 14px; border-radius: 99px; background: var(--surface-1); border: 1px solid var(--gridline); box-shadow: 0 6px 20px #0004; }
 .sw-name { flex: 1; min-width: 0; text-align: left; background: none; border: 0; color: var(--text-primary); font: inherit; font-weight: 700; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sw-name [data-sw-time] { font-variant-numeric: tabular-nums; margin-left: 6px; }
 .sw-bar .sw-btn { width: 36px; height: 36px; }

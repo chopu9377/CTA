@@ -36,6 +36,13 @@ export function resume() {
 export function stop() {
   write(null);
 }
+// 자리 비움(v100): ts(앱을 떠난 시각)까지만 잰 것으로 하고 일시정지
+export function cutAt(ts) {
+  const s = read();
+  if (!s || !s.runFrom) return;
+  write({ ...s, acc: s.acc + Math.max(0, Math.min(Date.now(), ts) - s.runFrom), runFrom: null });
+}
+
 // 입력에 붙일 시간을 꺼내고 0부터 다시(같은 과목일 때만)
 export function take(goalId) {
   const s = read();
