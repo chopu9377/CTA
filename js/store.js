@@ -26,8 +26,8 @@ const LEGACY_KEY = "cta-study-tracker-data";
 const SCHEMA_VERSION = 2;
 const ALL_WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
 const DAWN_KEY = "cta-dawn";
-const DAWN_CUTOFF_HOUR = 8; // 자정~이 시각(시:분) 전까지는 새벽 공부로 보고, 어제 목표가 안 끝났으면 여전히 "어제"로 친다
-const DAWN_CUTOFF_MINUTE = 20; // v84: 새벽 루틴을 접고 저녁 공부로 확정해 8:20으로(v78·v80에서 잠깐 4:00)
+const DAWN_CUTOFF_HOUR = 4; // 자정~이 시각(시:분) 전까지는 밤 공부의 연장으로 보고, 어제 목표가 안 끝났으면 여전히 "어제"로 친다
+const DAWN_CUTOFF_MINUTE = 0; // v101: 새벽 공부를 기본으로(대표님 결정) → 4:00 이후 기록은 그날 몫. (v84~v100은 저녁 공부라 8:20, v78·v80도 4:00)
 const DAWN_DONE_STATUSES = ["full", "carried", "bonus", "rest", "review", "none"];
 
 function isBeforeDawnCutoff() {
